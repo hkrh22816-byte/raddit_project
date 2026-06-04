@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>إنشاء حساب</title>
+    <style>
+        body { font-family: sans-serif; background-color: #030712; color: #e2e8f0; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .reg-box { background-color: #090d16; padding: 40px; border-radius: 16px; border: 1px solid #1e293b; text-align: center; box-shadow: 0 0 30px rgba(59, 130, 246, 0.2); width: 100%; max-width: 350px; }
+        h2 { color: #10b981; margin-bottom: 25px; }
+        input { width: 100%; padding: 12px; margin: 10px 0; background: #0f172a; color: white; border: 1px solid #334155; border-radius: 8px; box-sizing: border-box; }
+        button { width: 100%; padding: 12px; background: #10b981; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; margin-top: 15px; }
+        .error { color: #ef4444; margin-bottom: 10px; font-size: 0.95rem; }
+        .success { color: #10b981; margin-bottom: 10px; font-size: 0.95rem; }
+        .link { margin-top: 15px; color: #64748b; font-size: 0.9rem; }
+        .link a { color: #3b82f6; text-decoration: none; }
+    </style>
+</head>
+<body>
+    <div class="reg-box">
+        <h2>إنشاء حساب طالب جديد 👤</h2>
+        {% if message %} <div class="error">{{ message }}</div> {% endif %}
+        {% if success %} <div class="success">{{ success }}</div> {% endif %}
+        <form method="POST">
+            <input type="text" name="username" required placeholder="اختر اسم مستخدم جديد">
+            <input type="password" name="password" required placeholder="اختر كلمة مرور قوية">
+            <button type="submit">تأكيد التسجيل</button>
+        </form>
+        <div class="link">لديك حساب بالفعل؟ <a href="/login">تسجيل الدخول</a></div>
+    </div>
+</body>
+</html>

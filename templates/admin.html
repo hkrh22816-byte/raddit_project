@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>لوحة الإدارة - مراجعة الطلبات</title>
+    <style>
+        body { font-family: sans-serif; background-color: #030712; color: #e2e8f0; text-align: center; padding: 40px 20px; }
+        .admin-container { max-width: 800px; margin: 0 auto; background-color: #090d16; border: 1px solid #3b82f6; padding: 30px; border-radius: 16px; box-shadow: 0 0 30px rgba(59, 130, 246, 0.15); }
+        h1 { color: #3b82f6; margin-bottom: 30px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; background-color: #0f172a; border-radius: 8px; overflow: hidden; }
+        th, td { padding: 15px; text-align: right; border-bottom: 1px solid #1e293b; }
+        th { background-color: #1e293b; color: #3b82f6; font-weight: bold; }
+        tr:hover { background-color: #1e293b; }
+        .status { color: #10b981; font-weight: bold; }
+        .back-btn { display: inline-block; margin-top: 30px; color: #94a3b8; text-decoration: none; border: 1px solid #334155; padding: 10px 20px; border-radius: 6px; }
+        .back-btn:hover { color: white; border-color: #3b82f6; }
+    </style>
+</head>
+<body>
+    <div class="admin-container">
+        <h1>🛠️ لوحة تحكم الإدارة - طلبات العملاء المفتوحة</h1>
+        
+        {% if orders %}
+        <table>
+            <thead>
+                <tr>
+                    <th>اسم العميل</th>
+                    <th>الخدمة المطلوبة</th>
+                    <th>رابط الحساب / اليوزر</th>
+                    <th>حالة الطلب</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for order in orders %}
+                <tr>
+                    <td>{{ order.customer }}</td>
+                    <td>{{ order.service }}</td>
+                    <td style="font-family: monospace; color: #3b82f6;">{{ order.link }}</td>
+                    <td><span class="status">قيد المراجعة ⏳</span></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+            <p style="color: #64748b; font-size: 1.2rem;">☕ لا توجد أي طلبات واردة حتى الآن.</p>
+        {% endif %}
+        
+        <a href="/logout" class="back-btn">← العودة للرئيسية</a>
+    </div>
+</body>
+</html>

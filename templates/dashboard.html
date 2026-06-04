@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>لوحة التحكم الأمنية</title>
+    <style>
+        body { font-family: sans-serif; background-color: #030712; color: #e2e8f0; margin: 0; padding: 20px 0; display: flex; flex-direction: column; align-items: center; min-height: 100vh; }
+        .card { background-color: #090d16; padding: 40px; border-radius: 16px; border: 1px solid #10b981; text-align: center; box-shadow: 0 0 30px rgba(16, 185, 129, 0.2); max-width: 550px; width: 90%; margin-bottom: 20px; }
+        h1 { color: #10b981; font-size: 2.2rem; margin-bottom: 15px; }
+        p { color: #94a3b8; font-size: 1.1rem; }
+        .order-section { text-align: right; background-color: #0f172a; padding: 25px; border-radius: 12px; margin: 25px 0; border: 1px solid #1e293b; }
+        .order-section h3 { color: #3b82f6; margin-top: 0; }
+        select, input[type="text"] { width: 100%; padding: 12px; margin: 8px 0 15px 0; background: #1e293b; color: white; border: 1px solid #334155; border-radius: 6px; box-sizing: border-box; }
+        .submit-order { width: 100%; padding: 12px; background-color: #3b82f6; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; }
+        .success-alert { color: #10b981; font-weight: bold; margin-bottom: 15px; }
+        .logout-btn { display: inline-block; color: #ef4444; font-weight: bold; text-decoration: none; margin-top: 15px; border: 1px solid #ef4444; padding: 8px 20px; border-radius: 6px; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>تم تسجيل العبور بنجاح 🎉</h1>
+<p>مرحباً بك يا عميلنا المحترف <strong>{{ username }}</strong> بداخل منطقة الخدمات لـ Raddit.</p>
+        <div class="order-section">
+            <h3>🚀 طلب خدمات السوشيال ميديا وحماية الحسابات</h3>
+            {% if order_success %} <div class="success-alert">🎉 {{ order_success }}</div> {% endif %}
+            <form method="POST">
+                <label>نوع الخدمة المطلوبة:</label>
+                <select name="service_type">
+                    <option value="تأمين الحساب وحمايته من الاختراق">تأمين الحساب وحمايته من الاختراق 🛡️</option>
+                    <option value="استعادة حساب مخترق أو معطل">استعادة حساب مخترق أو معطل 🔓</option>
+                    <option value="حملة تسويقية وزيادة تفاعل الحساب">حملة تسويقية وزيادة تفاعل الحساب 📈</option>
+                </select>
+                <label>رابط الحساب أو اليوزر نيم (Username):</label>
+                <input type="text" name="account_link" required placeholder="مثال: ://instagram.com">
+                <button type="submit" class="submit-order">إرسال الطلب الآمن</button>
+            </form>
+        </div>
+       <a href="/logout" class="logout-btn">تسجيل الخروج الآمن ←</a>
+    </div>
+</body>
+</html>

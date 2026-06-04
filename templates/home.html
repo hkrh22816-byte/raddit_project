@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Raddit Academy</title>
+    <link rel="stylesheet" href="https://cloudflare.com">
+    <style>
+        body { font-family: sans-serif; background-color: #030712; color: #e2e8f0; margin: 0; padding: 0; display: flex; flex-direction: column; align-items: center; min-height: 100vh; }
+        header { background-color: #090d16; padding: 15px 40px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #1e293b; width: 100%; box-sizing: border-box; }
+        .logo { font-size: 1.6rem; font-weight: bold; color: #f8fafc; }
+        .logo span { color: #3b82f6; }
+        .auth-buttons { display: flex; gap: 10px; }
+        .btn { display: inline-block; color: white; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-weight: bold; transition: 0.3s; }
+        .btn-login { background-color: #0f172a; border: 1px solid #3b82f6; }
+        .btn-reg { background-color: #2563eb; border: 1px solid #2563eb; }
+        
+        .cyber-box { display: inline-block; background-color: #090d16; padding: 40px; border-radius: 16px; border: 1px solid #1e293b; margin: 40px auto 20px auto; text-align: center; box-shadow: 0 0 30px rgba(59, 130, 246, 0.1); }
+        
+        /* تصميم كروت الأسعار الاحترافية */
+        .pricing-section { display: flex; justify-content: center; gap: 25px; flex-wrap: wrap; padding: 20px; max-width: 1000px; }
+        .price-card { background-color: #090d16; border: 1px solid #1e293b; border-radius: 12px; padding: 30px; width: 280px; text-align: center; transition: 0.3s; box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
+        .price-card:hover { transform: translateY(-5px); border-color: #3b82f6; box-shadow: 0 0 25px rgba(59, 130, 246, 0.15); }
+        .price-card i { font-size: 2.5rem; color: #3b82f6; margin-bottom: 15px; }
+        .price-card h3 { margin: 10px 0; color: #f8fafc; }
+        .price-card .price { font-size: 2rem; font-weight: bold; color: #10b981; margin: 15px 0; }
+        .price-card ul { text-align: right; padding-right: 15px; color: #94a3b8; font-size: 0.95rem; line-height: 1.8; }
+        .price-btn { display: block; background-color: #0f172a; color: white; padding: 10px; border-radius: 6px; text-decoration: none; margin-top: 25px; border: 1px solid #3b82f6; font-weight: bold; }
+        .price-btn:hover { background-color: #3b82f6; }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="logo"><i class="fa-solid fa-user-secret"></i> Raddit.<span>Academy</span></div>
+        <div class="auth-buttons">
+            <a href="/login" class="btn btn-login">دخول 🔐</a>
+            <a href="/register" class="btn btn-reg">إنشاء حساب 👤</a>
+        </div>
+    </header>
+
+    <div class="cyber-box">
+        <h2>RADDIT CYBER GATEWAY</h2>
+        <p style="color:#3b82f6; font-family: monospace; margin: 0;">[ STATUS: SECURE & ENCRYPTED ]</p>
+    </div>
+
+    <!-- جدول الأسعار المطور -->
+    <h2 style="color: #3b82f6; margin-top: 20px;">💰 باقات التدريب والخدمات المتاحة</h2>
+    <div class="pricing-section">
+        
+        <!-- باقة الكورسات -->
+        <div class="price-card">
+            <i class="fa-solid fa-mask"></i>
+            <h3>دورة الإنترنت المظلم</h3>
+            <div class="price">49$ <span style="font-size: 1rem; color:#64748b;">/ لمرة واحدة</span></div>
+            <ul>
+                <li>تعلم الخصوصية الكاملة وتجنب التتبع</li>
+                <li>فهم معمق لشبكات Tor و I2P الآمنة</li>
+                <li>تطبيقات عملية وفحص أمني شامل</li>
+            </ul>
+            <a href="/register" class="price-btn">اشترك الآن</a>
+        </div>
+
+        <!-- باقة السوشيال ميديا -->
+        <div class="price-card">
+            <i class="fa-solid fa-shield-halved"></i>
+            <h3>تأمين الحسابات واستعادتها</h3>
+            <div class="price">29$ <span style="font-size: 1rem; color:#64748b;">/ للحساب</span></div>
+            <ul>
+                <li>حماية الحسابات من الثغرات المتقدمة</li>
+                <li>استرجاع الحسابات المعطلة أو المخترقة</li>
+                <li>فحص دوري للأمان ومراقبة التهديدات</li>
+            </ul>
+            <a href="/register" class="price-btn">طلب الخدمة</a>
+        </div>
+
+    </div>
+</body>
+</html>
