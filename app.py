@@ -1737,6 +1737,26 @@ with app.app_context():
     db.create_all()
     seed_courses()
 
+    admin_username = os.environ.get('ADMIN_USERNAME')
+    admin_password = os.environ.get('ADMIN_PASSWORD')
+
+    if admin_username and admin_password:
+        admin_user = User.query.filter_by(username=admin_username).first()
+
+        if not admin_user:
+            admin_user = User(
+                username=admin_username,
+                email_or_phone='admin@rabbit.local',
+                password=generate_password_hash(admin_password),
+                is_admin=True
+            )
+            db.session.add(admin_user)
+            db.session.commit()
+        else:
+            admin_user.is_admin = True
+            admin_user.password = generate_password_hash(admin_password)
+            db.session.commit()
+
 
 # =========================
 # Run Local Development
