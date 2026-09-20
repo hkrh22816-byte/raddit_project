@@ -1729,14 +1729,18 @@ def logout():
 # Run
 # =========================
 
+# =========================
+# Initialize Database
+# =========================
+
+with app.app_context():
+    db.create_all()
+    seed_courses()
+
+
+# =========================
+# Run Local Development
+# =========================
+
 if __name__ == '__main__':
-
-    with app.app_context():
-
-        db.create_all()
-
-        seed_courses()
-
-    app.run(
-        debug=True
-    )
+    app.run(debug=True)
