@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Rabbit | المنصة الرقمية المتكاملة</title>
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: Arial, sans-serif;
+        }
+
+        body {
+            background-color: #0b0b0b;
+            color: #ffffff;
+            overflow-x: hidden;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 8%;
+            border-bottom: 1px solid #222;
+            background-color: #0b0b0b;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .logo-area {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .rabbit-logo {
+            width: 40px;
+            height: 40px;
+            background: #ffffff;
+            position: relative;
+            border-radius: 50% 50% 40% 40%;
+        }
+
+        .rabbit-logo::before,
+        .rabbit-logo::after {
+            content: '';
+            position: absolute;
+            bottom: 25px;
+            width: 12px;
+            height: 28px;
+            background: #ffffff;
+            border-radius: 10px 10px 0 0;
+        }
+
+        .rabbit-logo::before {
+            left: 4px;
+            transform: rotate(-10deg);
+        }
+
+        .rabbit-logo::after {
+            right: 4px;
+            transform: rotate(10deg);
+        }
+
+        .logo-text {
+            font-size: 24px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            color: #ffffff;
+        }
+
+        nav a {
+            color: #aaaaaa;
+            text-decoration: none;
+            margin-right: 20px;
+            transition: 0.3s;
+            font-weight: 400;
+        }
+
+        nav a:hover {
+            color: #ffffff;
+        }
+
+        .account-area {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .username {
+            color: #aaaaaa;
+            font-size: 14px;
+        }
+
+        .auth-btn {
+            background-color: #ffffff;
+            color: #000000;
+            padding: 8px 20px;
+            border-radius: 5px;
+            font-weight: 700;
+            text-decoration: none;
+            transition: 0.3s;
+            display: inline-block;
+        }
+
+        .auth-btn:hover {
+            background-color: #cccccc;
+        }
+
+        .logout-btn {
+            background-color: transparent;
+            color: #ffffff;
+            border: 1px solid #444;
+        }
+
+        .logout-btn:hover {
+            background-color: #ffffff;
+            color: #000000;
+        }
+
+        .admin-btn {
+            background-color: #222;
+            color: #ffffff;
+            border: 1px solid #555;
+        }
+
+        .admin-btn:hover {
+            background-color: #333;
+        }
+
+        .hero {
+            text-align: center;
+            padding: 80px 20px;
+            background:
+                radial-gradient(
+                    circle at center,
+                    #1a1a1a 0%,
+                    #0b0b0b 70%
+                );
+        }
+
+        .hero h1 {
+            font-size: 45px;
+            margin-bottom: 15px;
+            font-weight: 700;
+        }
+
+        .hero p {
+            color: #888;
+            font-size: 18px;
+            max-width: 600px;
+            margin: 0 auto 30px;
+            line-height: 1.8;
+        }
+
+        .welcome-user {
+            margin-top: 20px;
+            color: #ffffff;
+            font-size: 17px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+
+        .section-title {
+            font-size: 28px;
+            margin-bottom: 30px;
+            border-right: 4px solid #fff;
+            padding-right: 10px;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns:
+                repeat(auto-fit, minmax(260px, 1fr));
+            gap: 25px;
+        }
+
+        .card {
+            background: #111111;
+            border: 1px solid #222;
+            padding: 30px 20px;
+            border-radius: 8px;
+            transition: 0.3s;
+            cursor: pointer;
+            text-align: center;
+        }
+
+        .card:hover {
+            border-color: #ffffff;
+            transform: translateY(-5px);
+            background: #161616;
+        }
+
+        .card-icon {
+            font-size: 40px;
+            margin-bottom: 15px;
+            display: block;
+        }
+
+        .card h3 {
+            font-size: 20px;
+            margin-bottom: 10px;
+            color: #fff;
+        }
+
+        .card p {
+            color: #777;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        @media (max-width: 800px) {
+
+            header {
+                padding: 15px 20px;
+                flex-wrap: wrap;
+                gap: 15px;
+            }
+
+            nav {
+                order: 3;
+                width: 100%;
+                text-align: center;
+            }
+
+            nav a {
+                margin: 0 10px;
+            }
+
+            .account-area {
+                flex-wrap: wrap;
+                justify-content: flex-end;
+            }
+
+            .username {
+                width: 100%;
+                text-align: left;
+            }
+
+            .hero {
+                padding: 60px 20px;
+            }
+
+            .hero h1 {
+                font-size: 34px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <header>
+
+        <div class="logo-area">
+            <div class="rabbit-logo"></div>
+            <span class="logo-text">RABBIT</span>
+        </div>
+
+        <nav>
+            <a href="{{ url_for('home') }}">
+                الرئيسية
+            </a>
+
+            <a href="#services">
+                الخدمات
+            </a>
+
+            <a href="{{ url_for('courses') }}">
+                الكورسات
+            </a>
+        </nav>
+
+        <div class="account-area">
+
+            {% if current_user.is_authenticated %}
+
+                <span class="username">
+                    مرحباً، {{ current_user.username }}
+                </span>
+
+                {% if current_user.is_admin %}
+
+                    <a
+                        href="{{ url_for('admin_panel') }}"
+                        class="auth-btn admin-btn"
+                    >
+                        لوحة الإدارة
+                    </a>
+
+                {% endif %}
+
+                <a
+                    href="{{ url_for('logout') }}"
+                    class="auth-btn logout-btn"
+                >
+                    تسجيل الخروج
+                </a>
+
+            {% else %}
+
+                <a
+                    href="{{ url_for('auth_page') }}"
+                    class="auth-btn"
+                >
+                    تسجيل الدخول
+                </a>
+
+            {% endif %}
+
+        </div>
+
+    </header>
+
+
+    <section class="hero">
+
+        {% if current_user.is_authenticated %}
+
+            <h1>
+                أهلاً {{ current_user.username }} 👋
+            </h1>
+
+            <p>
+                اختر الخدمة التي تحتاجها أو تصفح الكورسات
+                المتوفرة على منصة RABBIT.
+            </p>
+
+        {% else %}
+
+            <h1>
+                منصة RABBIT الرقمية
+            </h1>
+
+            <p>
+                مرحباً بك في عالم الخدمات والحلول الرقمية
+                المتكاملة في العراق.
+            </p>
+
+        {% endif %}
+
+    </section>
+
+
+    <div
+        class="container"
+        id="services"
+    >
+
+        <h2 class="section-title">
+            الأقسام والخدمات المتوفرة
+        </h2>
+
+        <div class="grid">
+
+
+            <!-- الكورسات -->
+
+            <div
+                class="card"
+                onclick="location.href='{{ url_for('courses') }}'"
+            >
+
+                <span class="card-icon">
+                    🎓
+                </span>
+
+                <h3>
+                    كورسيك (Courses)
+                </h3>
+
+                <p>
+                    تصفح الكورسات الأونلاين المسجلة والحصرية،
+                    واختر الكورس المناسب لك واطلب الاشتراك.
+                </p>
+
+            </div>
+
+
+            <!-- زيادة المتابعين -->
+
+            <div class="card">
+
+                <span class="card-icon">
+                    🚀
+                </span>
+
+                <h3>
+                    زيادة المتابعين والرشق
+                </h3>
+
+                <p>
+                    خدمات وحلول لزيادة التفاعل ونمو حساباتك
+                    على منصات التواصل الاجتماعي.
+                </p>
+
+            </div>
+
+
+            <!-- المواقع والتطبيقات -->
+
+            <div class="card">
+
+                <span class="card-icon">
+                    💻
+                </span>
+
+                <h3>
+                    إنشاء المواقع والتطبيقات
+                </h3>
+
+                <p>
+                    تصميم وبرمجة المواقع الإلكترونية
+                    والتطبيقات والحلول الرقمية.
+                </p>
+
+            </div>
+
+
+            <!-- الحسابات -->
+
+            <div class="card">
+
+                <span class="card-icon">
+                    🛡️
+                </span>
+
+                <h3>
+                    خدمات واسترجاع الحسابات
+                </h3>
+
+                <p>
+                    خدمات إدارة وتأمين واسترجاع
+                    الحسابات المعطلة أو المخترقة.
+                </p>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</body>
+</html>

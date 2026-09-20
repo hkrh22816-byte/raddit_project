@@ -1,0 +1,857 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>RABBIT | Access Terminal</title>
+
+    <style>
+        :root {
+            --bg: #030605;
+            --panel: rgba(7, 15, 11, 0.96);
+            --green: #00f58a;
+            --white: #f4fff9;
+            --text: #c8d7d0;
+            --muted: #71847b;
+            --border: rgba(0, 245, 138, 0.14);
+            --danger: #ff5364;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            min-height: 100%;
+        }
+
+        body {
+            min-height: 100vh;
+
+            background:
+                radial-gradient(
+                    circle at 50% 45%,
+                    rgba(0, 245, 138, 0.06),
+                    transparent 34%
+                ),
+                linear-gradient(
+                    rgba(0, 245, 138, 0.018) 1px,
+                    transparent 1px
+                ),
+                linear-gradient(
+                    90deg,
+                    rgba(0, 245, 138, 0.018) 1px,
+                    transparent 1px
+                ),
+                var(--bg);
+
+            background-size:
+                auto,
+                52px 52px,
+                52px 52px;
+
+            color: var(--white);
+
+            font-family:
+                "Segoe UI",
+                Tahoma,
+                Arial,
+                sans-serif;
+
+            display: flex;
+            justify-content: center;
+            align-items: center;
+
+            padding: 35px 20px;
+
+            overflow-x: hidden;
+        }
+
+        body::before {
+            content: "";
+
+            position: fixed;
+
+            width: 620px;
+            height: 620px;
+
+            border: 1px solid rgba(0,245,138,0.045);
+
+            border-radius: 50%;
+
+            box-shadow:
+                0 0 0 100px rgba(0,245,138,0.012),
+                0 0 0 200px rgba(0,245,138,0.008);
+
+            pointer-events: none;
+        }
+
+        body::after {
+            content: "";
+
+            position: fixed;
+            inset: 0;
+
+            pointer-events: none;
+
+            opacity: 0.10;
+
+            background:
+                repeating-linear-gradient(
+                    to bottom,
+                    transparent 0,
+                    transparent 3px,
+                    rgba(255,255,255,0.015) 4px
+                );
+        }
+
+        .page {
+            width: 100%;
+            max-width: 1120px;
+
+            display: grid;
+            grid-template-columns: 1fr 470px;
+
+            gap: 65px;
+
+            align-items: center;
+
+            position: relative;
+            z-index: 2;
+        }
+
+        /* BRAND */
+
+        .brand-side {
+            padding: 25px 35px;
+        }
+
+        .logo-area {
+            display: inline-flex;
+            align-items: center;
+            gap: 15px;
+
+            text-decoration: none;
+
+            margin-bottom: 45px;
+        }
+
+        .rabbit-logo {
+            width: 42px;
+            height: 42px;
+
+            border: 2px solid var(--green);
+
+            border-radius: 11px;
+
+            position: relative;
+
+            transform: rotate(45deg);
+
+            background:
+                linear-gradient(
+                    145deg,
+                    rgba(0,245,138,0.12),
+                    rgba(0,245,138,0.015)
+                );
+
+            box-shadow:
+                0 0 25px rgba(0,245,138,0.14);
+        }
+
+        .rabbit-logo::before {
+            content: "";
+
+            position: absolute;
+
+            width: 12px;
+            height: 12px;
+
+            top: 13px;
+            left: 13px;
+
+            background: var(--green);
+
+            border-radius: 2px;
+
+            transform: rotate(-45deg);
+
+            box-shadow:
+                0 0 13px var(--green);
+        }
+
+        .logo-text {
+            color: var(--white);
+
+            font-size: 25px;
+            font-weight: 800;
+
+            letter-spacing: 7px;
+        }
+
+        .logo-dot {
+            color: var(--green);
+        }
+
+        .terminal-line {
+            color: var(--green);
+
+            font-family:
+                Consolas,
+                "Courier New",
+                monospace;
+
+            font-size: 12px;
+
+            letter-spacing: 1px;
+
+            margin-bottom: 16px;
+        }
+
+        .brand-side h1 {
+            font-size: clamp(43px, 5vw, 68px);
+
+            line-height: 1.15;
+
+            margin-bottom: 22px;
+
+            letter-spacing: -2px;
+        }
+
+        .brand-side h1 span {
+            color: var(--green);
+
+            text-shadow:
+                0 0 30px rgba(0,245,138,0.16);
+        }
+
+        .brand-side p {
+            max-width: 530px;
+
+            color: var(--muted);
+
+            line-height: 2;
+
+            font-size: 15px;
+        }
+
+        .security-info {
+            display: flex;
+            gap: 28px;
+
+            margin-top: 35px;
+
+            direction: ltr;
+        }
+
+        .security-item {
+            font-family:
+                Consolas,
+                monospace;
+
+            font-size: 10px;
+
+            color: #53655c;
+
+            letter-spacing: 1px;
+        }
+
+        .security-item strong {
+            display: block;
+
+            color: var(--green);
+
+            font-weight: 500;
+
+            margin-bottom: 6px;
+        }
+
+        .back-home {
+            display: inline-block;
+
+            margin-top: 25px;
+
+            color: var(--muted);
+
+            text-decoration: none;
+
+            font-size: 12px;
+
+            transition: 0.25s;
+        }
+
+        .back-home:hover {
+            color: var(--green);
+        }
+
+        /* LOGIN PANEL */
+
+        .auth-box {
+            width: 100%;
+
+            background:
+                linear-gradient(
+                    145deg,
+                    rgba(10,20,15,0.96),
+                    rgba(4,9,7,0.98)
+                );
+
+            border: 1px solid var(--border);
+
+            border-radius: 8px;
+
+            padding: 36px;
+
+            position: relative;
+
+            box-shadow:
+                0 30px 80px rgba(0,0,0,0.38);
+
+            overflow: hidden;
+        }
+
+        .auth-box::before {
+            content: "";
+
+            position: absolute;
+
+            width: 75px;
+            height: 1px;
+
+            top: 0;
+            right: 35px;
+
+            background: var(--green);
+
+            box-shadow:
+                0 0 12px var(--green);
+        }
+
+        .panel-number {
+            color: var(--green);
+
+            font-family:
+                Consolas,
+                monospace;
+
+            font-size: 10px;
+
+            letter-spacing: 1.5px;
+
+            margin-bottom: 27px;
+        }
+
+        .auth-box h2 {
+            font-size: 27px;
+            margin-bottom: 8px;
+        }
+
+        .auth-description {
+            color: var(--muted);
+
+            font-size: 13px;
+
+            line-height: 1.8;
+
+            margin-bottom: 25px;
+        }
+
+        /* MESSAGES */
+
+        .alert {
+            padding: 12px 14px;
+
+            border-radius: 4px;
+
+            margin-bottom: 18px;
+
+            font-size: 12px;
+
+            line-height: 1.7;
+        }
+
+        .alert-success {
+            color: #73ffb8;
+
+            background:
+                rgba(0,245,138,0.055);
+
+            border:
+                1px solid rgba(0,245,138,0.25);
+        }
+
+        .alert-error {
+            color: #ff9ba5;
+
+            background:
+                rgba(255,83,100,0.07);
+
+            border:
+                1px solid rgba(255,83,100,0.27);
+        }
+
+        .alert-message {
+            color: #d4e3dc;
+
+            background:
+                rgba(255,255,255,0.035);
+
+            border:
+                1px solid rgba(255,255,255,0.09);
+        }
+
+        /* FORM */
+
+        .field {
+            margin-bottom: 15px;
+        }
+
+        .field label {
+            display: flex;
+            justify-content: space-between;
+
+            margin-bottom: 8px;
+
+            color: var(--text);
+
+            font-size: 12px;
+        }
+
+        .field-code {
+            direction: ltr;
+
+            color: #46584f;
+
+            font-family:
+                Consolas,
+                monospace;
+
+            font-size: 9px;
+        }
+
+        input {
+            width: 100%;
+            height: 50px;
+
+            padding: 0 15px;
+
+            background:
+                rgba(255,255,255,0.018);
+
+            border:
+                1px solid rgba(255,255,255,0.09);
+
+            color: var(--white);
+
+            border-radius: 4px;
+
+            outline: none;
+
+            text-align: right;
+
+            font-size: 14px;
+
+            transition: 0.25s;
+        }
+
+        input::placeholder {
+            color: #46564e;
+        }
+
+        input:hover {
+            border-color:
+                rgba(0,245,138,0.20);
+        }
+
+        input:focus {
+            border-color:
+                rgba(0,245,138,0.55);
+
+            background:
+                rgba(0,245,138,0.025);
+
+            box-shadow:
+                0 0 0 3px rgba(0,245,138,0.035);
+        }
+
+        .buttons {
+            margin-top: 25px;
+        }
+
+        button {
+            width: 100%;
+
+            min-height: 49px;
+
+            padding: 12px;
+
+            border-radius: 4px;
+
+            cursor: pointer;
+
+            font-weight: 700;
+
+            font-size: 14px;
+
+            transition: 0.25s;
+        }
+
+        .login-btn {
+            background: var(--green);
+
+            color: #001b0f;
+
+            border: 1px solid var(--green);
+        }
+
+        .login-btn:hover {
+            transform: translateY(-2px);
+
+            box-shadow:
+                0 12px 35px rgba(0,245,138,0.16);
+        }
+
+        .register-btn {
+            margin-top: 10px;
+
+            background: transparent;
+
+            color: var(--text);
+
+            border:
+                1px solid rgba(255,255,255,0.12);
+        }
+
+        .register-btn:hover {
+            color: var(--green);
+
+            border-color:
+                rgba(0,245,138,0.45);
+
+            transform: translateY(-2px);
+        }
+
+        .panel-footer {
+            margin-top: 24px;
+
+            padding-top: 18px;
+
+            border-top:
+                1px solid rgba(255,255,255,0.05);
+
+            display: flex;
+
+            justify-content: space-between;
+
+            direction: ltr;
+
+            color: #415148;
+
+            font-family:
+                Consolas,
+                monospace;
+
+            font-size: 9px;
+
+            letter-spacing: 1px;
+        }
+
+        .online {
+            color: var(--green);
+        }
+
+        /* MOBILE */
+
+        @media (max-width: 950px) {
+
+            body {
+                align-items: flex-start;
+            }
+
+            .page {
+                grid-template-columns: 1fr;
+
+                max-width: 520px;
+
+                gap: 25px;
+            }
+
+            .brand-side {
+                padding: 10px 5px;
+
+                text-align: center;
+            }
+
+            .logo-area {
+                margin-bottom: 25px;
+            }
+
+            .brand-side h1 {
+                font-size: 42px;
+            }
+
+            .brand-side p {
+                margin: auto;
+            }
+
+            .security-info {
+                justify-content: center;
+            }
+        }
+
+        @media (max-width: 550px) {
+
+            body {
+                padding: 20px 15px;
+            }
+
+            .brand-side h1 {
+                font-size: 35px;
+            }
+
+            .brand-side p {
+                font-size: 13px;
+            }
+
+            .security-info {
+                display: none;
+            }
+
+            .auth-box {
+                padding: 27px 20px;
+            }
+
+            .logo-text {
+                font-size: 21px;
+                letter-spacing: 5px;
+            }
+        }
+
+    </style>
+</head>
+
+
+<body>
+
+<main class="page">
+
+
+    <section class="brand-side">
+
+        <a
+            href="{{ url_for('home') }}"
+            class="logo-area"
+        >
+
+            <div class="rabbit-logo"></div>
+
+            <span class="logo-text">
+                RABBIT<span class="logo-dot">.</span>
+            </span>
+
+        </a>
+
+
+        <div class="terminal-line">
+            &gt; rabbit.access_terminal()
+        </div>
+
+
+        <h1>
+            بوابة
+            <span>RABBIT</span>
+        </h1>
+
+
+        <p>
+            سجّل دخولك للوصول إلى حسابك والكورسات
+            والخدمات الرقمية، أو أنشئ حساباً جديداً
+            وابدأ استخدام المنصة.
+        </p>
+
+
+        <div class="security-info">
+
+            <div class="security-item">
+                <strong>CONNECTION</strong>
+                SECURE
+            </div>
+
+            <div class="security-item">
+                <strong>SESSION</strong>
+                ACTIVE
+            </div>
+
+            <div class="security-item">
+                <strong>SYSTEM</strong>
+                ONLINE
+            </div>
+
+        </div>
+
+
+        <a
+            href="{{ url_for('home') }}"
+            class="back-home"
+        >
+            ← العودة إلى الرئيسية
+        </a>
+
+    </section>
+
+
+    <section class="auth-box">
+
+        <div class="panel-number">
+            01 / USER ACCESS
+        </div>
+
+
+        <h2>
+            تسجيل الدخول
+        </h2>
+
+
+        <p class="auth-description">
+            أدخل بيانات حسابك، أو استخدم زر إنشاء
+            حساب جديد إذا كانت هذه زيارتك الأولى.
+        </p>
+
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+
+            {% if messages %}
+
+                {% for category, message in messages %}
+
+                    <div class="alert
+                        {% if category == 'success' %}
+                            alert-success
+                        {% elif category == 'error' %}
+                            alert-error
+                        {% else %}
+                            alert-message
+                        {% endif %}
+                    ">
+                        {{ message }}
+                    </div>
+
+                {% endfor %}
+
+            {% endif %}
+
+        {% endwith %}
+
+
+        <form
+            method="POST"
+            action="{{ url_for('auth_page') }}"
+        >
+
+
+            <div class="field">
+
+                <label>
+                    <span>اسم المستخدم</span>
+                    <span class="field-code">USER_ID</span>
+                </label>
+
+                <input
+                    type="text"
+                    name="username"
+                    placeholder="أدخل اسم المستخدم"
+                    autocomplete="username"
+                    required
+                >
+
+            </div>
+
+
+            <div class="field">
+
+                <label>
+                    <span>
+                        البريد الإلكتروني أو رقم الهاتف
+                    </span>
+
+                    <span class="field-code">
+                        CONTACT
+                    </span>
+                </label>
+
+                <input
+                    type="text"
+                    name="email_or_phone"
+                    placeholder="مطلوب عند إنشاء حساب جديد فقط"
+                    autocomplete="email"
+                >
+
+            </div>
+
+
+            <div class="field">
+
+                <label>
+                    <span>كلمة المرور</span>
+                    <span class="field-code">PASSWORD</span>
+                </label>
+
+                <input
+                    type="password"
+                    name="password"
+                    placeholder="أدخل كلمة المرور"
+                    autocomplete="current-password"
+                    required
+                >
+
+            </div>
+
+
+            <div class="buttons">
+
+                <button
+                    type="submit"
+                    name="action"
+                    value="login"
+                    class="login-btn"
+                >
+                    تسجيل الدخول
+                </button>
+
+
+                <button
+                    type="submit"
+                    name="action"
+                    value="register"
+                    class="register-btn"
+                >
+                    إنشاء حساب جديد
+                </button>
+
+            </div>
+
+        </form>
+
+
+        <div class="panel-footer">
+
+            <span>
+                RABBIT ACCESS NODE
+            </span>
+
+            <span class="online">
+                ● ONLINE
+            </span>
+
+        </div>
+
+    </section>
+
+</main>
+
+</body>
+</html>

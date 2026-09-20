@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>دروس {{ course.title }}</title>
+
+    <style>
+        body {
+            background: #050906;
+            color: #fff;
+            font-family: Arial;
+        }
+
+        .w {
+            max-width: 950px;
+            margin: 35px auto;
+            padding: 20px;
+        }
+
+        .box {
+            background: #08100b;
+            border: 1px solid #173221;
+            border-radius: 18px;
+            padding: 24px;
+            margin: 16px 0;
+        }
+
+        input {
+            padding: 12px;
+            background: #050906;
+            color: #fff;
+            border: 1px solid #25422e;
+            border-radius: 9px;
+            width: 100%;
+            margin: 6px 0;
+            box-sizing: border-box;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 2fr 2fr 1fr 1fr;
+            gap: 8px;
+        }
+
+        .video-upload {
+            margin: 15px 0;
+            padding: 15px;
+            border: 1px dashed #2ee57c;
+            border-radius: 12px;
+        }
+
+        .video-upload label {
+            display: block;
+            margin-bottom: 8px;
+            color: #2ee57c;
+            font-weight: bold;
+        }
+
+        .btn {
+            background: #2ee57c;
+            border: 0;
+            padding: 12px 16px;
+            border-radius: 9px;
+            font-weight: 800;
+            cursor: pointer;
+        }
+
+        .lesson {
+            display: flex;
+            justify-content: space-between;
+            gap: 15px;
+            align-items: center;
+            border-bottom: 1px solid #173221;
+            padding: 14px 0;
+        }
+
+        .danger {
+            background: #321010;
+            color: #fff;
+            border: 1px solid #6b2525;
+        }
+
+        @media(max-width:700px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+
+            .lesson {
+                align-items: flex-start;
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="w">
+
+    <a style="color:#9bb0a1"
+       href="{{ url_for('admin_courses') }}">
+        ← الكورسات
+    </a>
+
+    <h1>{{ course.title }}</h1>
+
+    <div class="box">
+
+        <h2>إضافة درس</h2>
+
+        <form method="post" enctype="multipart/form-data">
+
+            <div class="grid">
+
+                <input
+                    name="title"
+                    placeholder="عنوان الدرس"
+                    required
+                >
+
+                <input
+                    name="video_url"
+                    placeholder="رابط الفيديو - اختياري"
+                >
+
+                <input
+                    name="duration"
+                    placeholder="المدة مثال: 15 دقيقة"
+                >
+
+                <input
+                    name="position"
+                    type="number"
+                    min="1"
+                    placeholder="الترتيب"
+                >
+
+            </div>
+
+            <div class="video-upload">
+
+                <label>
+                    أو ارفع الفيديو من الكمبيوتر
+                </label>
+
+                <input
+                    type="file"
+                    name="video_file"
+                    accept="video/mp4,video/webm,video/quicktime"
+                >
+
+            </div>
+
+            <label>
+                <input
+                    style="width:auto"
+                    type="checkbox"
+                    name="is_preview"
+                >
+                درس تجريبي مجاني
+            </label>
+
+            <br><br>
+
+            <button class="btn" type="submit">
+                + إضافة الدرس
+            </button>
+
+        </form>
+
+    </div>
+
+
+    <div class="box">
+
+        <h2>
+            الدروس الحالية ({{ course.lessons|length }})
+        </h2>
+
+        {% for l in course.lessons %}
+
+        <div class="lesson">
+
+            <div>
+
+                <b>
+                    {{ l.position }}. {{ l.title }}
+                </b>
+
+                <div style="color:#91a396">
+
+                    {{ l.duration }}
+
+                    {% if l.is_preview %}
+                        · تجريبي
+                    {% endif %}
+
+                </div>
+
+            </div>
+
+            <form
+                method="post"
+                action="{{ url_for('admin_lesson_delete', lesson_id=l.id) }}"
+                onsubmit="return confirm('حذف الدرس؟')"
+            >
+
+                <button class="btn danger" type="submit">
+                    حذف
+                </button>
+
+            </form>
+
+        </div>
+
+        {% else %}
+
+        <p>
+            ماكو دروس مضافة بعد.
+        </p>
+
+        {% endfor %}
+
+    </div>
+
+</div>
+
+</body>
+</html>

@@ -1,0 +1,984 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+
+<head>
+
+<meta charset="utf-8">
+
+<meta
+    name="viewport"
+    content="width=device-width,initial-scale=1"
+>
+
+<title>
+    إدارة طرق الدفع | RABBIT
+</title>
+
+<style>
+
+*{
+    box-sizing:border-box;
+}
+
+body{
+    margin:0;
+    background:#050906;
+    color:#f5f7f5;
+    font-family:Arial,sans-serif;
+}
+
+body:before{
+    content:"";
+    position:fixed;
+    inset:0;
+    pointer-events:none;
+    opacity:.14;
+
+    background-image:
+        linear-gradient(
+            rgba(46,229,124,.12) 1px,
+            transparent 1px
+        ),
+        linear-gradient(
+            90deg,
+            rgba(46,229,124,.12) 1px,
+            transparent 1px
+        );
+
+    background-size:38px 38px;
+}
+
+.wrap{
+    position:relative;
+    max-width:1250px;
+    margin:auto;
+    padding:34px 22px 70px;
+}
+
+.top{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:16px;
+}
+
+.brand{
+    font-size:30px;
+    font-weight:900;
+    letter-spacing:2px;
+}
+
+.green{
+    color:#2ee57c;
+}
+
+.muted{
+    color:#8fa699;
+}
+
+.btn{
+    display:inline-block;
+    border:0;
+    border-radius:11px;
+    padding:11px 16px;
+
+    background:#2ee57c;
+    color:#041008;
+
+    text-decoration:none;
+    font-weight:800;
+    cursor:pointer;
+}
+
+.btn:hover{
+    filter:brightness(1.08);
+}
+
+.btn-dark{
+    background:#0b120d;
+    color:#fff;
+    border:1px solid #1d3526;
+}
+
+.btn-warn{
+    background:#151109;
+    color:#ffbe55;
+    border:1px solid #4d3817;
+}
+
+.btn-danger{
+    background:#170b0b;
+    color:#ff8585;
+    border:1px solid #4b2020;
+}
+
+.hero{
+    padding:50px 0 28px;
+}
+
+.hero h1{
+    margin:8px 0 12px;
+    font-size:44px;
+}
+
+.hero p{
+    color:#91a398;
+    line-height:1.8;
+    max-width:720px;
+}
+
+.grid{
+    display:grid;
+    grid-template-columns:390px 1fr;
+    gap:18px;
+    align-items:start;
+}
+
+.card{
+    background:rgba(8,16,11,.95);
+    border:1px solid #173221;
+    border-radius:18px;
+    padding:22px;
+
+    box-shadow:
+        0 18px 55px
+        rgba(0,0,0,.22);
+}
+
+.card h2{
+    margin-top:0;
+}
+
+label{
+    display:block;
+    color:#b9c7be;
+    font-size:14px;
+    margin:15px 0 7px;
+}
+
+input,
+textarea,
+select{
+
+    width:100%;
+
+    background:#040805;
+    color:#fff;
+
+    border:1px solid #1d3526;
+    border-radius:11px;
+
+    padding:12px 13px;
+
+    outline:none;
+}
+
+input:focus,
+textarea:focus,
+select:focus{
+
+    border-color:#2ee57c;
+
+    box-shadow:
+        0 0 0 3px
+        rgba(46,229,124,.08);
+}
+
+textarea{
+    min-height:105px;
+    resize:vertical;
+}
+
+.check{
+    display:flex;
+    align-items:center;
+    gap:9px;
+    margin:16px 0;
+}
+
+.check input{
+    width:auto;
+}
+
+.method{
+    border:1px solid #173221;
+    background:#060c08;
+
+    border-radius:16px;
+    padding:18px;
+
+    margin-bottom:14px;
+}
+
+.method-top{
+
+    display:flex;
+
+    justify-content:
+        space-between;
+
+    gap:14px;
+
+    align-items:center;
+
+    margin-bottom:12px;
+}
+
+.method-name{
+    font-size:20px;
+    font-weight:900;
+}
+
+.status{
+
+    display:inline-block;
+
+    border-radius:999px;
+
+    padding:6px 10px;
+
+    font-size:12px;
+
+    font-weight:800;
+}
+
+.active{
+
+    color:#2ee57c;
+
+    background:
+        rgba(46,229,124,.08);
+
+    border:
+        1px solid
+        rgba(46,229,124,.25);
+}
+
+.inactive{
+
+    color:#ffbe55;
+
+    background:
+        rgba(255,190,85,.07);
+
+    border:
+        1px solid
+        rgba(255,190,85,.25);
+}
+
+.edit-grid{
+
+    display:grid;
+
+    grid-template-columns:
+        1fr 1fr;
+
+    gap:0 12px;
+}
+
+.full{
+    grid-column:1/-1;
+}
+
+.actions{
+
+    display:flex;
+
+    gap:8px;
+
+    flex-wrap:wrap;
+
+    margin-top:15px;
+}
+
+.actions form{
+    margin:0;
+}
+
+.flash{
+
+    margin:18px 0 0;
+
+    padding:14px 16px;
+
+    border-radius:12px;
+
+    border:
+        1px solid
+        #1d3526;
+
+    background:#08100b;
+}
+
+.flash.success{
+
+    border-color:
+        rgba(46,229,124,.4);
+
+    color:#2ee57c;
+}
+
+.flash.error{
+
+    border-color:
+        rgba(255,91,91,.45);
+
+    color:#ff8585;
+}
+
+.empty{
+
+    text-align:center;
+
+    padding:45px 15px;
+
+    color:#8fa699;
+}
+
+.code{
+
+    direction:ltr;
+
+    text-align:left;
+
+    font-family:
+        Consolas,
+        monospace;
+}
+
+@media(max-width:900px){
+
+    .grid{
+        grid-template-columns:1fr;
+    }
+}
+
+@media(max-width:620px){
+
+    .edit-grid{
+        grid-template-columns:1fr;
+    }
+
+    .full{
+        grid-column:auto;
+    }
+
+    .hero h1{
+        font-size:34px;
+    }
+
+    .top{
+        align-items:flex-start;
+    }
+}
+
+</style>
+
+</head>
+
+
+<body>
+
+<div class="wrap">
+
+
+<!-- ========================= -->
+<!-- TOP -->
+<!-- ========================= -->
+
+<div class="top">
+
+    <div class="brand">
+
+        <span class="green">
+            .
+        </span>
+
+        RABBIT
+
+    </div>
+
+
+    <div>
+
+        <a
+            class="btn btn-dark"
+            href="{{ url_for('admin_panel') }}"
+        >
+            لوحة الإدارة
+        </a>
+
+
+        <a
+            class="btn btn-dark"
+            href="{{ url_for('home') }}"
+        >
+            الموقع
+        </a>
+
+    </div>
+
+</div>
+
+
+<!-- ========================= -->
+<!-- FLASH -->
+<!-- ========================= -->
+
+{% with messages =
+    get_flashed_messages(
+        with_categories=true
+    )
+%}
+
+    {% if messages %}
+
+        {% for category, message
+            in messages
+        %}
+
+            <div
+                class="flash {{ category }}"
+            >
+
+                {{ message }}
+
+            </div>
+
+        {% endfor %}
+
+    {% endif %}
+
+{% endwith %}
+
+
+<!-- ========================= -->
+<!-- HERO -->
+<!-- ========================= -->
+
+<section class="hero">
+
+    <div class="green">
+        PAYMENT SETTINGS
+    </div>
+
+    <h1>
+        إدارة طرق الدفع
+    </h1>
+
+    <p>
+
+        البيانات التي تضيفها هنا
+        ستظهر لاحقاً للزبون عند
+        شراء الكورس.
+
+        تقدر تغيّر الرقم أو المحفظة
+        أو الشبكة وتوقف أي طريقة
+        بدون تعديل الكود.
+
+    </p>
+
+</section>
+
+
+<div class="grid">
+
+
+<!-- ========================= -->
+<!-- ADD PAYMENT METHOD -->
+<!-- ========================= -->
+
+<aside class="card">
+
+    <h2>
+        إضافة طريقة دفع
+    </h2>
+
+    <p class="muted">
+
+        مثال:
+        ZainCash أو Qi Card أو
+        AsiaCell أو USDT أو Bitcoin.
+
+    </p>
+
+
+    <form
+        method="post"
+        action="{{ url_for(
+            'admin_payment_methods'
+        ) }}"
+    >
+
+
+        <label>
+            اسم طريقة الدفع *
+        </label>
+
+        <input
+            name="name"
+            required
+            placeholder="مثال: ZainCash"
+        >
+
+
+        <label>
+            نوع الطريقة
+        </label>
+
+        <select name="payment_type">
+
+            <option value="manual">
+                تحويل يدوي
+            </option>
+
+            <option value="wallet">
+                محفظة إلكترونية
+            </option>
+
+            <option value="card">
+                بطاقة / حساب
+            </option>
+
+            <option value="crypto">
+                عملة رقمية
+            </option>
+
+        </select>
+
+
+        <label>
+            اسم صاحب الحساب
+        </label>
+
+        <input
+            name="account_name"
+            placeholder="اختياري"
+        >
+
+
+        <label>
+            رقم الحساب / عنوان المحفظة
+        </label>
+
+        <input
+            class="code"
+            name="account_number"
+            placeholder="07... أو Wallet Address"
+        >
+
+
+        <label>
+            الشبكة
+        </label>
+
+        <input
+            name="network"
+            placeholder="مثال: TRC20"
+        >
+
+
+        <label>
+            تعليمات الدفع
+        </label>
+
+        <textarea
+            name="instructions"
+            placeholder="مثال: حوّل المبلغ ثم احتفظ برقم العملية..."
+        ></textarea>
+
+
+        <label>
+            الترتيب
+        </label>
+
+        <input
+            type="number"
+            name="position"
+            value="1"
+            min="1"
+        >
+
+
+        <label class="check">
+
+            <input
+                type="checkbox"
+                name="is_active"
+                checked
+            >
+
+            إظهار هذه الطريقة للزبائن
+
+        </label>
+
+
+        <button
+            class="btn"
+            type="submit"
+        >
+            + إضافة طريقة الدفع
+        </button>
+
+    </form>
+
+</aside>
+
+
+<!-- ========================= -->
+<!-- CURRENT METHODS -->
+<!-- ========================= -->
+
+<main class="card">
+
+    <h2>
+        طرق الدفع الحالية
+    </h2>
+
+
+    {% for method in payment_methods %}
+
+
+    <div class="method">
+
+
+        <div class="method-top">
+
+
+            <div>
+
+                <div class="method-name">
+
+                    {{ method.name }}
+
+                </div>
+
+
+                <div class="muted">
+
+                    ID #{{ method.id }}
+
+                    ·
+
+                    ترتيب
+                    {{ method.position }}
+
+                </div>
+
+            </div>
+
+
+            {% if method.is_active %}
+
+                <span
+                    class="status active"
+                >
+                    ACTIVE
+                </span>
+
+            {% else %}
+
+                <span
+                    class="status inactive"
+                >
+                    DISABLED
+                </span>
+
+            {% endif %}
+
+
+        </div>
+
+
+        <!-- EDIT -->
+
+        <form
+            method="post"
+            action="{{ url_for(
+                'admin_payment_method_edit',
+                method_id=method.id
+            ) }}"
+        >
+
+
+            <div class="edit-grid">
+
+
+                <div>
+
+                    <label>
+                        اسم الطريقة
+                    </label>
+
+                    <input
+                        name="name"
+                        required
+                        value="{{ method.name }}"
+                    >
+
+                </div>
+
+
+                <div>
+
+                    <label>
+                        نوع الطريقة
+                    </label>
+
+
+                    <select
+                        name="payment_type"
+                    >
+
+
+                        <option
+                            value="manual"
+                            {% if method.payment_type == 'manual' %}
+                            selected
+                            {% endif %}
+                        >
+                            تحويل يدوي
+                        </option>
+
+
+                        <option
+                            value="wallet"
+                            {% if method.payment_type == 'wallet' %}
+                            selected
+                            {% endif %}
+                        >
+                            محفظة إلكترونية
+                        </option>
+
+
+                        <option
+                            value="card"
+                            {% if method.payment_type == 'card' %}
+                            selected
+                            {% endif %}
+                        >
+                            بطاقة / حساب
+                        </option>
+
+
+                        <option
+                            value="crypto"
+                            {% if method.payment_type == 'crypto' %}
+                            selected
+                            {% endif %}
+                        >
+                            عملة رقمية
+                        </option>
+
+
+                    </select>
+
+                </div>
+
+
+                <div>
+
+                    <label>
+                        اسم صاحب الحساب
+                    </label>
+
+                    <input
+                        name="account_name"
+                        value="{{ method.account_name or '' }}"
+                    >
+
+                </div>
+
+
+                <div>
+
+                    <label>
+                        الشبكة
+                    </label>
+
+                    <input
+                        name="network"
+                        value="{{ method.network or '' }}"
+                        placeholder="TRC20"
+                    >
+
+                </div>
+
+
+                <div class="full">
+
+                    <label>
+                        رقم الحساب /
+                        عنوان المحفظة
+                    </label>
+
+                    <input
+                        class="code"
+                        name="account_number"
+                        value="{{ method.account_number or '' }}"
+                    >
+
+                </div>
+
+
+                <div class="full">
+
+                    <label>
+                        تعليمات الدفع
+                    </label>
+
+                    <textarea
+                        name="instructions"
+                    >{{ method.instructions or '' }}</textarea>
+
+                </div>
+
+
+                <div>
+
+                    <label>
+                        الترتيب
+                    </label>
+
+                    <input
+                        type="number"
+                        name="position"
+                        min="1"
+                        value="{{ method.position or 1 }}"
+                    >
+
+                </div>
+
+
+                <div>
+
+                    <label
+                        class="check"
+                        style="margin-top:42px"
+                    >
+
+                        <input
+                            type="checkbox"
+                            name="is_active"
+
+                            {% if method.is_active %}
+                            checked
+                            {% endif %}
+                        >
+
+                        مفعّلة
+
+                    </label>
+
+                </div>
+
+
+            </div>
+
+
+            <button
+                class="btn"
+                type="submit"
+            >
+                حفظ التعديلات
+            </button>
+
+
+        </form>
+
+
+        <!-- ACTIONS -->
+
+        <div class="actions">
+
+
+            <form
+                method="post"
+                action="{{ url_for(
+                    'admin_payment_method_toggle',
+                    method_id=method.id
+                ) }}"
+            >
+
+                {% if method.is_active %}
+
+                    <button
+                        class="btn btn-warn"
+                        type="submit"
+                    >
+                        تعطيل
+                    </button>
+
+                {% else %}
+
+                    <button
+                        class="btn btn-dark"
+                        type="submit"
+                    >
+                        تفعيل
+                    </button>
+
+                {% endif %}
+
+            </form>
+
+
+            <form
+                method="post"
+                action="{{ url_for(
+                    'admin_payment_method_delete',
+                    method_id=method.id
+                ) }}"
+
+                onsubmit="
+                    return confirm(
+                        'متأكد من حذف طريقة الدفع؟'
+                    );
+                "
+            >
+
+                <button
+                    class="btn btn-danger"
+                    type="submit"
+                >
+                    حذف
+                </button>
+
+            </form>
+
+
+        </div>
+
+
+    </div>
+
+
+    {% else %}
+
+
+        <div class="empty">
+
+            ماكو طرق دفع بعد.
+
+            <br><br>
+
+            أضف أول طريقة دفع
+            من النموذج الموجود
+            على اليمين.
+
+        </div>
+
+
+    {% endfor %}
+
+
+</main>
+
+
+</div>
+
+</div>
+
+</body>
+
+</html>

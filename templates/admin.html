@@ -1,0 +1,752 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+
+<title>لوحة الإدارة | RABBIT</title>
+
+<style>
+*{
+    box-sizing:border-box;
+}
+
+body{
+    margin:0;
+    background:#050906;
+    color:#f5f7f5;
+    font-family:Arial,sans-serif;
+}
+
+body:before{
+    content:"";
+    position:fixed;
+    inset:0;
+    pointer-events:none;
+    opacity:.14;
+    background-image:
+        linear-gradient(rgba(46,229,124,.12) 1px,transparent 1px),
+        linear-gradient(90deg,rgba(46,229,124,.12) 1px,transparent 1px);
+    background-size:38px 38px;
+}
+
+.wrap{
+    position:relative;
+    max-width:1250px;
+    margin:auto;
+    padding:34px 22px 60px;
+}
+
+.top{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:16px;
+}
+
+.brand{
+    font-size:30px;
+    font-weight:900;
+    letter-spacing:2px;
+}
+
+.green{
+    color:#2ee57c;
+}
+
+.btn{
+    display:inline-block;
+    background:#2ee57c;
+    color:#041008;
+    padding:12px 18px;
+    border-radius:12px;
+    text-decoration:none;
+    font-weight:800;
+    border:0;
+    cursor:pointer;
+}
+
+.btn:hover{
+    filter:brightness(1.08);
+}
+
+.btn2{
+    background:#0b120d;
+    color:#fff;
+    border:1px solid #1d3526;
+}
+
+.hero{
+    text-align:center;
+    padding:55px 0 35px;
+}
+
+.hero h1{
+    font-size:48px;
+    margin:8px;
+}
+
+.hero p{
+    color:#91a398;
+}
+
+.stats{
+    display:grid;
+    grid-template-columns:repeat(4,1fr);
+    gap:14px;
+    margin:25px 0;
+}
+
+.card{
+    background:rgba(8,16,11,.94);
+    border:1px solid #173221;
+    border-radius:18px;
+    padding:24px;
+    box-shadow:0 18px 55px rgba(0,0,0,.22);
+}
+
+.num{
+    font-size:32px;
+    color:#2ee57c;
+    font-weight:900;
+}
+
+.manage{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:20px;
+}
+
+.manage p,
+.payment-card p{
+    color:#91a398;
+    line-height:1.8;
+}
+
+.payment-card{
+    margin-top:18px;
+    position:relative;
+    overflow:hidden;
+}
+
+.payment-card:after{
+    content:"";
+    position:absolute;
+    width:180px;
+    height:180px;
+    left:-60px;
+    top:-70px;
+    border:1px solid rgba(46,229,124,.2);
+    border-radius:50%;
+    box-shadow:0 0 50px rgba(46,229,124,.06);
+}
+
+.payment-head{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:20px;
+    position:relative;
+    z-index:1;
+}
+
+.payment-meta{
+    display:flex;
+    gap:12px;
+    flex-wrap:wrap;
+    margin-top:14px;
+}
+
+.pill{
+    border:1px solid #1d3526;
+    background:#07110a;
+    color:#a8b8ae;
+    padding:8px 12px;
+    border-radius:999px;
+    font-size:13px;
+}
+
+.pill strong{
+    color:#2ee57c;
+}
+
+.tablebox{
+    overflow:auto;
+}
+
+table{
+    width:100%;
+    border-collapse:collapse;
+    min-width:720px;
+}
+
+th,
+td{
+    padding:15px;
+    border-bottom:1px solid #173221;
+    text-align:right;
+}
+
+th{
+    color:#8fa699;
+}
+
+.ok{
+    color:#2ee57c;
+    font-weight:bold;
+}
+
+.wait{
+    color:#ffbe55;
+    font-weight:bold;
+}
+
+.flash{
+    margin:18px 0 0;
+    padding:14px 16px;
+    border-radius:12px;
+    border:1px solid #1d3526;
+    background:#08100b;
+}
+
+.flash.success{
+    border-color:rgba(46,229,124,.4);
+    color:#2ee57c;
+}
+
+.flash.error{
+    border-color:rgba(255,91,91,.45);
+    color:#ff8585;
+}
+
+@media(max-width:800px){
+
+    .stats{
+        grid-template-columns:1fr 1fr;
+    }
+
+    .manage,
+    .payment-head{
+        align-items:flex-start;
+        flex-direction:column;
+    }
+
+    .hero h1{
+        font-size:36px;
+    }
+
+    .top{
+        align-items:flex-start;
+    }
+}
+</style>
+</head>
+
+<body>
+
+<div class="wrap">
+
+<div class="top">
+
+    <div class="brand">
+        <span class="green">.</span>RABBIT
+    </div>
+
+    <div>
+
+        <a
+            class="btn btn2"
+            href="{{ url_for('home') }}"
+        >
+            الموقع
+        </a>
+
+        <a
+            class="btn btn2"
+            href="{{ url_for('logout') }}"
+        >
+            تسجيل الخروج
+        </a>
+
+    </div>
+
+</div>
+
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+
+    {% if messages %}
+
+        {% for category, message in messages %}
+
+            <div class="flash {{ category }}">
+                {{ message }}
+            </div>
+
+        {% endfor %}
+
+    {% endif %}
+
+{% endwith %}
+
+
+<section class="hero">
+
+    <div class="green">
+        ADMIN PANEL
+    </div>
+
+    <h1>
+        لوحة الإدارة
+    </h1>
+
+    <p>
+        إدارة الكورسات والدروس والاشتراكات
+        والدفع والخدمات والمستخدمين من مكان واحد.
+    </p>
+
+</section>
+
+
+<div class="stats">
+
+    <div class="card">
+
+        <div class="num">
+            {{ course_count }}
+        </div>
+
+        دورة
+
+    </div>
+
+
+    <div class="card">
+
+        <div class="num">
+            {{ lesson_count }}
+        </div>
+
+        درس
+
+    </div>
+
+
+    <div class="card">
+
+        <div class="num">
+            {{ users|length }}
+        </div>
+
+        مستخدم
+
+    </div>
+
+
+    <div class="card">
+
+        <div class="num">
+            {{ enrollments|length }}
+        </div>
+
+        طلب اشتراك
+
+    </div>
+
+</div>
+
+
+<div class="card manage">
+
+    <div>
+
+        <h2>
+            إدارة الكورسات والدروس
+        </h2>
+
+        <p>
+            أضف دورة، عدّل السعر والمدرب،
+            وانشر الدروس والفيديوهات.
+        </p>
+
+    </div>
+
+    <a
+        class="btn"
+        href="{{ url_for('admin_courses') }}"
+    >
+        فتح إدارة الكورسات ←
+    </a>
+
+</div>
+
+
+<!-- ========================= -->
+<!-- PAYMENT SYSTEM -->
+<!-- ========================= -->
+
+<div class="card payment-card">
+
+    <div class="payment-head">
+
+        <div>
+
+            <div class="green">
+                PAYMENT SYSTEM
+            </div>
+
+            <h2>
+                إعدادات طرق الدفع
+            </h2>
+
+            <p>
+                أضف المحافظ والحسابات،
+                عدّل بياناتها،
+                وحدد طرق الدفع التي تظهر للزبائن.
+            </p>
+
+            <div class="payment-meta">
+
+                <span class="pill">
+
+                    إجمالي الطرق:
+
+                    <strong>
+                        {{ payment_method_count }}
+                    </strong>
+
+                </span>
+
+
+                <span class="pill">
+
+                    الطرق المفعّلة:
+
+                    <strong>
+                        {{ active_payment_method_count }}
+                    </strong>
+
+                </span>
+
+            </div>
+
+        </div>
+
+
+        <a
+            class="btn"
+            href="{{ url_for('admin_payment_methods') }}"
+        >
+            إدارة طرق الدفع ←
+        </a>
+
+    </div>
+
+</div>
+
+
+<!-- ========================= -->
+<!-- ENROLLMENTS -->
+<!-- ========================= -->
+
+<div
+    class="card"
+    style="margin-top:18px"
+>
+
+<h2>
+    طلبات اشتراك الكورسات
+</h2>
+
+<div class="tablebox">
+
+<table>
+
+<tr>
+
+    <th>
+        المستخدم
+    </th>
+
+    <th>
+        الهاتف / البريد
+    </th>
+
+    <th>
+        الكورس
+    </th>
+
+    <th>
+        السعر
+    </th>
+
+    <th>
+        الحالة
+    </th>
+
+    <th>
+        الإجراء
+    </th>
+
+</tr>
+
+
+{% for e in enrollments %}
+
+<tr>
+
+    <td>
+        {{ e.user.username }}
+    </td>
+
+    <td>
+        {{ e.user.email_or_phone }}
+    </td>
+
+    <td>
+        {{ e.course.title }}
+    </td>
+
+    <td>
+        {{ e.course.price }}
+    </td>
+
+    <td>
+
+        {% if e.status == 'approved' %}
+
+            <span class="ok">
+                ✓ مفعّل
+            </span>
+
+        {% else %}
+
+            <span class="wait">
+                بانتظار التفعيل
+            </span>
+
+        {% endif %}
+
+    </td>
+
+    <td>
+
+        {% if e.status != 'approved' %}
+
+            <form
+                method="post"
+                action="{{ url_for(
+                    'approve_enrollment',
+                    enrollment_id=e.id
+                ) }}"
+            >
+
+                <button
+                    class="btn"
+                    type="submit"
+                >
+                    تفعيل الكورس
+                </button>
+
+            </form>
+
+        {% else %}
+
+            <span class="ok">
+                تم التفعيل
+            </span>
+
+        {% endif %}
+
+    </td>
+
+</tr>
+
+
+{% else %}
+
+<tr>
+
+    <td colspan="6">
+        لا توجد طلبات اشتراك حالياً.
+    </td>
+
+</tr>
+
+{% endfor %}
+
+</table>
+
+</div>
+
+</div>
+
+
+<!-- ========================= -->
+<!-- USERS -->
+<!-- ========================= -->
+
+<div
+    class="card"
+    style="margin-top:18px"
+>
+
+<h2>
+    المستخدمون
+</h2>
+
+<div class="tablebox">
+
+<table>
+
+<tr>
+
+    <th>
+        المستخدم
+    </th>
+
+    <th>
+        الهاتف / البريد
+    </th>
+
+    <th>
+        عدد الكورسات
+    </th>
+
+</tr>
+
+
+{% for user in users %}
+
+<tr>
+
+    <td>
+        {{ user.username }}
+    </td>
+
+    <td>
+        {{ user.email_or_phone }}
+    </td>
+
+    <td>
+
+        {{
+            user.enrollments
+            |selectattr(
+                'status',
+                'equalto',
+                'approved'
+            )
+            |list
+            |length
+        }}
+
+    </td>
+
+</tr>
+
+
+{% else %}
+
+<tr>
+
+    <td colspan="3">
+        لا يوجد مستخدمون بعد.
+    </td>
+
+</tr>
+
+{% endfor %}
+
+</table>
+
+</div>
+
+</div>
+
+
+<!-- ========================= -->
+<!-- SERVICE REQUESTS -->
+<!-- ========================= -->
+
+<div
+    class="card"
+    style="margin-top:18px"
+>
+
+<h2>
+    طلبات الخدمات
+</h2>
+
+<div class="tablebox">
+
+<table>
+
+<tr>
+
+    <th>
+        الزبون
+    </th>
+
+    <th>
+        الخدمة
+    </th>
+
+    <th>
+        التفاصيل
+    </th>
+
+    <th>
+        الهاتف
+    </th>
+
+</tr>
+
+
+{% for o in orders %}
+
+<tr>
+
+    <td>
+        {{ o.username }}
+    </td>
+
+    <td>
+        {{ o.service_type }}
+    </td>
+
+    <td>
+        {{ o.details }}
+    </td>
+
+    <td>
+        {{ o.phone }}
+    </td>
+
+</tr>
+
+
+{% else %}
+
+<tr>
+
+    <td colspan="4">
+        لا توجد طلبات حالياً.
+    </td>
+
+</tr>
+
+{% endfor %}
+
+</table>
+
+</div>
+
+</div>
+
+
+</div>
+
+</body>
+</html>

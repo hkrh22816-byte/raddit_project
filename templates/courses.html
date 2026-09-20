@@ -1,0 +1,2023 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>RABBIT | Courses</title>
+
+    <style>
+        :root {
+            --bg: #030605;
+            --bg-soft: #07100c;
+            --card: #08110d;
+
+            --green: #00f58a;
+            --green-soft: #00bd6c;
+            --cyan: #58d7ff;
+
+            --white: #f4fff9;
+            --text: #c8d7d0;
+            --muted: #71847b;
+
+            --border: rgba(0, 245, 138, 0.12);
+            --border-hover: rgba(0, 245, 138, 0.42);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            min-height: 100vh;
+
+            background-color: var(--bg);
+
+            background-image:
+                radial-gradient(
+                    circle at 50% 10%,
+                    rgba(0, 245, 138, .055),
+                    transparent 30%
+                ),
+                linear-gradient(
+                    rgba(0, 245, 138, .018) 1px,
+                    transparent 1px
+                ),
+                linear-gradient(
+                    90deg,
+                    rgba(0, 245, 138, .018) 1px,
+                    transparent 1px
+                );
+
+            background-size:
+                auto,
+                52px 52px,
+                52px 52px;
+
+            color: var(--white);
+
+            font-family:
+                "Segoe UI",
+                Tahoma,
+                Arial,
+                sans-serif;
+
+            overflow-x: hidden;
+        }
+
+        body::before {
+            content: "";
+
+            position: fixed;
+            inset: 0;
+
+            pointer-events: none;
+
+            background:
+                radial-gradient(
+                    circle at 10% 30%,
+                    rgba(0, 245, 138, .04),
+                    transparent 25%
+                );
+
+            z-index: -1;
+        }
+
+        body::after {
+            content: "";
+
+            position: fixed;
+            inset: 0;
+
+            pointer-events: none;
+
+            opacity: .14;
+
+            background:
+                repeating-linear-gradient(
+                    to bottom,
+                    transparent 0,
+                    transparent 3px,
+                    rgba(255, 255, 255, .012) 4px
+                );
+
+            z-index: 9999;
+        }
+
+
+        /* =========================
+           HEADER
+        ========================= */
+
+        header {
+            min-height: 74px;
+
+            padding: 12px 6%;
+
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+
+            gap: 25px;
+
+            position: sticky;
+            top: 0;
+
+            z-index: 1000;
+
+            background:
+                rgba(3, 6, 5, .84);
+
+            backdrop-filter:
+                blur(18px);
+
+            border-bottom:
+                1px solid var(--border);
+        }
+
+
+        .logo-area {
+            display: flex;
+            align-items: center;
+
+            gap: 13px;
+
+            text-decoration: none;
+        }
+
+
+        .rabbit-logo {
+            width: 42px;
+            height: 42px;
+
+            border:
+                2px solid var(--green);
+
+            border-radius: 11px;
+
+            position: relative;
+
+            background:
+                linear-gradient(
+                    145deg,
+                    rgba(0, 245, 138, .12),
+                    rgba(0, 245, 138, .015)
+                );
+
+            transform:
+                rotate(45deg);
+
+            box-shadow:
+                0 0 20px
+                rgba(0, 245, 138, .12);
+
+            transition:
+                .5s;
+        }
+
+
+        .rabbit-logo::before {
+            content: "";
+
+            position: absolute;
+
+            width: 12px;
+            height: 12px;
+
+            top: 13px;
+            left: 13px;
+
+            border-radius: 2px;
+
+            background:
+                var(--green);
+
+            box-shadow:
+                0 0 14px
+                var(--green);
+
+            transform:
+                rotate(-45deg);
+        }
+
+
+        .logo-area:hover
+        .rabbit-logo {
+            transform:
+                rotate(135deg);
+
+            box-shadow:
+                0 0 35px
+                rgba(0, 245, 138, .28);
+        }
+
+
+        .logo-text {
+            color: var(--white);
+
+            font-size: 23px;
+            font-weight: 800;
+
+            letter-spacing: 7px;
+        }
+
+
+        .logo-dot {
+            color: var(--green);
+        }
+
+
+        nav {
+            display: flex;
+            align-items: center;
+
+            gap: 32px;
+        }
+
+
+        nav a {
+            position: relative;
+
+            color: var(--muted);
+
+            text-decoration: none;
+
+            font-size: 13px;
+
+            transition:
+                .25s;
+        }
+
+
+        nav a::after {
+            content: "";
+
+            position: absolute;
+
+            right: 0;
+            bottom: -9px;
+
+            width: 0;
+            height: 1px;
+
+            background:
+                var(--green);
+
+            box-shadow:
+                0 0 8px
+                var(--green);
+
+            transition:
+                .25s;
+        }
+
+
+        nav a:hover,
+        nav a.active {
+            color:
+                var(--green);
+        }
+
+
+        nav a:hover::after,
+        nav a.active::after {
+            width: 100%;
+        }
+
+
+        .account {
+            display: flex;
+            align-items: center;
+
+            gap: 10px;
+        }
+
+
+        .account-btn {
+            padding:
+                9px 14px;
+
+            color:
+                var(--text);
+
+            border:
+                1px solid
+                rgba(0, 245, 138, .15);
+
+            border-radius:
+                4px;
+
+            text-decoration:
+                none;
+
+            font-size:
+                12px;
+
+            transition:
+                .25s;
+        }
+
+
+        .account-btn:hover {
+            color:
+                var(--green);
+
+            border-color:
+                var(--green);
+        }
+
+
+        .login-btn {
+            color:
+                #00180c;
+
+            background:
+                var(--green);
+
+            border-color:
+                var(--green);
+
+            font-weight:
+                700;
+        }
+
+
+        .login-btn:hover {
+            color:
+                #00180c;
+
+            box-shadow:
+                0 0 25px
+                rgba(0, 245, 138, .20);
+        }
+
+
+        /* =========================
+           HERO
+        ========================= */
+
+        .courses-hero {
+            min-height:
+                390px;
+
+            padding:
+                90px 20px 60px;
+
+            display:
+                flex;
+
+            justify-content:
+                center;
+
+            align-items:
+                center;
+
+            text-align:
+                center;
+
+            position:
+                relative;
+
+            overflow:
+                hidden;
+
+            border-bottom:
+                1px solid
+                rgba(0, 245, 138, .07);
+        }
+
+
+        .courses-hero::before {
+            content: "";
+
+            position:
+                absolute;
+
+            width:
+                650px;
+
+            height:
+                650px;
+
+            border:
+                1px solid
+                rgba(0, 245, 138, .045);
+
+            border-radius:
+                50%;
+
+            box-shadow:
+                0 0 0 90px
+                rgba(0, 245, 138, .012),
+                0 0 0 180px
+                rgba(0, 245, 138, .008);
+
+            animation:
+                radar 9s linear infinite;
+        }
+
+
+        @keyframes radar {
+            from {
+                transform:
+                    rotate(0deg)
+                    scale(.98);
+            }
+
+            50% {
+                transform:
+                    rotate(180deg)
+                    scale(1.03);
+            }
+
+            to {
+                transform:
+                    rotate(360deg)
+                    scale(.98);
+            }
+        }
+
+
+        .hero-content {
+            position:
+                relative;
+
+            z-index:
+                2;
+
+            max-width:
+                850px;
+        }
+
+
+        .system-line {
+            display:
+                inline-flex;
+
+            align-items:
+                center;
+
+            gap:
+                8px;
+
+            margin-bottom:
+                20px;
+
+            padding:
+                7px 13px;
+
+            color:
+                var(--green);
+
+            background:
+                rgba(0, 245, 138, .025);
+
+            border:
+                1px solid
+                rgba(0, 245, 138, .17);
+
+            border-radius:
+                100px;
+
+            font-family:
+                Consolas,
+                monospace;
+
+            font-size:
+                10px;
+
+            letter-spacing:
+                1.5px;
+        }
+
+
+        .system-dot {
+            width:
+                6px;
+
+            height:
+                6px;
+
+            border-radius:
+                50%;
+
+            background:
+                var(--green);
+
+            box-shadow:
+                0 0 10px
+                var(--green);
+
+            animation:
+                pulse 1.6s infinite;
+        }
+
+
+        @keyframes pulse {
+            50% {
+                opacity:
+                    .35;
+            }
+        }
+
+
+        .terminal-title {
+            direction:
+                ltr;
+
+            color:
+                rgba(0, 245, 138, .72);
+
+            font-family:
+                Consolas,
+                monospace;
+
+            font-size:
+                12px;
+
+            letter-spacing:
+                1px;
+
+            margin-bottom:
+                15px;
+        }
+
+
+        .courses-hero h1 {
+            font-size:
+                clamp(
+                    38px,
+                    6vw,
+                    68px
+                );
+
+            line-height:
+                1.25;
+
+            margin-bottom:
+                18px;
+        }
+
+
+        .courses-hero h1 span {
+            color:
+                var(--green);
+
+            text-shadow:
+                0 0 28px
+                rgba(0, 245, 138, .18);
+        }
+
+
+        .courses-hero p {
+            max-width:
+                650px;
+
+            margin:
+                auto;
+
+            color:
+                var(--muted);
+
+            line-height:
+                2;
+
+            font-size:
+                15px;
+        }
+
+
+        /* =========================
+           CONTENT
+        ========================= */
+
+        .wrapper {
+            width:
+                min(
+                    1250px,
+                    92%
+                );
+
+            margin:
+                auto;
+
+            padding:
+                70px 0
+                110px;
+        }
+
+
+        .control-header {
+            display:
+                flex;
+
+            justify-content:
+                space-between;
+
+            align-items:
+                flex-end;
+
+            gap:
+                25px;
+
+            margin-bottom:
+                30px;
+        }
+
+
+        .section-code {
+            color:
+                var(--green);
+
+            font-family:
+                Consolas,
+                monospace;
+
+            font-size:
+                11px;
+
+            letter-spacing:
+                2px;
+
+            margin-bottom:
+                9px;
+        }
+
+
+        .control-header h2 {
+            font-size:
+                29px;
+        }
+
+
+        .course-count {
+            color:
+                rgba(130, 160, 145, .55);
+
+            font-family:
+                Consolas,
+                monospace;
+
+            font-size:
+                10px;
+
+            letter-spacing:
+                1px;
+        }
+
+
+        /* =========================
+           SEARCH
+        ========================= */
+
+        .search-box {
+            margin-bottom:
+                22px;
+
+            position:
+                relative;
+        }
+
+
+        .search-form {
+            display:
+                flex;
+
+            gap:
+                10px;
+
+            max-width:
+                650px;
+        }
+
+
+        .search-input {
+            flex:
+                1;
+
+            min-width:
+                0;
+
+            padding:
+                14px 17px;
+
+            color:
+                var(--white);
+
+            background:
+                rgba(7, 16, 12, .86);
+
+            border:
+                1px solid
+                rgba(0, 245, 138, .13);
+
+            border-radius:
+                5px;
+
+            outline:
+                none;
+
+            font-family:
+                inherit;
+
+            transition:
+                .25s;
+        }
+
+
+        .search-input:focus {
+            border-color:
+                rgba(0, 245, 138, .5);
+
+            box-shadow:
+                0 0 25px
+                rgba(0, 245, 138, .05);
+        }
+
+
+        .search-input::placeholder {
+            color:
+                #52645a;
+        }
+
+
+        .search-btn {
+            padding:
+                0 22px;
+
+            border:
+                1px solid
+                var(--green);
+
+            border-radius:
+                5px;
+
+            background:
+                var(--green);
+
+            color:
+                #00180c;
+
+            font-weight:
+                800;
+
+            cursor:
+                pointer;
+
+            transition:
+                .25s;
+        }
+
+
+        .search-btn:hover {
+            transform:
+                translateY(-2px);
+
+            box-shadow:
+                0 10px 30px
+                rgba(0, 245, 138, .15);
+        }
+
+
+        /* =========================
+           FILTERS
+        ========================= */
+
+        .filters {
+            display:
+                flex;
+
+            align-items:
+                center;
+
+            gap:
+                8px;
+
+            flex-wrap:
+                wrap;
+
+            margin-bottom:
+                35px;
+        }
+
+
+        .filters a {
+            padding:
+                9px 15px;
+
+            color:
+                #84978d;
+
+            background:
+                rgba(255, 255, 255, .012);
+
+            border:
+                1px solid
+                rgba(0, 245, 138, .11);
+
+            border-radius:
+                4px;
+
+            text-decoration:
+                none;
+
+            font-size:
+                12px;
+
+            transition:
+                .25s;
+        }
+
+
+        .filters a:hover,
+        .filters a.active {
+            color:
+                var(--green);
+
+            background:
+                rgba(0, 245, 138, .045);
+
+            border-color:
+                rgba(0, 245, 138, .4);
+
+            box-shadow:
+                inset 0 0 20px
+                rgba(0, 245, 138, .02);
+        }
+
+
+        /* =========================
+           COURSES
+        ========================= */
+
+        .grid {
+            display:
+                grid;
+
+            grid-template-columns:
+                repeat(3, 1fr);
+
+            gap:
+                18px;
+        }
+
+
+        .course-card {
+            min-height:
+                360px;
+
+            display:
+                flex;
+
+            flex-direction:
+                column;
+
+            position:
+                relative;
+
+            overflow:
+                hidden;
+
+            padding:
+                27px;
+
+            background:
+                linear-gradient(
+                    140deg,
+                    rgba(11, 24, 17, .95),
+                    rgba(4, 9, 7, .98)
+                );
+
+            border:
+                1px solid
+                var(--border);
+
+            border-radius:
+                6px;
+
+            transition:
+                transform .35s,
+                border-color .35s,
+                box-shadow .35s;
+        }
+
+
+        .course-card::before {
+            content: "";
+
+            position:
+                absolute;
+
+            width:
+                55px;
+
+            height:
+                1px;
+
+            right:
+                27px;
+
+            top:
+                0;
+
+            background:
+                var(--green);
+
+            box-shadow:
+                0 0 12px
+                var(--green);
+        }
+
+
+        .course-card::after {
+            content: "";
+
+            position:
+                absolute;
+
+            width:
+                170px;
+
+            height:
+                170px;
+
+            left:
+                -120px;
+
+            bottom:
+                -120px;
+
+            border-radius:
+                50%;
+
+            background:
+                rgba(0, 245, 138, .07);
+
+            filter:
+                blur(35px);
+
+            transition:
+                .4s;
+        }
+
+
+        .course-card:hover {
+            transform:
+                translateY(-7px);
+
+            border-color:
+                var(--border-hover);
+
+            box-shadow:
+                0 22px 55px
+                rgba(0, 0, 0, .30);
+        }
+
+
+        .course-card:hover::after {
+            transform:
+                scale(1.4)
+                translate(
+                    10px,
+                    -10px
+                );
+        }
+
+
+        .card-top {
+            display:
+                flex;
+
+            justify-content:
+                space-between;
+
+            align-items:
+                center;
+
+            gap:
+                10px;
+
+            margin-bottom:
+                28px;
+        }
+
+
+        .tag {
+            color:
+                var(--green);
+
+            font-family:
+                Consolas,
+                monospace;
+
+            font-size:
+                10px;
+
+            letter-spacing:
+                .8px;
+        }
+
+
+        .course-id {
+            color:
+                #43564c;
+
+            font-family:
+                Consolas,
+                monospace;
+
+            font-size:
+                10px;
+        }
+
+
+        .course-card h3 {
+            margin-bottom:
+                14px;
+
+            font-size:
+                21px;
+
+            line-height:
+                1.6;
+
+            position:
+                relative;
+
+            z-index:
+                2;
+        }
+
+
+        .description {
+            color:
+                var(--muted);
+
+            line-height:
+                1.9;
+
+            font-size:
+                13px;
+
+            margin-bottom:
+                25px;
+
+            position:
+                relative;
+
+            z-index:
+                2;
+
+            display:
+                -webkit-box;
+
+            -webkit-line-clamp:
+                4;
+
+            -webkit-box-orient:
+                vertical;
+
+            overflow:
+                hidden;
+        }
+
+
+        .course-meta {
+            margin-top:
+                auto;
+
+            margin-bottom:
+                18px;
+
+            padding-top:
+                17px;
+
+            display:
+                flex;
+
+            justify-content:
+                space-between;
+
+            align-items:
+                center;
+
+            gap:
+                15px;
+
+            border-top:
+                1px solid
+                rgba(255, 255, 255, .045);
+
+            font-family:
+                Consolas,
+                monospace;
+
+            font-size:
+                11px;
+
+            color:
+                #71847b;
+
+            position:
+                relative;
+
+            z-index:
+                2;
+        }
+
+
+        .price {
+            color:
+                var(--white);
+
+            font-family:
+                inherit;
+
+            font-weight:
+                700;
+        }
+
+
+        .open-course {
+            display:
+                block;
+
+            position:
+                relative;
+
+            z-index:
+                3;
+
+            padding:
+                12px 15px;
+
+            color:
+                #00180c;
+
+            background:
+                var(--green);
+
+            border:
+                1px solid
+                var(--green);
+
+            border-radius:
+                4px;
+
+            text-align:
+                center;
+
+            text-decoration:
+                none;
+
+            font-size:
+                13px;
+
+            font-weight:
+                800;
+
+            transition:
+                .25s;
+        }
+
+
+        .open-course:hover {
+            transform:
+                translateY(-2px);
+
+            box-shadow:
+                0 12px 35px
+                rgba(0, 245, 138, .16);
+        }
+
+
+        /* =========================
+           EMPTY
+        ========================= */
+
+        .empty {
+            grid-column:
+                1 / -1;
+
+            min-height:
+                250px;
+
+            display:
+                flex;
+
+            flex-direction:
+                column;
+
+            justify-content:
+                center;
+
+            align-items:
+                center;
+
+            text-align:
+                center;
+
+            border:
+                1px dashed
+                rgba(0, 245, 138, .17);
+
+            background:
+                rgba(0, 245, 138, .012);
+
+            border-radius:
+                6px;
+        }
+
+
+        .empty-code {
+            color:
+                var(--green);
+
+            font-family:
+                Consolas,
+                monospace;
+
+            font-size:
+                12px;
+
+            margin-bottom:
+                13px;
+        }
+
+
+        .empty p {
+            color:
+                var(--muted);
+
+            font-size:
+                14px;
+        }
+
+
+        /* =========================
+           FOOTER
+        ========================= */
+
+        footer {
+            min-height:
+                75px;
+
+            padding:
+                20px 6%;
+
+            display:
+                flex;
+
+            justify-content:
+                space-between;
+
+            align-items:
+                center;
+
+            gap:
+                20px;
+
+            color:
+                #43534a;
+
+            background:
+                rgba(2, 5, 4, .65);
+
+            border-top:
+                1px solid
+                rgba(0, 245, 138, .08);
+
+            font-family:
+                Consolas,
+                monospace;
+
+            font-size:
+                10px;
+
+            letter-spacing:
+                .8px;
+        }
+
+
+        .online {
+            color:
+                var(--green);
+        }
+
+
+        /* =========================
+           ANIMATION
+        ========================= */
+
+        .reveal {
+            opacity:
+                0;
+
+            transform:
+                translateY(25px);
+
+            transition:
+                opacity .7s ease,
+                transform .7s ease;
+        }
+
+
+        .reveal.show {
+            opacity:
+                1;
+
+            transform:
+                translateY(0);
+        }
+
+
+        /* =========================
+           MOBILE
+        ========================= */
+
+        @media (
+            max-width: 950px
+        ) {
+
+            .grid {
+                grid-template-columns:
+                    repeat(2, 1fr);
+            }
+
+        }
+
+
+        @media (
+            max-width: 800px
+        ) {
+
+            header {
+                flex-wrap:
+                    wrap;
+
+                padding:
+                    14px 5%;
+            }
+
+            nav {
+                order:
+                    3;
+
+                width:
+                    100%;
+
+                justify-content:
+                    center;
+
+                padding-top:
+                    13px;
+
+                border-top:
+                    1px solid
+                    var(--border);
+            }
+
+            .account {
+                margin-right:
+                    auto;
+            }
+
+            .courses-hero {
+                min-height:
+                    350px;
+
+                padding-top:
+                    70px;
+            }
+
+        }
+
+
+        @media (
+            max-width: 650px
+        ) {
+
+            .grid {
+                grid-template-columns:
+                    1fr;
+            }
+
+            .logo-text {
+                font-size:
+                    19px;
+
+                letter-spacing:
+                    4px;
+            }
+
+            .rabbit-logo {
+                width:
+                    35px;
+
+                height:
+                    35px;
+            }
+
+            .rabbit-logo::before {
+                width:
+                    10px;
+
+                height:
+                    10px;
+
+                top:
+                    11px;
+
+                left:
+                    11px;
+            }
+
+            .account-btn.logout {
+                display:
+                    none;
+            }
+
+            nav {
+                gap:
+                    19px;
+            }
+
+            nav a {
+                font-size:
+                    12px;
+            }
+
+            .courses-hero h1 {
+                font-size:
+                    40px;
+            }
+
+            .control-header {
+                align-items:
+                    flex-start;
+
+                flex-direction:
+                    column;
+            }
+
+            .search-form {
+                flex-direction:
+                    column;
+            }
+
+            .search-btn {
+                min-height:
+                    45px;
+            }
+
+            .course-card {
+                min-height:
+                    330px;
+            }
+
+            footer {
+                flex-direction:
+                    column;
+
+                justify-content:
+                    center;
+
+                text-align:
+                    center;
+            }
+
+        }
+
+
+        @media (
+            prefers-reduced-motion:
+            reduce
+        ) {
+
+            *,
+            *::before,
+            *::after {
+                animation-duration:
+                    .001ms !important;
+
+                animation-iteration-count:
+                    1 !important;
+
+                transition-duration:
+                    .001ms !important;
+            }
+
+            .reveal {
+                opacity:
+                    1;
+
+                transform:
+                    none;
+            }
+
+        }
+
+    </style>
+</head>
+
+
+<body>
+
+
+<!-- =========================
+     HEADER
+========================= -->
+
+<header>
+
+    <a
+        href="{{ url_for('home') }}"
+        class="logo-area"
+    >
+
+        <div class="rabbit-logo"></div>
+
+        <span class="logo-text">
+            RABBIT<span class="logo-dot">.</span>
+        </span>
+
+    </a>
+
+
+    <nav>
+
+        <a
+            href="{{ url_for('home') }}"
+        >
+            الرئيسية
+        </a>
+
+        <a
+            href="{{ url_for('home') }}#services"
+        >
+            الخدمات
+        </a>
+
+        <a
+            href="{{ url_for('courses') }}"
+            class="active"
+        >
+            الكورسات
+        </a>
+
+    </nav>
+
+
+    <div class="account">
+
+        {% if current_user.is_authenticated %}
+
+            {% if current_user.is_admin %}
+
+                <a
+                    class="account-btn"
+                    href="{{ url_for('admin_panel') }}"
+                >
+                    الإدارة
+                </a>
+
+            {% endif %}
+
+            <a
+                class="account-btn logout"
+                href="{{ url_for('logout') }}"
+            >
+                خروج
+            </a>
+
+        {% else %}
+
+            <a
+                class="account-btn login-btn"
+                href="{{ url_for('auth_page') }}"
+            >
+                تسجيل الدخول
+            </a>
+
+        {% endif %}
+
+    </div>
+
+</header>
+
+
+
+<!-- =========================
+     HERO
+========================= -->
+
+<section class="courses-hero">
+
+    <div class="hero-content">
+
+        <div class="system-line">
+
+            <span class="system-dot"></span>
+
+            RABBIT LEARNING SYSTEM
+
+        </div>
+
+
+        <div class="terminal-title">
+            &gt; rabbit.courses.load()
+        </div>
+
+
+        <h1>
+            طوّر مهاراتك مع
+            <span>RABBIT</span>
+        </h1>
+
+
+        <p>
+            اختر مسارك، تعلم مهارة جديدة،
+            وابدأ من مكانك.
+            محتوى رقمي منظم داخل تجربة تعليمية
+            مصممة لعالم التقنية.
+        </p>
+
+    </div>
+
+</section>
+
+
+
+<!-- =========================
+     COURSES
+========================= -->
+
+<main class="wrapper">
+
+
+    <div class="control-header reveal">
+
+        <div>
+
+            <div class="section-code">
+                // AVAILABLE COURSES
+            </div>
+
+            <h2>
+                مكتبة الكورسات
+            </h2>
+
+        </div>
+
+
+        <div class="course-count">
+
+            COURSES /
+            {{ courses|length }}
+
+        </div>
+
+    </div>
+
+
+
+    <!-- SEARCH -->
+
+    <div class="search-box reveal">
+
+        <form
+            class="search-form"
+            method="GET"
+            action="{{ url_for('courses') }}"
+        >
+
+            <input
+                class="search-input"
+                type="text"
+                name="search"
+                value="{{ search_query or '' }}"
+                placeholder="ابحث عن كورس..."
+                autocomplete="off"
+            >
+
+
+            {% if current_category %}
+
+                <input
+                    type="hidden"
+                    name="category"
+                    value="{{ current_category }}"
+                >
+
+            {% endif %}
+
+
+            <button
+                class="search-btn"
+                type="submit"
+            >
+                بحث
+            </button>
+
+        </form>
+
+    </div>
+
+
+
+    <!-- FILTERS -->
+
+    <div class="filters reveal">
+
+        <a
+            href="{{ url_for('courses', search=search_query) }}"
+            class="{% if not current_category %}active{% endif %}"
+        >
+            الكل
+        </a>
+
+
+        {% for cat in categories %}
+
+            <a
+                href="{{ url_for(
+                    'courses',
+                    category=cat,
+                    search=search_query
+                ) }}"
+                class="{% if current_category == cat %}active{% endif %}"
+            >
+                {{ cat }}
+            </a>
+
+        {% endfor %}
+
+    </div>
+
+
+
+    <!-- GRID -->
+
+    <div class="grid">
+
+
+        {% for c in courses %}
+
+
+            <article class="course-card reveal">
+
+
+                <div class="card-top">
+
+                    <div class="tag">
+                        {{ c.category }}
+                        /
+                        {{ c.level }}
+                    </div>
+
+
+                    <div class="course-id">
+                        COURSE-{{ "%02d"|format(c.id) }}
+                    </div>
+
+                </div>
+
+
+                <h3>
+                    {{ c.title }}
+                </h3>
+
+
+                <p class="description">
+
+                    {% if c.description %}
+
+                        {{ c.description }}
+
+                    {% else %}
+
+                        تفاصيل هذا الكورس
+                        ستتوفر قريباً.
+
+                    {% endif %}
+
+                </p>
+
+
+                <div class="course-meta">
+
+                    <span>
+                        {{ c.lessons|length }}
+                        LESSONS
+                    </span>
+
+                    <span class="price">
+                        {{ c.price }}
+                    </span>
+
+                </div>
+
+
+                <a
+                    class="open-course"
+                    href="{{ url_for(
+                        'course_detail',
+                        course_id=c.id
+                    ) }}"
+                >
+                    عرض الدورة
+                </a>
+
+
+            </article>
+
+
+        {% else %}
+
+
+            <div class="empty reveal">
+
+                <div class="empty-code">
+                    &gt; RESULT: 0
+                </div>
+
+                <p>
+                    لا توجد دورات مطابقة
+                    لعملية البحث حالياً.
+                </p>
+
+            </div>
+
+
+        {% endfor %}
+
+
+    </div>
+
+</main>
+
+
+
+<!-- =========================
+     FOOTER
+========================= -->
+
+<footer>
+
+    <span>
+        RABBIT DIGITAL PLATFORM © 2026
+    </span>
+
+    <span class="online">
+        ● LEARNING SYSTEM ONLINE
+    </span>
+
+</footer>
+
+
+
+<script>
+
+    const elements =
+        document.querySelectorAll(
+            '.reveal'
+        );
+
+
+    const observer =
+        new IntersectionObserver(
+
+            entries => {
+
+                entries.forEach(
+                    entry => {
+
+                        if (
+                            entry.isIntersecting
+                        ) {
+
+                            entry.target
+                                .classList
+                                .add(
+                                    'show'
+                                );
+
+                            observer
+                                .unobserve(
+                                    entry.target
+                                );
+
+                        }
+
+                    }
+                );
+
+            },
+
+            {
+                threshold: 0.08
+            }
+
+        );
+
+
+    elements.forEach(
+        (element, index) => {
+
+            element.style
+                .transitionDelay =
+                `${Math.min(
+                    index % 4,
+                    3
+                ) * 70}ms`;
+
+            observer.observe(
+                element
+            );
+
+        }
+    );
+
+
+    /*
+        حركة خفيفة للكروت
+        على الكمبيوتر فقط
+    */
+
+    const cards =
+        document.querySelectorAll(
+            '.course-card'
+        );
+
+
+    cards.forEach(
+        card => {
+
+            card.addEventListener(
+                'mousemove',
+                event => {
+
+                    if (
+                        window.innerWidth
+                        < 900
+                    ) {
+                        return;
+                    }
+
+                    const rect =
+                        card.getBoundingClientRect();
+
+                    const x =
+                        (
+                            event.clientX
+                            - rect.left
+                        )
+                        / rect.width
+                        - .5;
+
+                    const y =
+                        (
+                            event.clientY
+                            - rect.top
+                        )
+                        / rect.height
+                        - .5;
+
+
+                    card.style.transform =
+                        `
+                        perspective(900px)
+                        rotateX(${(-y * 2.5).toFixed(2)}deg)
+                        rotateY(${(x * 3.5).toFixed(2)}deg)
+                        translateY(-7px)
+                        `;
+
+                }
+            );
+
+
+            card.addEventListener(
+                'mouseleave',
+                () => {
+
+                    card.style.transform =
+                        '';
+
+                }
+            );
+
+        }
+    );
+
+</script>
+
+
+</body>
+</html>
