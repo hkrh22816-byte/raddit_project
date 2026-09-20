@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>RABBIT | إتمام الدفع</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#020806;color:#eef7f2;font-family:Arial,sans-serif}
+body:before{content:"";position:fixed;inset:0;pointer-events:none;background-image:linear-gradient(rgba(0,245,138,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(0,245,138,.035) 1px,transparent 1px);background-size:48px 48px}
+.wrap{width:min(1100px,94%);margin:auto;padding:32px 0 70px;position:relative}
+.top{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #0b432c;padding-bottom:22px;margin-bottom:38px}
+.brand{font-size:34px;font-weight:900;letter-spacing:7px}.brand b,.tag{color:#00f58a}
+.back{color:#fff;text-decoration:none;border:1px solid #174a35;padding:12px 18px;border-radius:10px}
+h1{font-size:42px;margin:8px 0 10px}.muted{color:#8ba398;line-height:1.8}
+.grid{display:grid;grid-template-columns:1.1fr .9fr;gap:22px;margin-top:28px}
+.card{border:1px solid #12482f;background:rgba(4,17,12,.92);border-radius:18px;padding:25px}
+.method{display:block;border:1px solid #164f36;border-radius:14px;padding:17px;margin:12px 0;cursor:pointer}
+.method input{margin-left:8px}.method strong{font-size:18px}.details{color:#9bb0a6;line-height:1.8;margin-top:8px;white-space:pre-wrap}
+.field{margin-top:18px}.field label{display:block;margin-bottom:8px;color:#c7d7cf}
+input[type=text],textarea,input[type=file]{width:100%;background:#020906;color:#fff;border:1px solid #174a35;border-radius:11px;padding:14px}
+textarea{min-height:100px;resize:vertical}.btn{width:100%;margin-top:20px;border:0;border-radius:11px;padding:15px;background:#00f58a;color:#001a0f;font-weight:900;font-size:16px;cursor:pointer}
+.status{border:1px solid #174a35;border-radius:14px;padding:17px;margin-top:15px}.pending{color:#ffd166}.approved{color:#00f58a}.rejected{color:#ff7272}
+.flash{border:1px solid #17603e;padding:14px;border-radius:12px;margin:12px 0;color:#00f58a}
+@media(max-width:800px){.grid{grid-template-columns:1fr}.top{align-items:flex-start}.brand{font-size:26px}h1{font-size:32px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div class="brand">RABBIT<b>.</b></div>
+    <a class="back" href="{{ url_for('course_detail', course_id=course.id) }}">رجوع للكورس</a>
+  </div>
+
+  {% with messages=get_flashed_messages(with_categories=true) %}
+    {% for category,message in messages %}<div class="flash">{{ message }}</div>{% endfor %}
+  {% endwith %}
+
+  <div class="tag">SECURE PAYMENT REQUEST //</div>
+  <h1>إتمام دفع الكورس</h1>
+  <div class="muted">{{ course.title }}{% if course.price %} — {{ course.price }}{% endif %}</div>
+
+  <div class="grid">
+    <div class="card">
+      <div class="tag">PAYMENT METHODS</div>
+      {% if payment_methods %}
+      <form method="POST" enctype="multipart/form-data">
+        {% for method in payment_methods %}
+        <label class="method">
+          <div><input type="radio" name="payment_method_id" value="{{ method.id }}" {% if loop.first %}checked{% endif %} required>
+          <strong>{{ method.name }}</strong></div>
+          <div class="details">{% if method.account_name %}اسم صاحب الحساب: {{ method.account_name }}
+{% endif %}{% if method.account_number %}رقم الحساب / المحفظة: {{ method.account_number }}
+{% endif %}{% if method.network %}الشبكة: {{ method.network }}
+{% endif %}{% if method.instructions %}{{ method.instructions }}{% endif %}</div>
+        </label>
+        {% endfor %}
+
+        <div class="field"><label>رقم العملية / Transaction ID</label><input type="text" name="transaction_id" placeholder="أدخل رقم العملية إن وجد"></div>
+        <div class="field"><label>إثبات الدفع</label><input type="file" name="proof" accept=".jpg,.jpeg,.png,.webp,.pdf"></div>
+        <div class="field"><label>ملاحظة (اختياري)</label><textarea name="note" placeholder="أي ملاحظة تخص عملية الدفع"></textarea></div>
+        <button class="btn" type="submit">إرسال الدفع للمراجعة</button>
+      </form>
+      {% else %}
+      <div class="status rejected">لا توجد طرق دفع مفعّلة حالياً. راجع الإدارة.</div>
+      {% endif %}
+    </div>
+
+    <div class="card">
+      <div class="tag">PAYMENT STATUS //</div>
+      {% if latest_payment %}
+        <div class="status {{ latest_payment.status }}">
+          {% if latest_payment.status == 'pending' %}
+            <strong>قيد المراجعة</strong><div class="muted">تم استلام طلب الدفع وينتظر مراجعة الإدارة.</div>
+          {% elif latest_payment.status == 'approved' %}
+            <strong>تم قبول الدفع</strong><div class="muted">تم تفعيل الكورس لحسابك.</div>
+          {% else %}
+            <strong>تم رفض الدفع</strong><div class="muted">{{ latest_payment.admin_note or 'يمكنك إرسال إثبات جديد.' }}</div>
+          {% endif %}
+        </div>
+      {% else %}
+        <div class="muted">لم ترسل إثبات دفع لهذا الكورس بعد.</div>
+      {% endif %}
+      <p class="muted">لا ترسل رقم البطاقة الكامل أو PIN أو CVV أو كلمات مرور المحافظ أو العبارة السرية. المطلوب فقط رقم العملية وإثبات التحويل.</p>
+    </div>
+  </div>
+</div>
+</body>
+</html>

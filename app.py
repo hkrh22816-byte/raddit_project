@@ -39,6 +39,22 @@ ALLOWED_VIDEO_EXTENSIONS = {
     'm4v'
 }
 
+# =========================
+# إعدادات إثباتات الدفع
+# =========================
+PAYMENT_PROOF_FOLDER = os.path.join(
+    app.root_path,
+    'protected_payment_proofs'
+)
+os.makedirs(PAYMENT_PROOF_FOLDER, exist_ok=True)
+app.config['PAYMENT_PROOF_FOLDER'] = PAYMENT_PROOF_FOLDER
+
+ALLOWED_PROOF_EXTENSIONS = {
+    'jpg', 'jpeg', 'png', 'webp', 'pdf'
+}
+MAX_PAYMENT_PROOF_SIZE = 10 * 1024 * 1024
+
+
 
 db = SQLAlchemy(app)
 
@@ -456,6 +472,35 @@ def save_video(video_file):
 
     video_file.save(save_path)
 
+    return unique_name
+
+
+# =========================
+# Payment proof helpers
+# =========================
+def allowed_payment_proof(filename):
+    return (
+        '.' in filename
+        and filename.rsplit('.', 1)[1].lower()
+        in ALLOWED_PROOF_EXTENSIONS
+    )
+
+
+def save_payment_proof(proof_file):
+    if not proof_file or not proof_file.filename:
+        return None
+
+    if not allowed_payment_proof(proof_file.filename):
+        return None
+
+    original_name = secure_filename(proof_file.filename)
+    extension = original_name.rsplit('.', 1)[1].lower()
+    unique_name = uuid.uuid4().hex + '.' + extension
+    save_path = os.path.join(
+        app.config['PAYMENT_PROOF_FOLDER'],
+        unique_name
+    )
+    proof_file.save(save_path)
     return unique_name
 
 
@@ -939,50 +984,208 @@ def course_detail(course_id):
 )
 @login_required
 def request_course_enrollment(course_id):
-
-    c = db.session.get(
-        Course,
-        course_id
-    ) or abort(404)
+    c = db.session.get(Course, course_id) or abort(404)
 
     enrollment = Enrollment.query.filter_by(
         user_id=current_user.id,
         course_id=c.id
     ).first()
 
-    if enrollment:
+    if enrollment and enrollment.status == 'approved':
+        flash('هذا الكورس مفعّل عندك بالفعل.', 'success')
+        return redirect(url_for('course_detail', course_id=c.id))
 
-        if enrollment.status == 'approved':
-            flash(
-                'هذا الكورس مفعّل عندك بالفعل.'
-            )
-
-        else:
-            flash(
-                'طلب اشتراكك موجود وبانتظار التفعيل.'
-            )
-
-    else:
-
+    if not enrollment:
         enrollment = Enrollment(
             user_id=current_user.id,
             course_id=c.id,
             status='pending'
         )
-
         db.session.add(enrollment)
         db.session.commit()
 
-        flash(
-            'تم إرسال طلب الاشتراك بنجاح. بعد تأكيد الدفع سيتم فتح الكورس.'
-        )
+    return redirect(url_for('course_payment', course_id=c.id))
 
-    return redirect(
-        url_for(
-            'course_detail',
-            course_id=c.id
+
+# =========================
+# Customer Course Payment
+# =========================
+@app.route(
+    '/course/<int:course_id>/payment',
+    methods=['GET', 'POST']
+)
+@login_required
+def course_payment(course_id):
+    c = db.session.get(Course, course_id) or abort(404)
+
+    if not c.is_published and not admin_only():
+        abort(404)
+
+    enrollment = Enrollment.query.filter_by(
+        user_id=current_user.id,
+        course_id=c.id
+    ).first()
+
+    if enrollment and enrollment.status == 'approved':
+        flash('هذا الكورس مفعّل عندك بالفعل.', 'success')
+        return redirect(url_for('course_detail', course_id=c.id))
+
+    if not enrollment:
+        enrollment = Enrollment(
+            user_id=current_user.id,
+            course_id=c.id,
+            status='pending'
         )
+        db.session.add(enrollment)
+        db.session.commit()
+
+    methods = PaymentMethod.query.filter_by(
+        is_active=True
+    ).order_by(
+        PaymentMethod.position.asc(),
+        PaymentMethod.id.asc()
+    ).all()
+
+    latest_payment = CoursePayment.query.filter_by(
+        user_id=current_user.id,
+        course_id=c.id
+    ).order_by(CoursePayment.id.desc()).first()
+
+    if request.method == 'POST':
+        try:
+            method_id = int(request.form.get('payment_method_id') or 0)
+        except ValueError:
+            method_id = 0
+
+        method = db.session.get(PaymentMethod, method_id)
+        if not method or not method.is_active:
+            flash('اختار طريقة دفع فعّالة.', 'error')
+            return redirect(url_for('course_payment', course_id=c.id))
+
+        transaction_id = (
+            request.form.get('transaction_id') or ''
+        ).strip()
+        note = (request.form.get('note') or '').strip()
+        proof_file = request.files.get('proof')
+
+        if proof_file and proof_file.filename:
+            if not allowed_payment_proof(proof_file.filename):
+                flash('صيغة الإثبات غير مدعومة. استخدم JPG أو PNG أو WEBP أو PDF.', 'error')
+                return redirect(url_for('course_payment', course_id=c.id))
+
+            proof_file.stream.seek(0, os.SEEK_END)
+            proof_size = proof_file.stream.tell()
+            proof_file.stream.seek(0)
+            if proof_size > MAX_PAYMENT_PROOF_SIZE:
+                flash('حجم إثبات الدفع يجب أن لا يتجاوز 10MB.', 'error')
+                return redirect(url_for('course_payment', course_id=c.id))
+
+        if not transaction_id and not (proof_file and proof_file.filename):
+            flash('اكتب رقم العملية أو ارفع إثبات الدفع.', 'error')
+            return redirect(url_for('course_payment', course_id=c.id))
+
+        proof_filename = ''
+        if proof_file and proof_file.filename:
+            proof_filename = save_payment_proof(proof_file) or ''
+
+        payment = CoursePayment(
+            user_id=current_user.id,
+            course_id=c.id,
+            enrollment_id=enrollment.id,
+            payment_method_id=method.id,
+            amount=c.price or '',
+            transaction_id=transaction_id,
+            proof_filename=proof_filename,
+            note=note,
+            status='pending'
+        )
+        db.session.add(payment)
+        db.session.commit()
+
+        flash('تم إرسال إثبات الدفع. الطلب الآن بانتظار مراجعة الإدارة.', 'success')
+        return redirect(url_for('course_payment', course_id=c.id))
+
+    return render_template(
+        'course_payment.html',
+        course=c,
+        enrollment=enrollment,
+        payment_methods=methods,
+        latest_payment=latest_payment
     )
+
+
+@app.route('/admin/payment-proof/<int:payment_id>')
+@login_required
+def admin_payment_proof(payment_id):
+    if not admin_only():
+        abort(403)
+
+    payment = db.session.get(CoursePayment, payment_id) or abort(404)
+    if not payment.proof_filename:
+        abort(404)
+
+    return send_from_directory(
+        app.config['PAYMENT_PROOF_FOLDER'],
+        os.path.basename(payment.proof_filename),
+        conditional=True
+    )
+
+
+@app.route('/admin/payments')
+@login_required
+def admin_payments():
+    if not admin_only():
+        abort(403)
+
+    payments = CoursePayment.query.order_by(
+        CoursePayment.id.desc()
+    ).all()
+
+    return render_template(
+        'admin_payments.html',
+        payments=payments
+    )
+
+
+@app.route(
+    '/admin/payment/<int:payment_id>/approve',
+    methods=['POST']
+)
+@login_required
+def admin_payment_approve(payment_id):
+    if not admin_only():
+        abort(403)
+
+    payment = db.session.get(CoursePayment, payment_id) or abort(404)
+    enrollment = db.session.get(Enrollment, payment.enrollment_id)
+    if not enrollment:
+        abort(404)
+
+    payment.status = 'approved'
+    payment.admin_note = (request.form.get('admin_note') or '').strip()
+    enrollment.status = 'approved'
+    db.session.commit()
+
+    flash('تم قبول الدفعة وتفعيل الكورس للزبون.', 'success')
+    return redirect(url_for('admin_payments'))
+
+
+@app.route(
+    '/admin/payment/<int:payment_id>/reject',
+    methods=['POST']
+)
+@login_required
+def admin_payment_reject(payment_id):
+    if not admin_only():
+        abort(403)
+
+    payment = db.session.get(CoursePayment, payment_id) or abort(404)
+    payment.status = 'rejected'
+    payment.admin_note = (request.form.get('admin_note') or '').strip()
+    db.session.commit()
+
+    flash('تم رفض الدفعة. يبقى الكورس مقفولاً ويمكن للزبون إعادة الإرسال.', 'success')
+    return redirect(url_for('admin_payments'))
 
 
 # =========================
@@ -1059,6 +1262,10 @@ def admin_panel():
 
         active_payment_method_count=PaymentMethod.query.filter_by(
             is_active=True
+        ).count(),
+
+        pending_payment_count=CoursePayment.query.filter_by(
+            status='pending'
         ).count()
     )
 

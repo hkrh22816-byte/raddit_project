@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>RABBIT | مراجعة الدفعات</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#020806;color:#eef7f2;font-family:Arial,sans-serif}
+.wrap{width:min(1200px,95%);margin:auto;padding:30px 0}.top{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #12482f;padding-bottom:20px}
+.brand{font-size:32px;font-weight:900;letter-spacing:6px}.brand b,.tag{color:#00f58a}a{color:#fff}.nav a{display:inline-block;text-decoration:none;border:1px solid #174a35;border-radius:9px;padding:10px 14px;margin-left:7px}
+h1{font-size:40px}.card{border:1px solid #12482f;background:#04110c;border-radius:16px;padding:20px;margin:16px 0}.meta{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:15px 0}.box{background:#020906;border:1px solid #123d2a;padding:12px;border-radius:10px}.muted{color:#8da397}.pending{color:#ffd166}.approved{color:#00f58a}.rejected{color:#ff7272}
+.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:15px}.btn{border:0;border-radius:9px;padding:11px 17px;font-weight:800;cursor:pointer}.ok{background:#00f58a}.no{background:#ff7272}.proof{border:1px solid #1a5d40;padding:10px 14px;border-radius:9px;text-decoration:none}
+input{background:#020906;color:#fff;border:1px solid #174a35;border-radius:9px;padding:11px;min-width:260px}.flash{border:1px solid #17603e;padding:13px;border-radius:10px;margin:12px 0;color:#00f58a}
+@media(max-width:800px){.meta{grid-template-columns:1fr}.top{align-items:flex-start;gap:12px;flex-direction:column}}
+</style></head>
+<body><div class="wrap">
+<div class="top"><div class="brand">RABBIT<b>.</b></div><div class="nav"><a href="{{ url_for('admin_panel') }}">لوحة الإدارة</a><a href="{{ url_for('admin_payment_methods') }}">طرق الدفع</a></div></div>
+{% with messages=get_flashed_messages(with_categories=true) %}{% for category,message in messages %}<div class="flash">{{ message }}</div>{% endfor %}{% endwith %}
+<div class="tag">PAYMENT REVIEW //</div><h1>مراجعة دفعات الكورسات</h1>
+{% if payments %}
+{% for payment in payments %}
+<div class="card">
+  <div><strong>#{{ payment.id }} — {{ payment.course.title }}</strong> <span class="{{ payment.status }}">[{{ payment.status }}]</span></div>
+  <div class="meta">
+    <div class="box"><span class="muted">الزبون</span><br>{{ payment.user.username }}</div>
+    <div class="box"><span class="muted">طريقة الدفع</span><br>{{ payment.payment_method.name }}</div>
+    <div class="box"><span class="muted">المبلغ</span><br>{{ payment.amount or '-' }}</div>
+    <div class="box"><span class="muted">رقم العملية</span><br>{{ payment.transaction_id or '-' }}</div>
+  </div>
+  {% if payment.note %}<p>ملاحظة الزبون: {{ payment.note }}</p>{% endif %}
+  <div class="actions">
+    {% if payment.proof_filename %}<a class="proof" target="_blank" href="{{ url_for('admin_payment_proof', payment_id=payment.id) }}">فتح إثبات الدفع</a>{% endif %}
+    {% if payment.status == 'pending' %}
+    <form method="POST" action="{{ url_for('admin_payment_approve', payment_id=payment.id) }}"><button class="btn ok" type="submit">قبول وتفعيل الكورس</button></form>
+    <form method="POST" action="{{ url_for('admin_payment_reject', payment_id=payment.id) }}"><input name="admin_note" placeholder="سبب الرفض (اختياري)"><button class="btn no" type="submit">رفض الدفع</button></form>
+    {% endif %}
+  </div>
+</div>
+{% endfor %}
+{% else %}<div class="card">ماكو دفعات مرسلة بعد.</div>{% endif %}
+</div></body></html>
