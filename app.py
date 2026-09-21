@@ -23,10 +23,20 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 # =========================
 # إعدادات رفع الفيديو
 # =========================
-UPLOAD_FOLDER = os.path.join(
-    app.root_path,
-    'protected_videos'
-)
+# على Railway نحفظ الملفات داخل الـ Volume الدائم.
+# محلياً تبقى المجلدات الحالية كما هي.
+PERSISTENT_STORAGE = os.environ.get('PERSISTENT_STORAGE_PATH')
+
+if PERSISTENT_STORAGE:
+    UPLOAD_FOLDER = os.path.join(
+        PERSISTENT_STORAGE,
+        'videos'
+    )
+else:
+    UPLOAD_FOLDER = os.path.join(
+        app.root_path,
+        'protected_videos'
+    )
 
 os.makedirs(
     UPLOAD_FOLDER,
@@ -48,10 +58,16 @@ ALLOWED_VIDEO_EXTENSIONS = {
 # =========================
 # إعدادات إثباتات الدفع
 # =========================
-PAYMENT_PROOF_FOLDER = os.path.join(
-    app.root_path,
-    'protected_payment_proofs'
-)
+if PERSISTENT_STORAGE:
+    PAYMENT_PROOF_FOLDER = os.path.join(
+        PERSISTENT_STORAGE,
+        'payment_proofs'
+    )
+else:
+    PAYMENT_PROOF_FOLDER = os.path.join(
+        app.root_path,
+        'protected_payment_proofs'
+    )
 os.makedirs(PAYMENT_PROOF_FOLDER, exist_ok=True)
 app.config['PAYMENT_PROOF_FOLDER'] = PAYMENT_PROOF_FOLDER
 
