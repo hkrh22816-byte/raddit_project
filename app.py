@@ -11,7 +11,13 @@ import uuid
 app = Flask(__name__)
 
 app.config['SECRET_KEY'] = 'Rabbit_Secret_Key_2026_Secure'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///rabbit_database.db'
+database_url = os.environ.get('DATABASE_URL', 'sqlite:///rabbit_database.db')
+
+# بعض مزودي PostgreSQL قد يعيدون الصيغة القديمة postgres://
+if database_url.startswith('postgres://'):
+    database_url = database_url.replace('postgres://', 'postgresql://', 1)
+
+app.config['SQLALCHEMY_DATABASE_URI'] = database_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # =========================
