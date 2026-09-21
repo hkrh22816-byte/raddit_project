@@ -10,7 +10,7 @@ import uuid
 
 app = Flask(__name__)
 
-app.config['SECRET_KEY'] = 'Rabbit_Secret_Key_2026_Secure'
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'rabbit-local-development-key')
 database_url = os.environ.get('DATABASE_URL', 'sqlite:///rabbit_database.db')
 
 # بعض مزودي PostgreSQL قد يعيدون الصيغة القديمة postgres://
