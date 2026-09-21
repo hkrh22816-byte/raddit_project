@@ -1600,6 +1600,7 @@
 
 
             <form method="post" action="{{ url_for('logout') }}" style="margin:0;display:inline;">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button type="submit" class="auth-btn logout-btn" style="cursor:pointer;font-family:inherit;">
                     تسجيل الخروج
                 </button>

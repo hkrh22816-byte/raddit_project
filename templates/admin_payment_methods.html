@@ -509,6 +509,7 @@ textarea{
             'admin_payment_methods'
         ) }}"
     >
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
 
         <label>
@@ -699,6 +700,7 @@ textarea{
                 method_id=method.id
             ) }}"
         >
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
 
             <div class="edit-grid">
@@ -899,6 +901,7 @@ textarea{
                     method_id=method.id
                 ) }}"
             >
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
                 {% if method.is_active %}
 
@@ -936,6 +939,7 @@ textarea{
                     );
                 "
             >
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
                 <button
                     class="btn btn-danger"

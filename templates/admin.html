@@ -547,6 +547,7 @@ th{
                     enrollment_id=e.id
                 ) }}"
             >
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
                 <button
                     class="btn"

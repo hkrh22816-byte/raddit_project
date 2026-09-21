@@ -44,6 +44,7 @@ textarea{min-height:100px;resize:vertical}.btn{width:100%;margin-top:20px;border
       <div class="tag">PAYMENT METHODS</div>
       {% if payment_methods %}
       <form method="POST" enctype="multipart/form-data">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         {% for method in payment_methods %}
         <label class="method">
           <div><input type="radio" name="payment_method_id" value="{{ method.id }}" {% if loop.first %}checked{% endif %} required>

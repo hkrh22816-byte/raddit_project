@@ -110,6 +110,7 @@
         <h2>إضافة درس</h2>
 
         <form method="post" enctype="multipart/form-data">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
             <div class="grid">
 
@@ -205,6 +206,7 @@
                 action="{{ url_for('admin_lesson_delete', lesson_id=l.id) }}"
                 onsubmit="return confirm('حذف الدرس؟')"
             >
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
                 <button class="btn danger" type="submit">
                     حذف

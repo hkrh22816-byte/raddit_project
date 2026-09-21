@@ -30,8 +30,10 @@ input{background:#020906;color:#fff;border:1px solid #174a35;border-radius:9px;p
   <div class="actions">
     {% if payment.proof_filename %}<a class="proof" target="_blank" href="{{ url_for('admin_payment_proof', payment_id=payment.id) }}">فتح إثبات الدفع</a>{% endif %}
     {% if payment.status == 'pending' %}
-    <form method="POST" action="{{ url_for('admin_payment_approve', payment_id=payment.id) }}"><button class="btn ok" type="submit">قبول وتفعيل الكورس</button></form>
-    <form method="POST" action="{{ url_for('admin_payment_reject', payment_id=payment.id) }}"><input name="admin_note" placeholder="سبب الرفض (اختياري)"><button class="btn no" type="submit">رفض الدفع</button></form>
+    <form method="POST" action="{{ url_for('admin_payment_approve', payment_id=payment.id) }}">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn ok" type="submit">قبول وتفعيل الكورس</button></form>
+    <form method="POST" action="{{ url_for('admin_payment_reject', payment_id=payment.id) }}">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input name="admin_note" placeholder="سبب الرفض (اختياري)"><button class="btn no" type="submit">رفض الدفع</button></form>
     {% endif %}
   </div>
 </div>

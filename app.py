@@ -7,6 +7,7 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 from flask import send_from_directory
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
+from flask_wtf.csrf import CSRFProtect
 import os
 import uuid
 import mimetypes
@@ -32,6 +33,9 @@ app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'rabbit-local-developmen
 app.config['SESSION_COOKIE_SECURE'] = True
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+
+# Standard token-based CSRF protection for all POST forms.
+csrf = CSRFProtect(app)
 database_url = os.environ.get('DATABASE_URL', 'sqlite:///rabbit_database.db')
 
 # بعض مزودي PostgreSQL قد يعيدون الصيغة القديمة postgres://
