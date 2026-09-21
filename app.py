@@ -36,6 +36,8 @@ else:
 app.config['SESSION_COOKIE_SECURE'] = True
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+app.config['PERMANENT_SESSION_LIFETIME'] = 60 * 60 * 12
+app.config['WTF_CSRF_TIME_LIMIT'] = 60 * 60 * 2
 
 # Standard token-based CSRF protection for all POST forms.
 csrf = CSRFProtect(app)
@@ -75,6 +77,8 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 # الحد الأقصى للفيديو 1GB
 app.config['MAX_CONTENT_LENGTH'] = 1024 * 1024 * 1024
+app.config['MAX_FORM_MEMORY_SIZE'] = 2 * 1024 * 1024
+app.config['MAX_FORM_PARTS'] = 100
 
 ALLOWED_VIDEO_EXTENSIONS = {
     'mp4',
@@ -147,6 +151,8 @@ def protect_post_requests():
 def add_security_headers(response):
     response.headers.setdefault('X-Content-Type-Options', 'nosniff')
     response.headers.setdefault('X-Frame-Options', 'SAMEORIGIN')
+    response.headers.setdefault('Cross-Origin-Opener-Policy', 'same-origin')
+    response.headers.setdefault('X-Permitted-Cross-Domain-Policies', 'none')
     response.headers.setdefault('Referrer-Policy', 'strict-origin-when-cross-origin')
     response.headers.setdefault(
         'Permissions-Policy',
@@ -1146,6 +1152,7 @@ def request_course_enrollment(course_id):
     methods=['GET', 'POST']
 )
 @login_required
+@limiter.limit("10 per hour", methods=["POST"])
 def course_payment(course_id):
     c = db.session.get(Course, course_id) or abort(404)
 
@@ -1215,9 +1222,21 @@ def course_payment(course_id):
             flash('اكتب رقم العملية أو ارفع إثبات الدفع.', 'error')
             return redirect(url_for('course_payment', course_id=c.id))
 
+        existing_pending = CoursePayment.query.filter_by(
+            user_id=current_user.id,
+            course_id=c.id,
+            status='pending'
+        ).first()
+        if existing_pending:
+            flash('عندك طلب دفع قيد المراجعة بالفعل. انتظر مراجعة الإدارة قبل إرسال طلب جديد.', 'error')
+            return redirect(url_for('course_payment', course_id=c.id))
+
         proof_filename = ''
         if proof_file and proof_file.filename:
             proof_filename = save_payment_proof(proof_file) or ''
+            if not proof_filename:
+                flash('تعذر التحقق من ملف إثبات الدفع.', 'error')
+                return redirect(url_for('course_payment', course_id=c.id))
 
         payment = CoursePayment(
             user_id=current_user.id,
@@ -1288,6 +1307,10 @@ def admin_payment_approve(payment_id):
         abort(403)
 
     payment = db.session.get(CoursePayment, payment_id) or abort(404)
+    if payment.status != 'pending':
+        flash('هذا الطلب تمت مراجعته مسبقاً.', 'error')
+        return redirect(url_for('admin_payments'))
+
     enrollment = db.session.get(Enrollment, payment.enrollment_id)
     if not enrollment:
         abort(404)
@@ -1311,6 +1334,10 @@ def admin_payment_reject(payment_id):
         abort(403)
 
     payment = db.session.get(CoursePayment, payment_id) or abort(404)
+    if payment.status != 'pending':
+        flash('هذا الطلب تمت مراجعته مسبقاً.', 'error')
+        return redirect(url_for('admin_payments'))
+
     payment.status = 'rejected'
     payment.admin_note = (request.form.get('admin_note') or '').strip()
     db.session.commit()
@@ -1370,6 +1397,7 @@ def account():
     methods=['POST']
 )
 @login_required
+@limiter.limit("10 per hour")
 def place_order():
 
     db.session.add(
@@ -2114,4 +2142,4 @@ with app.app_context():
 # =========================
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=os.environ.get('FLASK_DEBUG', '').lower() == 'true')
