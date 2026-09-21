@@ -14,6 +14,13 @@ from urllib.parse import urlparse
 app = Flask(__name__)
 
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'rabbit-local-development-key')
+
+# =========================
+# Session / Cookie Security
+# =========================
+app.config['SESSION_COOKIE_SECURE'] = True
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 database_url = os.environ.get('DATABASE_URL', 'sqlite:///rabbit_database.db')
 
 # بعض مزودي PostgreSQL قد يعيدون الصيغة القديمة postgres://
