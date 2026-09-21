@@ -2007,7 +2007,7 @@ def admin_lesson_delete(lesson_id):
 # Logout
 # =========================
 
-@app.route('/logout')
+@app.route('/logout', methods=['POST'])
 @login_required
 def logout():
 

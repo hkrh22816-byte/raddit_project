@@ -129,7 +129,11 @@ nav{display:flex;justify-content:space-between;align-items:center;gap:15px;margi
 {% else %}<div class="empty">لا توجد طلبات خدمات في حسابك حالياً.</div>{% endfor %}
 </div>
 
-<div class="footer"><a href="{{ url_for('logout') }}">تسجيل الخروج</a></div>
+<div class="footer">
+<form method="post" action="{{ url_for('logout') }}" style="margin:0;">
+<button type="submit" style="background:none;border:0;color:inherit;font:inherit;cursor:pointer;padding:0;">تسجيل الخروج</button>
+</form>
+</div>
 </div>
 </body>
 </html>

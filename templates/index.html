@@ -1599,12 +1599,11 @@
             {% endif %}
 
 
-            <a
-                href="{{ url_for('logout') }}"
-                class="auth-btn logout-btn"
-            >
-                تسجيل الخروج
-            </a>
+            <form method="post" action="{{ url_for('logout') }}" style="margin:0;display:inline;">
+                <button type="submit" class="auth-btn logout-btn" style="cursor:pointer;font-family:inherit;">
+                    تسجيل الخروج
+                </button>
+            </form>
 
 
         {% else %}
