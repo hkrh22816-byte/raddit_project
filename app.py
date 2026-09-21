@@ -1995,35 +1995,6 @@ def admin_lesson_delete(lesson_id):
     )
 
 
-# =========================
-# Activate User
-# =========================
-
-@app.route(
-    '/admin/activate/<int:user_id>'
-)
-@login_required
-def activate_user(user_id):
-
-    if not admin_only():
-
-        abort(403)
-
-    u = db.session.get(
-        User,
-        user_id
-    )
-
-    if u:
-
-        u.has_paid_course = True
-
-        db.session.commit()
-
-    return redirect(
-        url_for('admin_panel')
-    )
-
 
 # =========================
 # Logout
