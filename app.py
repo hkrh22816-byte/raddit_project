@@ -25,7 +25,10 @@ app.wsgi_app = ProxyFix(
     x_host=1
 )
 
-app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'rabbit-local-development-key')
+if os.environ.get('RAILWAY_ENVIRONMENT'):
+    app.config['SECRET_KEY'] = os.environ['SECRET_KEY']
+else:
+    app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'rabbit-local-development-key')
 
 # =========================
 # Session / Cookie Security
