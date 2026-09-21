@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>حسابي | RABBIT.</title>
+<style>
+*{box-sizing:border-box}
+:root{--bg:#030706;--panel:#07100c;--panel2:#09140f;--green:#00f58a;--line:rgba(0,245,138,.20);--text:#f1f7f3;--muted:#84958b;--yellow:#ffd166;--red:#ff6678}
+body{margin:0;min-height:100vh;color:var(--text);font-family:"Segoe UI",Tahoma,Arial,sans-serif;background:linear-gradient(rgba(0,245,138,.028) 1px,transparent 1px),linear-gradient(90deg,rgba(0,245,138,.028) 1px,transparent 1px),radial-gradient(circle at 50% 0,rgba(0,245,138,.07),transparent 35%),var(--bg);background-size:42px 42px,42px 42px,auto,auto}
+a{text-decoration:none;color:inherit}.wrap{width:min(1180px,calc(100% - 30px));margin:auto;padding:28px 0 60px}
+nav{display:flex;justify-content:space-between;align-items:center;gap:15px;margin-bottom:25px}.brand{font:800 28px Consolas,monospace;letter-spacing:2px;color:var(--green)}.navlinks{display:flex;gap:9px;flex-wrap:wrap}.navlinks a{border:1px solid var(--line);border-radius:9px;padding:9px 13px;color:#cbd8d0}
+.hero,.box{border:1px solid var(--line);background:rgba(6,14,10,.94);border-radius:17px}.hero{padding:27px;margin-bottom:17px}.terminal{font:12px Consolas,monospace;color:var(--green);letter-spacing:1.5px}.hero h1{font-size:40px;margin:10px 0 5px}.muted{color:var(--muted)}
+.profile{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:22px}.field{padding:14px;border:1px solid rgba(255,255,255,.07);border-radius:11px;background:rgba(255,255,255,.02)}.field small{display:block;color:var(--muted);margin-bottom:5px}
+.dashboard{display:grid;grid-template-columns:1fr 1fr;gap:15px;margin:15px 0}.box{padding:21px}.box-label{font:12px Consolas,monospace;color:var(--green);letter-spacing:1.2px}.balance{font:700 38px Consolas,monospace;margin:13px 0 7px}.soon{display:inline-block;margin-top:14px;border:1px solid rgba(255,255,255,.1);color:#67766d;padding:10px 14px;border-radius:9px;cursor:not-allowed}
+.title{display:flex;justify-content:space-between;align-items:center;margin:27px 0 12px}.title h2{margin:0;font-size:20px}.count{font:12px Consolas,monospace;color:var(--green);border:1px solid var(--line);padding:6px 9px;border-radius:30px}
+.list{display:grid;gap:12px}.item{border:1px solid var(--line);background:var(--panel);border-radius:14px;padding:18px}.head{display:flex;justify-content:space-between;align-items:flex-start;gap:15px}.item h3{margin:0 0 6px;font-size:17px}.meta{font-size:13px;color:var(--muted)}.badge{font-size:11px;font-weight:700;border-radius:30px;padding:7px 10px;white-space:nowrap}.ok{color:var(--green);border:1px solid rgba(0,245,138,.28);background:rgba(0,245,138,.06)}.wait{color:var(--yellow);border:1px solid rgba(255,209,102,.25);background:rgba(255,209,102,.05)}.bad{color:var(--red);border:1px solid rgba(255,102,120,.25);background:rgba(255,102,120,.05)}
+.details{display:flex;gap:18px;flex-wrap:wrap;margin-top:14px;padding-top:13px;border-top:1px solid rgba(255,255,255,.06);font-size:13px;color:var(--muted)}.details b{color:#e1e9e4}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}.btn{border:1px solid var(--line);border-radius:9px;padding:10px 14px;font-weight:700;color:var(--green)}.primary{background:var(--green);color:#00170c;border-color:var(--green)}
+.note{margin-top:12px;padding:11px;border:1px solid rgba(255,102,120,.16);border-radius:9px;color:#ff9daa;font-size:13px}.empty{text-align:center;color:var(--muted);padding:32px;border:1px dashed var(--line);border-radius:14px}
+.table{overflow-x:auto;border:1px solid var(--line);border-radius:14px}.row{display:grid;grid-template-columns:1.5fr 1fr 1fr 1fr;gap:12px;padding:14px 16px;border-bottom:1px solid rgba(255,255,255,.06);min-width:650px}.row:last-child{border-bottom:0}.row.header{font-size:11px;font-family:Consolas,monospace;color:var(--green);background:rgba(0,245,138,.035)}.row div{overflow-wrap:anywhere}
+.service-details{margin-top:11px;color:#bdc9c1;line-height:1.7}.footer{text-align:center;margin-top:30px;color:var(--muted);font-size:12px}
+@media(max-width:700px){.profile,.dashboard{grid-template-columns:1fr}.hero h1{font-size:32px}.head{flex-direction:column}nav{align-items:flex-start}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<nav>
+  <a class="brand" href="{{ url_for('home') }}">RABBIT.</a>
+  <div class="navlinks">
+    <a href="{{ url_for('home') }}">الرئيسية</a>
+    <a href="{{ url_for('courses') }}">الكورسات</a>
+    {% if current_user.is_admin %}<a href="{{ url_for('admin_panel') }}">الإدارة</a>{% endif %}
+  </div>
+</nav>
+
+<section class="hero">
+  <div class="terminal">RABBIT ACCOUNT / SYSTEM ONLINE</div>
+  <h1>حسابي</h1>
+  <div class="muted">مركز حسابك، كورساتك، دفعاتك وطلباتك.</div>
+  <div class="profile">
+    <div class="field"><small>اسم المستخدم</small><strong>{{ current_user.username }}</strong></div>
+    <div class="field"><small>الإيميل أو رقم الهاتف</small><strong>{{ current_user.email_or_phone }}</strong></div>
+  </div>
+</section>
+
+<div class="dashboard">
+  <section class="box">
+    <div class="box-label">RABBIT BALANCE</div>
+    <div class="balance">${{ balance }}</div>
+    <div class="muted">رصيد حساب Rabbit</div>
+    <span class="soon">إضافة رصيد — قريباً</span>
+  </section>
+  <section class="box">
+    <div class="box-label">MY CARDS</div>
+    <div style="font-size:25px;font-weight:700;margin:15px 0 8px">بطاقاتي</div>
+    <div class="muted">ستتوفر البطاقات المحفوظة بعد ربط بوابة الدفع الإلكتروني.</div>
+    <span class="soon">إدارة البطاقات — قريباً</span>
+  </section>
+</div>
+
+<div class="title"><h2>كورساتي</h2><span class="count">{{ course_items|length }}</span></div>
+<div class="list">
+{% for item in course_items %}
+{% set enrollment=item.enrollment %}{% set course=item.course %}{% set payment=item.payment %}
+<article class="item">
+ <div class="head">
+  <div><h3>{{ course.title }}</h3><div class="meta">{{ course.category }} · {{ course.level }}</div></div>
+  {% if enrollment.status == 'approved' %}<span class="badge ok">ACCESS / GRANTED</span>
+  {% elif payment and payment.status == 'rejected' %}<span class="badge bad">الدفع مرفوض</span>
+  {% elif payment and payment.status == 'pending' %}<span class="badge wait">قيد المراجعة</span>
+  {% else %}<span class="badge wait">بانتظار الدفع</span>{% endif %}
+ </div>
+ {% if payment %}
+ <div class="details">
+   <span>المبلغ: <b>{{ payment.amount or course.price }}</b></span>
+   {% if payment.payment_method %}<span>الطريقة: <b>{{ payment.payment_method.name }}</b></span>{% endif %}
+   {% if payment.transaction_id %}<span>رقم العملية: <b>{{ payment.transaction_id }}</b></span>{% endif %}
+ </div>
+ {% if payment.status == 'rejected' and payment.admin_note %}<div class="note">ملاحظة الإدارة: {{ payment.admin_note }}</div>{% endif %}
+ {% endif %}
+ <div class="actions">
+  {% if enrollment.status == 'approved' %}
+    <a class="btn primary" href="{{ url_for('course_detail', course_id=course.id) }}">دخول الكورس</a>
+  {% elif payment and payment.status == 'rejected' %}
+    <a class="btn primary" href="{{ url_for('course_payment', course_id=course.id) }}">إعادة إرسال الدفع</a>
+  {% elif payment and payment.status == 'pending' %}
+    <a class="btn" href="{{ url_for('course_payment', course_id=course.id) }}">عرض حالة الدفع</a>
+  {% else %}
+    <a class="btn primary" href="{{ url_for('course_payment', course_id=course.id) }}">إكمال الدفع</a>
+  {% endif %}
+  <a class="btn" href="{{ url_for('course_detail', course_id=course.id) }}">تفاصيل الكورس</a>
+ </div>
+</article>
+{% else %}
+<div class="empty">لا توجد كورسات مسجلة في حسابك حالياً.</div>
+{% endfor %}
+</div>
+
+<div class="title"><h2>سجل الدفعات</h2><span class="count">{{ payments|length }}</span></div>
+{% if payments %}
+<div class="table">
+ <div class="row header"><div>الكورس</div><div>طريقة الدفع</div><div>رقم العملية</div><div>الحالة</div></div>
+ {% for payment in payments %}
+ <div class="row">
+  <div>{{ payment.course.title if payment.course else '-' }}</div>
+  <div>{{ payment.payment_method.name if payment.payment_method else '-' }}</div>
+  <div>{{ payment.transaction_id or '-' }}</div>
+  <div>
+   {% if payment.status == 'approved' %}<span class="badge ok">مقبولة</span>
+   {% elif payment.status == 'rejected' %}<span class="badge bad">مرفوضة</span>
+   {% else %}<span class="badge wait">قيد المراجعة</span>{% endif %}
+  </div>
+ </div>
+ {% endfor %}
+</div>
+{% else %}<div class="empty">لا توجد دفعات في حسابك حالياً.</div>{% endif %}
+
+<div class="title"><h2>طلبات الخدمات</h2><span class="count">{{ service_requests|length }}</span></div>
+<div class="list">
+{% for order in service_requests %}
+<article class="item">
+ <div class="head">
+  <div><h3>{{ order.service_type }}</h3><div class="meta">رقم الطلب #{{ order.id }}</div></div>
+  <span class="badge ok">تم استلام الطلب</span>
+ </div>
+ <div class="service-details">{{ order.details }}</div>
+ <div class="details"><span>رقم التواصل: <b>{{ order.phone }}</b></span></div>
+</article>
+{% else %}<div class="empty">لا توجد طلبات خدمات في حسابك حالياً.</div>{% endfor %}
+</div>
+
+<div class="footer"><a href="{{ url_for('logout') }}">تسجيل الخروج</a></div>
+</div>
+</body>
+</html>

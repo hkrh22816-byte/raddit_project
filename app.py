@@ -791,9 +791,7 @@ def auth_page():
                 password=generate_password_hash(
                     password
                 ),
-                is_admin=(
-                    User.query.count() == 0
-                )
+                is_admin=False
             )
 
             db.session.add(
@@ -1186,6 +1184,48 @@ def admin_payment_reject(payment_id):
 
     flash('تم رفض الدفعة. يبقى الكورس مقفولاً ويمكن للزبون إعادة الإرسال.', 'success')
     return redirect(url_for('admin_payments'))
+
+
+# =========================
+# Customer Account
+# =========================
+
+@app.route('/account')
+@login_required
+def account():
+    enrollments = Enrollment.query.filter_by(
+        user_id=current_user.id
+    ).order_by(Enrollment.id.desc()).all()
+
+    course_items = []
+
+    for enrollment in enrollments:
+        latest_payment = CoursePayment.query.filter_by(
+            user_id=current_user.id,
+            course_id=enrollment.course_id
+        ).order_by(CoursePayment.id.desc()).first()
+
+        course_items.append({
+            'enrollment': enrollment,
+            'course': enrollment.course,
+            'payment': latest_payment
+        })
+
+    payments = CoursePayment.query.filter_by(
+        user_id=current_user.id
+    ).order_by(CoursePayment.id.desc()).all()
+
+    service_requests = ServiceRequest.query.filter_by(
+        username=current_user.username
+    ).order_by(ServiceRequest.id.desc()).all()
+
+    return render_template(
+        'account.html',
+        course_items=course_items,
+        payments=payments,
+        service_requests=service_requests,
+        balance='0.00'
+    )
 
 
 # =========================
