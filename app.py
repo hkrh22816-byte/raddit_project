@@ -8,6 +8,7 @@ from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 import os
 import uuid
+import mimetypes
 from urllib.parse import urlparse
 
 
@@ -524,6 +525,15 @@ def save_video(video_file):
     if not allowed_video(video_file.filename):
         return None
 
+    # تحقق إضافي من نوع المحتوى المعلن من المتصفح.
+    # لا نعتمد عليه وحده، لكنه يمنع الملفات الواضحة غير المطابقة.
+    declared_type = (video_file.mimetype or '').lower()
+    guessed_type = (mimetypes.guess_type(video_file.filename)[0] or '').lower()
+    if declared_type and not declared_type.startswith('video/'):
+        return None
+    if guessed_type and not guessed_type.startswith('video/'):
+        return None
+
     original_name = secure_filename(
         video_file.filename
     )
@@ -565,6 +575,16 @@ def save_payment_proof(proof_file):
         return None
 
     if not allowed_payment_proof(proof_file.filename):
+        return None
+
+    # إثبات الدفع يجب أن يكون صورة أو PDF بحسب نوع المحتوى المعلن.
+    declared_type = (proof_file.mimetype or '').lower()
+    guessed_type = (mimetypes.guess_type(proof_file.filename)[0] or '').lower()
+    allowed_declared = declared_type.startswith('image/') or declared_type == 'application/pdf'
+    allowed_guessed = guessed_type.startswith('image/') or guessed_type == 'application/pdf'
+    if declared_type and not allowed_declared:
+        return None
+    if guessed_type and not allowed_guessed:
         return None
 
     original_name = secure_filename(proof_file.filename)
