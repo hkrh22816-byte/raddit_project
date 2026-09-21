@@ -4,8 +4,11 @@ from flask_login import LoginManager, UserMixin, login_user, login_required, log
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 from flask import send_from_directory
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 import os
 import uuid
+from urllib.parse import urlparse
 
 
 app = Flask(__name__)
@@ -83,6 +86,48 @@ db = SQLAlchemy(app)
 login_manager = LoginManager()
 login_manager.login_view = 'auth_page'
 login_manager.init_app(app)
+
+# =========================
+# Rate Limiting
+# =========================
+limiter = Limiter(
+    key_func=get_remote_address,
+    app=app,
+    default_limits=[],
+    storage_uri="memory://"
+)
+
+
+# =========================
+# CSRF / Security Protection
+# =========================
+@app.before_request
+def protect_post_requests():
+    if request.method == 'POST':
+        source = request.headers.get('Origin') or request.headers.get('Referer')
+
+        if not source:
+            abort(403)
+
+        try:
+            source_host = urlparse(source).netloc.lower()
+        except ValueError:
+            abort(403)
+
+        if source_host != request.host.lower():
+            abort(403)
+
+
+@app.after_request
+def add_security_headers(response):
+    response.headers.setdefault('X-Content-Type-Options', 'nosniff')
+    response.headers.setdefault('X-Frame-Options', 'SAMEORIGIN')
+    response.headers.setdefault('Referrer-Policy', 'strict-origin-when-cross-origin')
+    response.headers.setdefault(
+        'Permissions-Policy',
+        'camera=(), microphone=(), geolocation=()'
+    )
+    return response
 
 
 # =========================
@@ -736,6 +781,7 @@ def home():
     '/auth',
     methods=['GET', 'POST']
 )
+@limiter.limit("10 per minute", methods=["POST"])
 def auth_page():
 
     if current_user.is_authenticated:
