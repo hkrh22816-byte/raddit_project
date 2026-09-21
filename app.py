@@ -135,6 +135,27 @@ def add_security_headers(response):
         'Permissions-Policy',
         'camera=(), microphone=(), geolocation=()'
     )
+    response.headers.setdefault(
+        'Strict-Transport-Security',
+        'max-age=31536000; includeSubDomains'
+    )
+    # CSP is intentionally permissive for inline CSS/JS because the current
+    # templates use inline styles and scripts. We can tighten this later by
+    # moving inline code to static files or adding nonces.
+    response.headers.setdefault(
+        'Content-Security-Policy',
+        "default-src 'self'; "
+        "base-uri 'self'; "
+        "form-action 'self'; "
+        "frame-ancestors 'self'; "
+        "object-src 'none'; "
+        "script-src 'self' 'unsafe-inline'; "
+        "style-src 'self' 'unsafe-inline'; "
+        "img-src 'self' data: blob:; "
+        "font-src 'self' data:; "
+        "media-src 'self' blob:; "
+        "connect-src 'self';"
+    )
     return response
 
 
