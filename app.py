@@ -3,6 +3,7 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
+from werkzeug.middleware.proxy_fix import ProxyFix
 from flask import send_from_directory
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
@@ -13,6 +14,15 @@ from urllib.parse import urlparse
 
 
 app = Flask(__name__)
+
+# Railway runs the app behind a reverse proxy.
+# Trust one proxy hop so Flask sees the original client IP/protocol/host.
+app.wsgi_app = ProxyFix(
+    app.wsgi_app,
+    x_for=1,
+    x_proto=1,
+    x_host=1
+)
 
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'rabbit-local-development-key')
 
