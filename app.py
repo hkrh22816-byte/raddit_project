@@ -40,6 +40,9 @@ else:
 app.config['SESSION_COOKIE_SECURE'] = True
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+app.config['SESSION_COOKIE_NAME'] = '__Host-rabbit_session'
+app.config['SESSION_COOKIE_PATH'] = '/'
+app.config['SESSION_COOKIE_DOMAIN'] = None
 app.config['PERMANENT_SESSION_LIFETIME'] = 60 * 60 * 12
 app.config['WTF_CSRF_TIME_LIMIT'] = 60 * 60 * 2
 
@@ -154,7 +157,7 @@ def protect_post_requests():
 @app.after_request
 def add_security_headers(response):
     response.headers.setdefault('X-Content-Type-Options', 'nosniff')
-    response.headers.setdefault('X-Frame-Options', 'SAMEORIGIN')
+    response.headers.setdefault('X-Frame-Options', 'DENY')
     response.headers.setdefault('Cross-Origin-Opener-Policy', 'same-origin')
     response.headers.setdefault('X-Permitted-Cross-Domain-Policies', 'none')
     response.headers.setdefault('Referrer-Policy', 'strict-origin-when-cross-origin')
@@ -164,7 +167,7 @@ def add_security_headers(response):
     )
     response.headers.setdefault(
         'Strict-Transport-Security',
-        'max-age=31536000; includeSubDomains'
+        'max-age=63072000; includeSubDomains'
     )
     # CSP is intentionally permissive for inline CSS/JS because the current
     # templates use inline styles and scripts. We can tighten this later by
@@ -183,6 +186,9 @@ def add_security_headers(response):
         "media-src 'self' blob:; "
         "connect-src 'self';"
     )
+    if current_user.is_authenticated:
+        response.headers.setdefault('Cache-Control', 'no-store, private')
+        response.headers.setdefault('Pragma', 'no-cache')
     return response
 
 
@@ -695,11 +701,11 @@ class CoursePayment(db.Model):
 
 @login_manager.user_loader
 def load_user(user_id):
-
-    return db.session.get(
-        User,
-        int(user_id)
-    )
+    try:
+        parsed_user_id = int(user_id)
+    except (TypeError, ValueError):
+        return None
+    return db.session.get(User, parsed_user_id)
 
 
 def admin_only():
