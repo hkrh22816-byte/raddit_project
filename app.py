@@ -306,6 +306,17 @@ class Service(db.Model):
     position = db.Column(db.Integer, default=1, nullable=False)
 
 
+class ServicePackage(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    service_id = db.Column(db.Integer, db.ForeignKey('service.id'), nullable=False)
+    label = db.Column(db.String(120), nullable=False)
+    quantity = db.Column(db.Integer, nullable=False)
+    price_iqd = db.Column(db.Integer, nullable=False)
+    position = db.Column(db.Integer, default=1, nullable=False)
+    is_active = db.Column(db.Boolean, default=True, nullable=False)
+    service = db.relationship('Service', backref=db.backref('packages', lazy=True, cascade='all, delete-orphan'))
+
+
 class StoreItem(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(160), nullable=False)
@@ -543,6 +554,9 @@ class ServiceOrder(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     service_id = db.Column(db.Integer, db.ForeignKey('service.id'), nullable=False)
     payment_method_id = db.Column(db.Integer, db.ForeignKey('payment_method.id'), nullable=False)
+    service_package_id = db.Column(db.Integer, db.ForeignKey('service_package.id'), nullable=True)
+    package_label = db.Column(db.String(120), default='')
+    amount = db.Column(db.String(60), default='')
     page_url = db.Column(db.Text, default='')
     details = db.Column(db.Text, default='')
     contact = db.Column(db.String(80), default='')
@@ -555,6 +569,7 @@ class ServiceOrder(db.Model):
     user = db.relationship('User', backref='service_orders')
     service = db.relationship('Service', backref='orders')
     payment_method = db.relationship('PaymentMethod', backref='service_orders')
+    service_package = db.relationship('ServicePackage', backref='orders')
 
 
 class CoursePayment(db.Model):
@@ -1007,6 +1022,18 @@ def seed_services_and_store():
                 price=item[4],
                 position=i
             ))
+    db.session.flush()
+
+    follower_packages = [
+        ('زيادة متابعين Instagram', [(1000, 2000), (5000, 8000), (10000, 15000)]),
+        ('زيادة متابعين TikTok', [(1000, 2000), (5000, 8000), (10000, 15000)])
+    ]
+    for service_title, packages in follower_packages:
+        service = Service.query.filter_by(title=service_title).first()
+        if service and ServicePackage.query.filter_by(service_id=service.id).count() == 0:
+            for pos, (quantity, price_iqd) in enumerate(packages, 1):
+                db.session.add(ServicePackage(service_id=service.id, label=f'{quantity:,} متابع', quantity=quantity, price_iqd=price_iqd, position=pos, is_active=True))
+
     db.session.commit()
 
 # =========================
@@ -1054,7 +1081,8 @@ def service_detail(service_id):
     payment_methods = PaymentMethod.query.filter_by(is_active=True).order_by(
         PaymentMethod.position.asc(), PaymentMethod.id.asc()
     ).all()
-    return render_template('service_detail.html', service=item, payment_methods=payment_methods)
+    packages = ServicePackage.query.filter_by(service_id=item.id, is_active=True).order_by(ServicePackage.position.asc(), ServicePackage.id.asc()).all()
+    return render_template('service_detail.html', service=item, payment_methods=payment_methods, packages=packages)
 
 
 @app.route('/services/<int:service_id>/buy', methods=['POST'])
@@ -1070,6 +1098,20 @@ def service_buy(service_id):
     contact = (request.form.get('contact') or '').strip()
     refund_account = (request.form.get('refund_account') or '').strip()
     transaction_id = (request.form.get('transaction_id') or '').strip()
+    package = None
+    package_label = ''
+    amount = item.price
+    if item.packages:
+        try:
+            package_id = int(request.form.get('package_id') or 0)
+        except ValueError:
+            package_id = 0
+        package = db.session.get(ServicePackage, package_id)
+        if not package or package.service_id != item.id or not package.is_active:
+            flash('اختر الباقة المطلوبة.', 'error')
+            return redirect(url_for('service_detail', service_id=service_id))
+        package_label = package.label
+        amount = f"{package.price_iqd:,} د.ع"
 
     try:
         payment_method_id = int(request.form.get('payment_method_id') or 0)
@@ -1098,6 +1140,9 @@ def service_buy(service_id):
         user_id=current_user.id,
         service_id=item.id,
         payment_method_id=method.id,
+        service_package_id=package.id if package else None,
+        package_label=package_label,
+        amount=amount,
         page_url=page_url,
         details=details,
         contact=contact,
@@ -1182,6 +1227,51 @@ def admin_service_edit(item_id):
         return redirect(url_for('admin_services'))
 
     return render_template('admin_service_edit.html', service=item)
+
+
+@app.route('/admin/service/<int:item_id>/package/new', methods=['POST'])
+@login_required
+def admin_service_package_new(item_id):
+    if not admin_only():
+        abort(403)
+    item = db.session.get(Service, item_id) or abort(404)
+    label = (request.form.get('label') or '').strip()
+    try:
+        quantity = max(1, int(request.form.get('quantity') or 0))
+        price_iqd = max(0, int(request.form.get('price_iqd') or 0))
+        position = max(1, int(request.form.get('position') or 1))
+    except ValueError:
+        flash('العدد والسعر يجب أن يكونا أرقاماً.', 'error')
+        return redirect(url_for('admin_service_edit', item_id=item.id))
+    if not label:
+        label = f'{quantity:,} متابع'
+    db.session.add(ServicePackage(service_id=item.id, label=label[:120], quantity=quantity, price_iqd=price_iqd, position=position, is_active=True))
+    db.session.commit()
+    flash('تمت إضافة الباقة.', 'success')
+    return redirect(url_for('admin_service_edit', item_id=item.id))
+
+
+@app.route('/admin/service/package/<int:package_id>/edit', methods=['POST'])
+@login_required
+def admin_service_package_edit(package_id):
+    if not admin_only():
+        abort(403)
+    package = db.session.get(ServicePackage, package_id) or abort(404)
+    try:
+        quantity = max(1, int(request.form.get('quantity') or package.quantity))
+        price_iqd = max(0, int(request.form.get('price_iqd') or package.price_iqd))
+        position = max(1, int(request.form.get('position') or package.position))
+    except ValueError:
+        flash('العدد والسعر يجب أن يكونا أرقاماً.', 'error')
+        return redirect(url_for('admin_service_edit', item_id=package.service_id))
+    package.label = ((request.form.get('label') or f'{quantity:,} متابع').strip())[:120]
+    package.quantity = quantity
+    package.price_iqd = price_iqd
+    package.position = position
+    package.is_active = bool(request.form.get('is_active'))
+    db.session.commit()
+    flash('تم تحديث الباقة.', 'success')
+    return redirect(url_for('admin_service_edit', item_id=package.service_id))
 
 
 @app.route('/admin/service/<int:item_id>/toggle', methods=['POST'])
