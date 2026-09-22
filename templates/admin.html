@@ -262,12 +262,10 @@ th{
             الموقع
         </a>
 
-        <a
-            class="btn btn2"
-            href="{{ url_for('logout') }}"
-        >
-            تسجيل الخروج
-        </a>
+        <form method="post" action="{{ url_for('logout') }}" style="display:inline;margin:0;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn btn2" type="submit">تسجيل الخروج</button>
+        </form>
 
     </div>
 
