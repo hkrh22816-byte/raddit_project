@@ -990,7 +990,25 @@ def home():
 @app.route('/services')
 def services():
     items = Service.query.filter_by(is_active=True).order_by(Service.position.asc(), Service.id.asc()).all()
-    return render_template('services.html', services=items)
+    categories = []
+    for item in items:
+        category = (item.category or 'خدمات أخرى').strip()
+        group = next((entry for entry in categories if entry['name'] == category), None)
+        if group is None:
+            group = {'name': category, 'services': []}
+            categories.append(group)
+        group['services'].append(item)
+    return render_template('services.html', services=items, categories=categories)
+
+
+@app.route('/services/category/<path:category>')
+def service_category(category):
+    items = Service.query.filter_by(is_active=True, category=category).order_by(
+        Service.position.asc(), Service.id.asc()
+    ).all()
+    if not items:
+        abort(404)
+    return render_template('service_category.html', category=category, services=items)
 
 
 @app.route('/services/<int:service_id>')
@@ -1079,6 +1097,10 @@ def admin_service_new():
     if not admin_only():
         abort(403)
     title=(request.form.get('title') or '').strip()
+    try:
+        position = max(1, int(request.form.get('position') or 1))
+    except ValueError:
+        position = 1
     if not title:
         flash('اسم الخدمة مطلوب.', 'error')
         return redirect(url_for('admin_services'))
@@ -1088,7 +1110,7 @@ def admin_service_new():
         short_description=(request.form.get('short_description') or '').strip(),
         description=(request.form.get('description') or '').strip(),
         price=(request.form.get('price') or 'حسب الطلب').strip(),
-        position=int(request.form.get('position') or 1),
+        position=position,
         is_active=bool(request.form.get('is_active'))
     ))
     db.session.commit()
