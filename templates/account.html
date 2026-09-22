@@ -48,9 +48,9 @@ nav{display:flex;justify-content:space-between;align-items:center;gap:15px;margi
 <div class="dashboard">
   <section class="box">
     <div class="box-label">RABBIT BALANCE</div>
-    <div class="balance">${{ balance }}</div>
+    <div class="balance">{{ balance }}</div>
     <div class="muted">رصيد حساب Rabbit</div>
-    <span class="soon">إضافة رصيد — قريباً</span>
+    <a class="btn primary" style="display:inline-block;margin-top:14px" href="{{ url_for('wallet_top_up') }}">إضافة رصيد</a>
   </section>
   <section class="box">
     <div class="box-label">MY CARDS</div>
