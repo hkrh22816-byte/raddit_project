@@ -1257,7 +1257,9 @@ def service_buy_wallet(service_id):
     if not page_url or not contact or len(page_url) > 1000 or len(details) > 3000 or len(contact) > 80:
         flash('أكمل رابط الحساب أو المشروع وبيانات التواصل.', 'error')
         return redirect(url_for('service_detail', service_id=service_id))
+    db.session.execute(sql_text('SELECT id FROM "user" WHERE id = :uid FOR UPDATE'), {'uid': current_user.id})
     if wallet_balance_iqd(current_user.id) < amount_iqd:
+        db.session.rollback()
         flash('رصيدك غير كافي. أضف رصيداً ثم أعد المحاولة.', 'error')
         return redirect(url_for('service_detail', service_id=service_id))
     order = ServiceOrder(user_id=current_user.id, service_id=item.id,
@@ -1304,7 +1306,9 @@ def store_buy_wallet(item_id):
     if not contact or len(contact) > 80 or len(details) > 2000:
         flash('أدخل وسيلة تواصل صحيحة.', 'error')
         return redirect(url_for('store_detail', item_id=item.id))
+    db.session.execute(sql_text('SELECT id FROM "user" WHERE id = :uid FOR UPDATE'), {'uid': current_user.id})
     if wallet_balance_iqd(current_user.id) < amount_iqd:
+        db.session.rollback()
         flash('رصيدك غير كافي. أضف رصيداً ثم أعد المحاولة.', 'error')
         return redirect(url_for('store_detail', item_id=item.id))
     order = StoreOrder(user_id=current_user.id, store_item_id=item.id, amount_iqd=amount_iqd,
