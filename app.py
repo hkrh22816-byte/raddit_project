@@ -3210,6 +3210,26 @@ def admin_accounting():
         daily=sorted(daily.items()), transactions=transactions)
 
 
+@app.route('/admin/launch-check')
+@login_required
+def admin_launch_check():
+    if not admin_only():
+        abort(403)
+    courses = Course.query.filter_by(is_published=True).all()
+    services = Service.query.filter_by(is_active=True).all()
+    store_items = StoreItem.query.filter_by(is_active=True).all()
+    methods = PaymentMethod.query.filter_by(is_active=True).all()
+    checks = [
+        ('طرق الدفع', bool(methods), f'{len(methods)} طريقة مفعلة' if methods else 'أضف طريقة دفع واحدة على الأقل'),
+        ('الكورسات المنشورة', bool(courses), f'{len(courses)} كورس منشور' if courses else 'لا يوجد كورس منشور'),
+        ('الفيديو التجريبي', any(any(l.is_preview and l.video_url for l in c.lessons) for c in courses),
+         'يوجد فيديو تجريبي في كورس منشور' if any(any(l.is_preview and l.video_url for l in c.lessons) for c in courses) else 'أضف فيديو تجريبي قبل الإطلاق'),
+        ('الخدمات', bool(services), f'{len(services)} خدمة ظاهرة' if services else 'لا توجد خدمات ظاهرة'),
+        ('المتجر', bool(store_items), f'{len(store_items)} عرض ظاهر' if store_items else 'أضف عروض المتجر عند الجاهزية'),
+    ]
+    return render_template('admin_launch_check.html', checks=checks)
+
+
 # =========================
 # Admin Payment Methods
 # =========================
