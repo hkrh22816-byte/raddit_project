@@ -1,4 +1,4 @@
-from flask import Flask, render_template, redirect, url_for, request, flash, abort
+from flask import Flask, render_template, redirect, url_for, request, flash, abort, session
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -11,6 +11,12 @@ from flask_wtf.csrf import CSRFProtect
 import os
 import uuid
 import mimetypes
+import re
+import secrets
+import json
+import urllib.request
+import urllib.error
+from datetime import datetime, timedelta
 from urllib.parse import urlparse
 
 
@@ -199,10 +205,40 @@ class User(UserMixin, db.Model):
         nullable=False
     )
 
+    full_name = db.Column(
+        db.String(120),
+        nullable=True
+    )
+
+    email = db.Column(
+        db.String(254),
+        unique=True,
+        nullable=True
+    )
+
+    phone = db.Column(
+        db.String(20),
+        unique=True,
+        nullable=True
+    )
+
+    email_verified = db.Column(
+        db.Boolean,
+        default=False,
+        nullable=False
+    )
+
+    phone_verified = db.Column(
+        db.Boolean,
+        default=False,
+        nullable=False
+    )
+
+    # Legacy contact field kept temporarily so old accounts keep working.
     email_or_phone = db.Column(
         db.String(100),
         unique=True,
-        nullable=False
+        nullable=True
     )
 
     password = db.Column(
@@ -218,6 +254,45 @@ class User(UserMixin, db.Model):
     is_admin = db.Column(
         db.Boolean,
         default=False
+    )
+
+
+class PasswordResetOTP(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+
+    user_id = db.Column(
+        db.Integer,
+        db.ForeignKey('user.id'),
+        nullable=False,
+        index=True
+    )
+
+    code_hash = db.Column(
+        db.String(255),
+        nullable=False
+    )
+
+    expires_at = db.Column(
+        db.DateTime,
+        nullable=False
+    )
+
+    attempts = db.Column(
+        db.Integer,
+        default=0,
+        nullable=False
+    )
+
+    used = db.Column(
+        db.Boolean,
+        default=False,
+        nullable=False
+    )
+
+    created_at = db.Column(
+        db.DateTime,
+        default=datetime.utcnow,
+        nullable=False
     )
 
 
@@ -845,6 +920,467 @@ def home():
 
 
 # =========================
+# Account validation helpers
+# =========================
+
+USERNAME_RE = re.compile(r'^[A-Za-z0-9._]{3,30}$')
+EMAIL_RE = re.compile(
+    r"^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@"
+    r"[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?"
+    r"(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)+$"
+)
+
+
+def normalize_username(value):
+    return (value or '').strip().lower()
+
+
+def normalize_email(value):
+    return (value or '').strip().lower()
+
+
+def normalize_iraqi_phone(value):
+    value = re.sub(r'[\s\-\(\)]', '', (value or '').strip())
+
+    if value.startswith('00964'):
+        value = '+' + value[2:]
+    elif value.startswith('964'):
+        value = '+' + value
+    elif value.startswith('07') and len(value) == 11:
+        value = '+964' + value[1:]
+
+    if re.fullmatch(r'\+9647\d{9}', value):
+        return value
+
+    return None
+
+
+def valid_username(value):
+    return bool(USERNAME_RE.fullmatch(value or ''))
+
+
+def valid_email(value):
+    return bool(
+        value
+        and len(value) <= 254
+        and EMAIL_RE.fullmatch(value)
+    )
+
+
+def valid_password(value):
+    return (
+        len(value or '') >= 8
+        and bool(re.search(r'[A-Za-z]', value))
+        and bool(re.search(r'\d', value))
+    )
+
+
+# =========================
+# Password recovery
+# =========================
+
+RESET_OTP_MINUTES = 10
+RESET_OTP_MAX_ATTEMPTS = 5
+
+
+def find_user_by_recovery_identifier(identifier):
+    raw = (identifier or '').strip()
+    email = normalize_email(raw)
+    phone = normalize_iraqi_phone(raw)
+
+    if valid_email(email):
+        user = User.query.filter(
+            db.func.lower(User.email) == email
+        ).first()
+        if user:
+            return user
+
+        # Backward compatibility for old accounts.
+        return User.query.filter(
+            db.func.lower(User.email_or_phone) == email
+        ).first()
+
+    if phone:
+        user = User.query.filter_by(
+            phone=phone
+        ).first()
+        if user:
+            return user
+
+        return User.query.filter_by(
+            email_or_phone=phone
+        ).first()
+
+    return None
+
+
+def deliver_password_reset_code(user, code):
+    """
+    Deliver a password-reset OTP.
+
+    Local development keeps the existing flash-based test flow.
+    On Railway, the code is sent through Resend using environment variables
+    only; the API key is never stored in the source code.
+    """
+    if not os.environ.get('RAILWAY_ENVIRONMENT'):
+        flash(
+            f'LOCAL TEST OTP: {code}',
+            'message'
+        )
+        return True
+
+    api_key = (os.environ.get('RESEND_API_KEY') or '').strip()
+    from_email = (
+        os.environ.get('RESEND_FROM_EMAIL')
+        or 'Rabbit Security <security@rabbitrq.com>'
+    ).strip()
+
+    recipient = normalize_email(user.email)
+
+    # Backward compatibility for an old account whose email still lives only
+    # in the legacy contact field.
+    if not valid_email(recipient):
+        legacy_email = normalize_email(user.email_or_phone)
+        recipient = legacy_email if valid_email(legacy_email) else ''
+
+    if not api_key or not recipient:
+        app.logger.error(
+            'Password reset email could not be sent: missing Resend config '
+            'or recipient email for user_id=%s.',
+            user.id
+        )
+        return False
+
+    payload = {
+        'from': from_email,
+        'to': [recipient],
+        'subject': 'رمز استرجاع كلمة المرور - RABBIT',
+        'html': (
+            '<div dir="rtl" style="font-family:Arial,sans-serif;line-height:1.8">'
+            '<h2>RABBIT</h2>'
+            '<p>رمز التحقق لاسترجاع كلمة المرور هو:</p>'
+            f'<p style="font-size:30px;font-weight:700;letter-spacing:6px">{code}</p>'
+            f'<p>ينتهي هذا الرمز خلال {RESET_OTP_MINUTES} دقائق.</p>'
+            '<p>إذا لم تطلب تغيير كلمة المرور، تجاهل هذه الرسالة.</p>'
+            '</div>'
+        ),
+        'text': (
+            f'RABBIT\n\nرمز التحقق لاسترجاع كلمة المرور: {code}\n'
+            f'ينتهي الرمز خلال {RESET_OTP_MINUTES} دقائق.\n'
+            'إذا لم تطلب تغيير كلمة المرور، تجاهل هذه الرسالة.'
+        )
+    }
+
+    req = urllib.request.Request(
+        'https://api.resend.com/emails',
+        data=json.dumps(payload).encode('utf-8'),
+        headers={
+            'Authorization': f'Bearer {api_key}',
+            'Content-Type': 'application/json',
+            'User-Agent': 'Rabbit-Password-Recovery/1.0',
+        },
+        method='POST'
+    )
+
+    try:
+        with urllib.request.urlopen(req, timeout=10) as response:
+            return 200 <= response.status < 300
+    except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError) as exc:
+        # Never log the OTP or API key.
+        app.logger.error(
+            'Resend password reset delivery failed for user_id=%s: %s',
+            user.id,
+            type(exc).__name__
+        )
+        return False
+
+
+@app.route(
+    '/forgot-password',
+    methods=['GET', 'POST']
+)
+@limiter.limit("5 per hour", methods=["POST"])
+def forgot_password():
+
+    if request.method == 'POST':
+
+        identifier = (
+            request.form.get('identifier')
+            or ''
+        ).strip()
+
+        user = find_user_by_recovery_identifier(
+            identifier
+        )
+
+        if user:
+            # Invalidate previous unused reset codes for this account.
+            PasswordResetOTP.query.filter_by(
+                user_id=user.id,
+                used=False
+            ).update(
+                {'used': True}
+            )
+
+            code = f'{secrets.randbelow(1000000):06d}'
+
+            reset = PasswordResetOTP(
+                user_id=user.id,
+                code_hash=generate_password_hash(
+                    code
+                ),
+                expires_at=(
+                    datetime.utcnow()
+                    + timedelta(
+                        minutes=RESET_OTP_MINUTES
+                    )
+                )
+            )
+
+            db.session.add(reset)
+            db.session.commit()
+
+            deliver_password_reset_code(
+                user,
+                code
+            )
+
+        # Generic response prevents account enumeration.
+        flash(
+            'إذا كانت البيانات مرتبطة بحساب، تم تجهيز رمز التحقق.',
+            'success'
+        )
+
+        session['reset_identifier'] = identifier
+
+        return redirect(
+            url_for('verify_reset_code')
+        )
+
+    return render_template(
+        'forgot_password.html'
+    )
+
+
+@app.route(
+    '/verify-reset-code',
+    methods=['GET', 'POST']
+)
+@limiter.limit("10 per minute", methods=["POST"])
+def verify_reset_code():
+
+    identifier = session.get(
+        'reset_identifier'
+    )
+
+    if not identifier:
+        return redirect(
+            url_for('forgot_password')
+        )
+
+    if request.method == 'POST':
+
+        code = (
+            request.form.get('code')
+            or ''
+        ).strip()
+
+        user = find_user_by_recovery_identifier(
+            identifier
+        )
+
+        reset = None
+
+        if user:
+            reset = PasswordResetOTP.query.filter_by(
+                user_id=user.id,
+                used=False
+            ).order_by(
+                PasswordResetOTP.id.desc()
+            ).first()
+
+        valid = (
+            reset
+            and reset.expires_at >= datetime.utcnow()
+            and reset.attempts < RESET_OTP_MAX_ATTEMPTS
+            and re.fullmatch(r'\d{6}', code)
+            and check_password_hash(
+                reset.code_hash,
+                code
+            )
+        )
+
+        if not valid:
+
+            if reset:
+                reset.attempts += 1
+
+                if (
+                    reset.attempts
+                    >= RESET_OTP_MAX_ATTEMPTS
+                ):
+                    reset.used = True
+
+                db.session.commit()
+
+            flash(
+                'رمز التحقق غير صحيح أو منتهي الصلاحية.',
+                'error'
+            )
+
+            return redirect(
+                url_for('verify_reset_code')
+            )
+
+        reset.used = True
+        db.session.commit()
+
+        session.pop(
+            'reset_identifier',
+            None
+        )
+
+        session['password_reset_user_id'] = user.id
+        session['password_reset_authorized_at'] = (
+            datetime.utcnow().isoformat()
+        )
+
+        return redirect(
+            url_for('reset_password')
+        )
+
+    return render_template(
+        'verify_reset_code.html'
+    )
+
+
+@app.route(
+    '/reset-password',
+    methods=['GET', 'POST']
+)
+@limiter.limit("10 per minute", methods=["POST"])
+def reset_password():
+
+    user_id = session.get(
+        'password_reset_user_id'
+    )
+
+    authorized_at_raw = session.get(
+        'password_reset_authorized_at'
+    )
+
+    if not user_id or not authorized_at_raw:
+        return redirect(
+            url_for('forgot_password')
+        )
+
+    try:
+        authorized_at = datetime.fromisoformat(
+            authorized_at_raw
+        )
+    except ValueError:
+        session.pop(
+            'password_reset_user_id',
+            None
+        )
+        session.pop(
+            'password_reset_authorized_at',
+            None
+        )
+        return redirect(
+            url_for('forgot_password')
+        )
+
+    if (
+        datetime.utcnow() - authorized_at
+        > timedelta(minutes=10)
+    ):
+        session.pop(
+            'password_reset_user_id',
+            None
+        )
+        session.pop(
+            'password_reset_authorized_at',
+            None
+        )
+
+        flash(
+            'انتهت صلاحية جلسة الاسترجاع. اطلب رمزاً جديداً.',
+            'error'
+        )
+
+        return redirect(
+            url_for('forgot_password')
+        )
+
+    user = db.session.get(
+        User,
+        user_id
+    )
+
+    if not user:
+        abort(404)
+
+    if request.method == 'POST':
+
+        password = (
+            request.form.get('password')
+            or ''
+        )
+
+        confirm_password = (
+            request.form.get('confirm_password')
+            or ''
+        )
+
+        if password != confirm_password:
+            flash(
+                'كلمتا المرور غير متطابقتين.',
+                'error'
+            )
+            return redirect(
+                url_for('reset_password')
+            )
+
+        if not valid_password(password):
+            flash(
+                'كلمة المرور يجب أن تكون 8 خانات على الأقل وتحتوي حرفاً إنجليزياً ورقماً.',
+                'error'
+            )
+            return redirect(
+                url_for('reset_password')
+            )
+
+        user.password = generate_password_hash(
+            password
+        )
+
+        db.session.commit()
+
+        session.pop(
+            'password_reset_user_id',
+            None
+        )
+        session.pop(
+            'password_reset_authorized_at',
+            None
+        )
+
+        flash(
+            'تم تغيير كلمة المرور. سجل دخولك بكلمة المرور الجديدة.',
+            'success'
+        )
+
+        return redirect(
+            url_for('auth_page')
+        )
+
+    return render_template(
+        'reset_password.html'
+    )
+
+
+# =========================
 # Login / Register
 # =========================
 
@@ -866,81 +1402,147 @@ def auth_page():
             'action'
         )
 
-        username = (
-            request.form.get(
-                'username'
-            )
-            or ''
-        ).strip()
-
-        email_or_phone = (
-            request.form.get(
-                'email_or_phone'
-            )
-            or ''
-        ).strip()
+        username = normalize_username(
+            request.form.get('username')
+        )
 
         password = (
-            request.form.get(
-                'password'
-            )
+            request.form.get('password')
             or ''
         )
 
         if action == 'register':
 
-            if (
-                not username
-                or not email_or_phone
-                or len(password) < 6
-            ):
+            full_name = (
+                request.form.get('full_name')
+                or ''
+            ).strip()
 
+            email = normalize_email(
+                request.form.get('email')
+            )
+
+            phone = normalize_iraqi_phone(
+                request.form.get('phone')
+            )
+
+            if full_name and len(full_name) > 120:
                 flash(
-                    'أكمل البيانات، وكلمة المرور يجب أن تكون 6 أحرف على الأقل.',
+                    'الاسم طويل جداً.',
                     'error'
                 )
-
                 return redirect(
                     url_for('auth_page')
                 )
 
-            existing = User.query.filter(
-                (User.username == username)
-                |
-                (
-                    User.email_or_phone
-                    == email_or_phone
-                )
-            ).first()
-
-            if existing:
-
+            if not valid_username(username):
                 flash(
-                    'اسم المستخدم أو الرقم/الإيميل مسجل مسبقاً!',
+                    'اسم المستخدم يجب أن يكون من 3 إلى 30 خانة، وبالأحرف الإنجليزية والأرقام والنقطة والشرطة السفلية فقط.',
                     'error'
                 )
+                return redirect(
+                    url_for('auth_page')
+                )
 
+            if not valid_email(email):
+                flash(
+                    'اكتب بريداً إلكترونياً صحيحاً.',
+                    'error'
+                )
+                return redirect(
+                    url_for('auth_page')
+                )
+
+            if not phone:
+                flash(
+                    'اكتب رقم موبايل عراقي صحيح، مثال: 07XXXXXXXXX.',
+                    'error'
+                )
+                return redirect(
+                    url_for('auth_page')
+                )
+
+            if not valid_password(password):
+                flash(
+                    'كلمة المرور يجب أن تكون 8 خانات على الأقل وتحتوي حرفاً إنجليزياً ورقماً.',
+                    'error'
+                )
+                return redirect(
+                    url_for('auth_page')
+                )
+
+            if User.query.filter(
+                db.func.lower(User.username)
+                == username
+            ).first():
+                flash(
+                    'اسم المستخدم مستخدم مسبقاً.',
+                    'error'
+                )
+                return redirect(
+                    url_for('auth_page')
+                )
+
+            if User.query.filter(
+                db.func.lower(User.email)
+                == email
+            ).first():
+                flash(
+                    'البريد الإلكتروني مستخدم مسبقاً.',
+                    'error'
+                )
+                return redirect(
+                    url_for('auth_page')
+                )
+
+            if User.query.filter_by(
+                phone=phone
+            ).first():
+                flash(
+                    'رقم الهاتف مستخدم مسبقاً.',
+                    'error'
+                )
+                return redirect(
+                    url_for('auth_page')
+                )
+
+            # Protect against duplicate contacts still stored in old accounts.
+            legacy_contact = User.query.filter(
+                (db.func.lower(User.email_or_phone) == email)
+                | (User.email_or_phone == phone)
+            ).first()
+
+            if legacy_contact:
+                flash(
+                    'البريد الإلكتروني أو رقم الهاتف مستخدم مسبقاً.',
+                    'error'
+                )
                 return redirect(
                     url_for('auth_page')
                 )
 
             user = User(
                 username=username,
-                email_or_phone=email_or_phone,
+                full_name=full_name or None,
+                email=email,
+                phone=phone,
+                email_or_phone=email,
                 password=generate_password_hash(
                     password
                 ),
+                email_verified=False,
+                phone_verified=False,
                 is_admin=False
             )
 
-            db.session.add(
-                user
-            )
-
+            db.session.add(user)
             db.session.commit()
 
-            login_user(
-                user
+            login_user(user)
+
+            flash(
+                'تم إنشاء الحساب بنجاح.',
+                'success'
             )
 
             return redirect(
@@ -949,22 +1551,18 @@ def auth_page():
 
         elif action == 'login':
 
-            if (
-                not username
-                or not password
-            ):
-
+            if not username or not password:
                 flash(
                     'أدخل اسم المستخدم وكلمة المرور.',
                     'error'
                 )
-
                 return redirect(
                     url_for('auth_page')
                 )
 
-            user = User.query.filter_by(
-                username=username
+            user = User.query.filter(
+                db.func.lower(User.username)
+                == username
             ).first()
 
             if (
@@ -974,10 +1572,7 @@ def auth_page():
                     password
                 )
             ):
-
-                login_user(
-                    user
-                )
+                login_user(user)
 
                 return redirect(
                     url_for('home')
@@ -992,16 +1587,14 @@ def auth_page():
                 url_for('auth_page')
             )
 
-        else:
+        flash(
+            'حدث خطأ في الطلب، حاول مرة أخرى.',
+            'error'
+        )
 
-            flash(
-                'حدث خطأ في الطلب، حاول مرة أخرى.',
-                'error'
-            )
-
-            return redirect(
-                url_for('auth_page')
-            )
+        return redirect(
+            url_for('auth_page')
+        )
 
     return render_template(
         'login.html'
@@ -2113,6 +2706,53 @@ def logout():
 # =========================
 
 with app.app_context():
+    # Add new account fields to an existing database without deleting users.
+    from sqlalchemy import inspect, text as sql_text
+
+    inspector = inspect(db.engine)
+
+    if 'user' in inspector.get_table_names():
+
+        existing_columns = {
+            column['name']
+            for column
+            in inspector.get_columns('user')
+        }
+
+        account_columns = {
+            'full_name': 'VARCHAR(120)',
+            'email': 'VARCHAR(254)',
+            'phone': 'VARCHAR(20)',
+            'email_verified': 'BOOLEAN NOT NULL DEFAULT FALSE',
+            'phone_verified': 'BOOLEAN NOT NULL DEFAULT FALSE',
+        }
+
+        with db.engine.begin() as connection:
+
+            for column_name, column_type in account_columns.items():
+
+                if column_name not in existing_columns:
+                    connection.execute(
+                        sql_text(
+                            f'ALTER TABLE "user" '
+                            f'ADD COLUMN {column_name} {column_type}'
+                        )
+                    )
+
+            connection.execute(
+                sql_text(
+                    'CREATE UNIQUE INDEX IF NOT EXISTS '
+                    'ix_user_email_unique ON "user" (email)'
+                )
+            )
+
+            connection.execute(
+                sql_text(
+                    'CREATE UNIQUE INDEX IF NOT EXISTS '
+                    'ix_user_phone_unique ON "user" (phone)'
+                )
+            )
+
     db.create_all()
     seed_courses()
 
