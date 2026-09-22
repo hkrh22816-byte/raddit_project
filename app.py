@@ -13,9 +13,7 @@ import uuid
 import mimetypes
 import re
 import secrets
-import json
-import urllib.request
-import urllib.error
+import resend
 from datetime import datetime, timedelta
 from urllib.parse import urlparse
 
@@ -1019,8 +1017,8 @@ def deliver_password_reset_code(user, code):
     Deliver a password-reset OTP.
 
     Local development keeps the existing flash-based test flow.
-    On Railway, the code is sent through Resend using environment variables
-    only; the API key is never stored in the source code.
+    On Railway, delivery uses Resend's official Python SDK and environment
+    variables only. The API key and OTP are never written to application logs.
     """
     if not os.environ.get('RAILWAY_ENVIRONMENT'):
         flash(
@@ -1051,7 +1049,9 @@ def deliver_password_reset_code(user, code):
         )
         return False
 
-    payload = {
+    resend.api_key = api_key
+
+    params = {
         'from': from_email,
         'to': [recipient],
         'subject': 'رمز استرجاع كلمة المرور - RABBIT',
@@ -1071,22 +1071,11 @@ def deliver_password_reset_code(user, code):
         )
     }
 
-    req = urllib.request.Request(
-        'https://api.resend.com/emails',
-        data=json.dumps(payload).encode('utf-8'),
-        headers={
-            'Authorization': f'Bearer {api_key}',
-            'Content-Type': 'application/json',
-            'User-Agent': 'Rabbit-Password-Recovery/1.0',
-        },
-        method='POST'
-    )
-
     try:
-        with urllib.request.urlopen(req, timeout=10) as response:
-            return 200 <= response.status < 300
-    except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError) as exc:
-        # Never log the OTP or API key.
+        resend.Emails.send(params)
+        return True
+    except Exception as exc:
+        # Never log the OTP, API key, recipient address, or provider body.
         app.logger.error(
             'Resend password reset delivery failed for user_id=%s: %s',
             user.id,
