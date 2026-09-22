@@ -3303,6 +3303,30 @@ with app.app_context():
             )
 
     db.create_all()
+
+    # Keep ServiceOrder compatible with production databases created before
+    # follower packages and price snapshots were introduced.
+    inspector = inspect(db.engine)
+    if 'service_order' in inspector.get_table_names():
+        service_order_columns = {
+            column['name']
+            for column in inspector.get_columns('service_order')
+        }
+        service_order_additions = {
+            'service_package_id': 'INTEGER',
+            'package_label': "VARCHAR(120) DEFAULT ''",
+            'amount': "VARCHAR(60) DEFAULT ''",
+        }
+        with db.engine.begin() as connection:
+            for column_name, column_type in service_order_additions.items():
+                if column_name not in service_order_columns:
+                    connection.execute(
+                        sql_text(
+                            f'ALTER TABLE service_order '
+                            f'ADD COLUMN {column_name} {column_type}'
+                        )
+                    )
+
     seed_courses()
     seed_services_and_store()
 
