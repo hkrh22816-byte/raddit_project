@@ -1022,6 +1022,18 @@ def seed_services_and_store():
                 price=item[4],
                 position=i
             ))
+    db.session.flush()
+
+    follower_packages = [
+        ('زيادة متابعين Instagram', [(1000, 2000), (5000, 8000), (10000, 15000)]),
+        ('زيادة متابعين TikTok', [(1000, 2000), (5000, 8000), (10000, 15000)])
+    ]
+    for service_title, packages in follower_packages:
+        service = Service.query.filter_by(title=service_title).first()
+        if service and ServicePackage.query.filter_by(service_id=service.id).count() == 0:
+            for pos, (quantity, price_iqd) in enumerate(packages, 1):
+                db.session.add(ServicePackage(service_id=service.id, label=f'{quantity:,} متابع', quantity=quantity, price_iqd=price_iqd, position=pos, is_active=True))
+
     db.session.commit()
 
 # =========================
