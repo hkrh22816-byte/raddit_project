@@ -969,14 +969,45 @@ STORE_SEED = [
 
 
 def seed_services_and_store():
-    if Service.query.count() == 0:
-        for i, item in enumerate(SERVICE_SEED, 1):
-            db.session.add(Service(title=item[0], category=item[1], short_description=item[2], description=item[3], price=item[4], position=i))
+    # Keep the production catalog synchronized by service title.
+    # Existing rows are updated instead of duplicated, while new seed services are added.
+    seed_titles = set()
+    for position, item in enumerate(SERVICE_SEED, 1):
+        title, category, short_description, description, price = item
+        seed_titles.add(title)
+        service = Service.query.filter_by(title=title).first()
+        if service is None:
+            service = Service(title=title)
+            db.session.add(service)
+        service.category = category
+        service.short_description = short_description
+        service.description = description
+        service.price = price
+        service.position = position
+        service.is_active = True
+
+    # Retire the original placeholder entries that were replaced by the structured catalog.
+    retired_titles = {
+        'مونتاج الفيديو والريلز',
+        'التصوير والإنتاج الإعلاني',
+        'إدارة الحملات الإعلانية',
+        'تنمية الجمهور والمتابعين'
+    }
+    for service in Service.query.filter(Service.title.in_(retired_titles)).all():
+        if service.title not in seed_titles:
+            service.is_active = False
+
     if StoreItem.query.count() == 0:
         for i, item in enumerate(STORE_SEED, 1):
-            db.session.add(StoreItem(title=item[0], category=item[1], short_description=item[2], description=item[3], price=item[4], position=i))
+            db.session.add(StoreItem(
+                title=item[0],
+                category=item[1],
+                short_description=item[2],
+                description=item[3],
+                price=item[4],
+                position=i
+            ))
     db.session.commit()
-
 
 # =========================
 # Home
