@@ -2613,8 +2613,8 @@ def course_buy_wallet(course_id):
         amount_iqd=-amount_iqd, reference_type='course', reference_id=c.id,
         note=f'شراء كورس: {c.title}'[:250]))
     db.session.commit()
-    flash('تم شراء الكورس من رصيد Rabbit وتفعيله مباشرة.', 'success')
-    return redirect(url_for('course_detail', course_id=c.id))
+    flash('تم شراء الكورس وتفعيله. دخلناك مباشرة إلى منطقة الدراسة.', 'success')
+    return redirect(url_for('learning_hub'))
 
 
 # =========================
