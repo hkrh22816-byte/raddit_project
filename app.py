@@ -1351,21 +1351,25 @@ def admin_store_order_action(order_id, action):
     if not admin_only():
         abort(403)
     order = db.session.get(StoreOrder, order_id) or abort(404)
-    if action not in {'approve', 'reject', 'complete'}:
-        abort(404)
-    if order.status not in {'pending', 'approved'}:
-        flash('هذا الطلب تمت معالجته مسبقاً.', 'error')
+    transitions = {
+        'pending': {'approve': 'approved', 'reject': 'rejected'},
+        'approved': {'complete': 'completed', 'reject': 'rejected'},
+    }
+    next_status = transitions.get(order.status, {}).get(action)
+    if not next_status:
+        flash('هذا الانتقال غير مسموح أو الطلب تمت معالجته مسبقاً.', 'error')
         return redirect(url_for('admin_store_orders'))
     note = (request.form.get('admin_note') or '').strip()[:250]
     if action == 'reject':
-        order.status = 'rejected'
-        db.session.add(WalletTransaction(user_id=order.user_id, transaction_type='refund',
-            amount_iqd=order.amount_iqd, reference_type='store_order_refund', reference_id=order.id,
-            note=f'استرجاع مبلغ طلب متجر #{order.id}'))
-    elif action == 'approve':
-        order.status = 'approved'
-    else:
-        order.status = 'completed'
+        existing_refund = WalletTransaction.query.filter_by(
+            user_id=order.user_id, transaction_type='refund',
+            reference_type='store_order_refund', reference_id=order.id
+        ).first()
+        if not existing_refund:
+            db.session.add(WalletTransaction(user_id=order.user_id, transaction_type='refund',
+                amount_iqd=order.amount_iqd, reference_type='store_order_refund', reference_id=order.id,
+                note=f'استرجاع مبلغ طلب متجر #{order.id}'))
+    order.status = next_status
     order.admin_note = note
     db.session.commit()
     flash('تم تحديث طلب المتجر.', 'success')
@@ -1531,6 +1535,39 @@ def admin_store_new():
     db.session.commit()
     flash('تمت إضافة العرض للمتجر.', 'success')
     return redirect(url_for('admin_store'))
+
+
+@app.route('/admin/store/<int:item_id>/edit', methods=['GET', 'POST'])
+@login_required
+def admin_store_edit(item_id):
+    if not admin_only():
+        abort(403)
+    item = db.session.get(StoreItem, item_id) or abort(404)
+    if request.method == 'POST':
+        title = (request.form.get('title') or '').strip()
+        if not title:
+            flash('اسم العرض مطلوب.', 'error')
+            return redirect(url_for('admin_store_edit', item_id=item.id))
+        try:
+            position = max(1, int(request.form.get('position') or 1))
+        except ValueError:
+            position = 1
+        stock_status = (request.form.get('stock_status') or 'available').strip()
+        if stock_status not in {'available', 'sold'}:
+            stock_status = 'available'
+        item.title = title
+        item.category = (request.form.get('category') or 'منتج رقمي').strip()
+        item.short_description = (request.form.get('short_description') or '').strip()[:280]
+        item.description = (request.form.get('description') or '').strip()
+        item.price = (request.form.get('price') or 'حسب العرض').strip()[:60]
+        item.price_iqd = parse_iqd_price(request.form.get('price_iqd'))
+        item.stock_status = stock_status
+        item.position = position
+        item.is_active = bool(request.form.get('is_active'))
+        db.session.commit()
+        flash('تم تحديث العرض.', 'success')
+        return redirect(url_for('admin_store'))
+    return render_template('admin_store_edit.html', item=item)
 
 
 @app.route('/admin/store/<int:item_id>/toggle', methods=['POST'])
@@ -2727,11 +2764,43 @@ def admin_service_order_status(order_id, action):
     if not admin_only():
         abort(403)
     order = db.session.get(ServiceOrder, order_id) or abort(404)
-    allowed = {'approve': 'approved', 'reject': 'rejected', 'refund': 'refunded', 'complete': 'completed'}
-    if action not in allowed:
-        abort(404)
-    order.status = allowed[action]
-    order.admin_note = (request.form.get('admin_note') or '').strip()
+    transitions = {
+        'pending': {'approve': 'approved', 'reject': 'rejected'},
+        'approved': {'complete': 'completed', 'refund': 'refunded'},
+        'completed': {'refund': 'refunded'},
+    }
+    next_status = transitions.get(order.status, {}).get(action)
+    if not next_status:
+        flash('هذا الانتقال غير مسموح أو الطلب تمت معالجته مسبقاً.', 'error')
+        return redirect(url_for('admin_service_orders'))
+
+    wallet_paid = order.payment_method_id is None and order.transaction_id == 'RABBIT WALLET'
+    if wallet_paid and action in {'reject', 'refund'}:
+        existing_refund = WalletTransaction.query.filter_by(
+            user_id=order.user_id,
+            transaction_type='refund',
+            reference_type='service_order_refund',
+            reference_id=order.id
+        ).first()
+        if not existing_refund:
+            purchase = WalletTransaction.query.filter_by(
+                user_id=order.user_id,
+                transaction_type='purchase',
+                reference_type='service_order',
+                reference_id=order.id
+            ).first()
+            if purchase and purchase.amount_iqd < 0:
+                db.session.add(WalletTransaction(
+                    user_id=order.user_id,
+                    transaction_type='refund',
+                    amount_iqd=-purchase.amount_iqd,
+                    reference_type='service_order_refund',
+                    reference_id=order.id,
+                    note=f'استرجاع مبلغ طلب خدمة #{order.id}'[:250]
+                ))
+
+    order.status = next_status
+    order.admin_note = (request.form.get('admin_note') or '').strip()[:250]
     db.session.commit()
     flash('تم تحديث حالة طلب الخدمة.', 'success')
     return redirect(url_for('admin_service_orders'))
@@ -2804,6 +2873,20 @@ def admin_wallet_topup_action(topup_id, action):
     db.session.commit()
     flash('تم تحديث طلب شحن الرصيد.', 'success')
     return redirect(url_for('admin_wallet_topups'))
+
+
+@app.route('/admin/payment-proof/<path:filename>')
+@login_required
+def admin_payment_proof(filename):
+    if not admin_only():
+        abort(403)
+    safe_name = os.path.basename(filename)
+    if safe_name != filename:
+        abort(404)
+    file_path = os.path.join(app.config['PAYMENT_PROOF_FOLDER'], safe_name)
+    if not os.path.isfile(file_path):
+        abort(404)
+    return send_from_directory(app.config['PAYMENT_PROOF_FOLDER'], safe_name, conditional=True)
 
 
 # =========================
