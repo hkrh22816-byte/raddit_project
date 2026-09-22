@@ -1508,6 +1508,14 @@
  .container{width:min(100% - 28px,1200px);padding:55px 0}.section-header{margin-bottom:22px}.card{padding:22px;min-height:190px}
  footer{padding:22px 14px}
 }
+</style><!-- mobile-header-gap-fix --><style>
+@media(max-width:700px){
+ header{display:grid!important;grid-template-columns:auto 1fr!important;grid-template-areas:"logo account" "nav nav"!important;align-items:center!important;row-gap:10px!important;padding:10px 14px 0!important}
+ .logo-area{grid-area:logo!important;order:unset!important;align-self:center!important;margin:0!important}
+ .account-area{grid-area:account!important;order:unset!important;justify-self:end!important;align-self:center!important;margin:0!important}
+ nav{grid-area:nav!important;order:unset!important;margin:0 -14px!important;width:calc(100% + 28px)!important;padding:10px 14px 11px!important}
+ .rabbit-logo{width:30px!important;height:30px!important}.logo-text{font-size:17px!important}
+}
 </style></head>
 
 
