@@ -2260,34 +2260,30 @@ def account():
 @login_required
 @limiter.limit("10 per hour")
 def place_order():
+    service_type = (request.form.get('service_type') or '').strip()
+    details = (request.form.get('details') or '').strip()
+    phone = (request.form.get('phone') or '').strip()
+
+    if not service_type or not details or not phone:
+        flash('أكمل تفاصيل الطلب ورقم التواصل.', 'error')
+        return redirect(request.referrer or url_for('services'))
+
+    if len(service_type) > 50 or len(details) > 2000 or len(phone) > 20:
+        flash('بيانات الطلب أطول من الحد المسموح.', 'error')
+        return redirect(request.referrer or url_for('services'))
 
     db.session.add(
         ServiceRequest(
             username=current_user.username,
-            service_type=request.form.get(
-                'service_type',
-                ''
-            ),
-            details=request.form.get(
-                'details',
-                ''
-            ),
-            phone=request.form.get(
-                'phone',
-                ''
-            )
+            service_type=service_type,
+            details=details,
+            phone=phone
         )
     )
-
     db.session.commit()
 
-    flash(
-        'تم إرسال طلبك بنجاح.'
-    )
-
-    return redirect(
-        url_for('home')
-    )
+    flash('تم إرسال طلبك بنجاح.', 'success')
+    return redirect(url_for('account'))
 
 
 # =========================
