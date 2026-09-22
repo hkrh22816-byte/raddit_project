@@ -29,6 +29,8 @@ nav{display:flex;justify-content:space-between;align-items:center;gap:15px;margi
   <div class="navlinks">
     <a href="{{ url_for('home') }}">الرئيسية</a>
     <a href="{{ url_for('courses') }}">الكورسات</a>
+    <a href="{{ url_for('services') }}">الخدمات</a>
+    <a href="{{ url_for('store') }}">المتجر</a>
     {% if current_user.is_admin %}<a href="{{ url_for('admin_panel') }}">الإدارة</a>{% endif %}
   </div>
 </nav>
