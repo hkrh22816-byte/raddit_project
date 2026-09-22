@@ -574,7 +574,7 @@ class LessonProgress(db.Model):
     completed = db.Column(db.Boolean, default=False, nullable=False)
     completed_at = db.Column(db.DateTime, nullable=True)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
-    user = db.relationship('User', backref='lesson_progress')
+    user = db.relationship('User', backref='lesson_progress_records')
     lesson = db.relationship('Lesson', backref='progress_records')
     __table_args__ = (db.UniqueConstraint('user_id', 'lesson_id', name='unique_user_lesson_progress'),)
 
