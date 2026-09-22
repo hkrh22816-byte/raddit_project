@@ -1219,43 +1219,62 @@ def forgot_password():
             identifier
         )
 
-        if user:
-            # Invalidate previous unused reset codes for this account.
+        # إذا الإيميل أو الرقم غير موجود، نرجع لنفس الصفحة
+        # برسالة خطأ حمراء، ولا ننتقل إلى صفحة رمز التحقق.
+        if not user:
+            flash(
+                'هذا البريد الإلكتروني أو رقم الهاتف غير مرتبط بأي حساب.',
+                'error'
+            )
+            return redirect(
+                url_for('forgot_password')
+            )
+
+        # إلغاء أي رموز استرجاع قديمة غير مستخدمة.
+        PasswordResetOTP.query.filter_by(
+            user_id=user.id,
+            used=False
+        ).update(
+            {'used': True}
+        )
+
+        # إنشاء رمز تحقق من 6 أرقام.
+        code = f'{secrets.randbelow(1000000):06d}'
+
+        reset = PasswordResetOTP(
+            user_id=user.id,
+            code_hash=generate_password_hash(code),
+            expires_at=(
+                datetime.utcnow()
+                + timedelta(minutes=RESET_OTP_MINUTES)
+            )
+        )
+
+        db.session.add(reset)
+        db.session.commit()
+
+        # إرسال الرمز إلى وسيلة التواصل المرتبطة بالحساب.
+        sent = deliver_password_reset_code(
+            user,
+            code
+        )
+
+        # إذا فشل الإرسال، لا ننقل المستخدم إلى صفحة OTP.
+        if not sent:
             PasswordResetOTP.query.filter_by(
-                user_id=user.id,
-                used=False
+                id=reset.id
             ).update(
                 {'used': True}
             )
-
-            code = f'{secrets.randbelow(1000000):06d}'
-
-            reset = PasswordResetOTP(
-                user_id=user.id,
-                code_hash=generate_password_hash(
-                    code
-                ),
-                expires_at=(
-                    datetime.utcnow()
-                    + timedelta(
-                        minutes=RESET_OTP_MINUTES
-                    )
-                )
-            )
-
-            db.session.add(reset)
             db.session.commit()
 
-            deliver_password_reset_code(
-                user,
-                code
+            flash(
+                'تعذر إرسال رمز التحقق حالياً. حاول مرة أخرى بعد قليل.',
+                'error'
             )
-
-        # Generic response prevents account enumeration.
-        flash(
-            'إذا كانت البيانات مرتبطة بحساب، تم تجهيز رمز التحقق.',
-            'success'
-        )
+            return redirect(
+                url_for('forgot_password')
+            )
 
         session['reset_identifier'] = identifier
 
