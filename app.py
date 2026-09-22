@@ -2926,6 +2926,66 @@ def admin_panel():
     )
 
 
+@app.route('/admin/accounting')
+@login_required
+def admin_accounting():
+    if not admin_only():
+        abort(403)
+    now = datetime.utcnow()
+    try:
+        year = int(request.args.get('year') or now.year)
+        month = int(request.args.get('month') or now.month)
+    except ValueError:
+        year, month = now.year, now.month
+    if month < 1 or month > 12 or year < 2020 or year > 2100:
+        year, month = now.year, now.month
+    start = datetime(year, month, 1)
+    end = datetime(year + 1, 1, 1) if month == 12 else datetime(year, month + 1, 1)
+
+    topups = WalletTopUp.query.filter(
+        WalletTopUp.status == 'approved',
+        WalletTopUp.reviewed_at >= start,
+        WalletTopUp.reviewed_at < end
+    ).all()
+    cash_in = sum(x.amount_iqd for x in topups)
+
+    wallet_sales = WalletTransaction.query.filter(
+        WalletTransaction.transaction_type == 'purchase',
+        WalletTransaction.created_at >= start,
+        WalletTransaction.created_at < end
+    ).all()
+    sales_iqd = sum(-x.amount_iqd for x in wallet_sales if x.amount_iqd < 0)
+
+    refunds = WalletTransaction.query.filter(
+        WalletTransaction.transaction_type == 'refund',
+        WalletTransaction.created_at >= start,
+        WalletTransaction.created_at < end
+    ).all()
+    refunds_iqd = sum(x.amount_iqd for x in refunds if x.amount_iqd > 0)
+    net_sales_iqd = max(0, sales_iqd - refunds_iqd)
+
+    daily = {}
+    for tx in wallet_sales:
+        if tx.amount_iqd < 0:
+            day = tx.created_at.day
+            daily[day] = daily.get(day, 0) + (-tx.amount_iqd)
+    for tx in refunds:
+        if tx.amount_iqd > 0:
+            day = tx.created_at.day
+            daily[day] = daily.get(day, 0) - tx.amount_iqd
+
+    transactions = sorted(
+        [{'date': x.created_at, 'kind': 'بيع', 'amount': -x.amount_iqd, 'note': x.note} for x in wallet_sales if x.amount_iqd < 0] +
+        [{'date': x.created_at, 'kind': 'استرجاع', 'amount': -x.amount_iqd, 'note': x.note} for x in refunds if x.amount_iqd > 0],
+        key=lambda x: x['date'], reverse=True
+    )
+
+    return render_template('admin_accounting.html',
+        year=year, month=month, cash_in=cash_in, sales_iqd=sales_iqd,
+        refunds_iqd=refunds_iqd, net_sales_iqd=net_sales_iqd,
+        daily=sorted(daily.items()), transactions=transactions)
+
+
 # =========================
 # Admin Payment Methods
 # =========================
