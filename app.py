@@ -255,6 +255,40 @@ class User(UserMixin, db.Model):
     )
 
 
+class WalletTopUp(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    payment_method_id = db.Column(db.Integer, db.ForeignKey('payment_method.id'), nullable=False)
+    amount_iqd = db.Column(db.Integer, nullable=False)
+    transaction_id = db.Column(db.String(250), default='')
+    proof_filename = db.Column(db.String(250), default='')
+    status = db.Column(db.String(30), default='pending', nullable=False)
+    admin_note = db.Column(db.Text, default='')
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    reviewed_at = db.Column(db.DateTime, nullable=True)
+    user = db.relationship('User', backref='wallet_topups')
+    payment_method = db.relationship('PaymentMethod', backref='wallet_topups')
+
+
+class WalletTransaction(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    transaction_type = db.Column(db.String(30), nullable=False)
+    amount_iqd = db.Column(db.Integer, nullable=False)
+    reference_type = db.Column(db.String(40), default='')
+    reference_id = db.Column(db.Integer, nullable=True)
+    note = db.Column(db.String(250), default='')
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    user = db.relationship('User', backref='wallet_transactions')
+
+
+def wallet_balance_iqd(user_id):
+    credited = db.session.query(db.func.coalesce(db.func.sum(WalletTransaction.amount_iqd), 0)).filter(
+        WalletTransaction.user_id == user_id
+    ).scalar()
+    return int(credited or 0)
+
+
 class PasswordResetOTP(db.Model):
     id = db.Column(db.Integer, primary_key=True)
 
@@ -2487,6 +2521,75 @@ def admin_service_order_status(order_id, action):
     return redirect(url_for('admin_service_orders'))
 
 
+@app.route('/wallet/top-up', methods=['GET', 'POST'])
+@login_required
+@limiter.limit("10 per hour")
+def wallet_top_up():
+    methods = PaymentMethod.query.filter_by(is_active=True).order_by(PaymentMethod.position.asc(), PaymentMethod.id.asc()).all()
+    if request.method == 'POST':
+        try:
+            amount_iqd = int(request.form.get('amount_iqd') or 0)
+            payment_method_id = int(request.form.get('payment_method_id') or 0)
+        except ValueError:
+            amount_iqd = 0
+            payment_method_id = 0
+        transaction_id = (request.form.get('transaction_id') or '').strip()
+        method = db.session.get(PaymentMethod, payment_method_id)
+        if amount_iqd < 1000:
+            flash('أقل مبلغ للشحن هو 1,000 د.ع.', 'error')
+            return redirect(url_for('wallet_top_up'))
+        if not method or not method.is_active:
+            flash('اختر طريقة دفع متاحة.', 'error')
+            return redirect(url_for('wallet_top_up'))
+        if not transaction_id or len(transaction_id) > 250:
+            flash('أدخل رقم عملية التحويل.', 'error')
+            return redirect(url_for('wallet_top_up'))
+        proof = save_payment_proof(request.files.get('payment_proof'))
+        if not proof:
+            flash('ارفع إثبات الدفع.', 'error')
+            return redirect(url_for('wallet_top_up'))
+        db.session.add(WalletTopUp(user_id=current_user.id, payment_method_id=method.id, amount_iqd=amount_iqd, transaction_id=transaction_id, proof_filename=proof, status='pending'))
+        db.session.commit()
+        flash('تم إرسال طلب شحن الرصيد للمراجعة.', 'success')
+        return redirect(url_for('account'))
+    return render_template('wallet_top_up.html', payment_methods=methods)
+
+
+@app.route('/admin/wallet-topups')
+@login_required
+def admin_wallet_topups():
+    if not admin_only():
+        abort(403)
+    topups = WalletTopUp.query.order_by(WalletTopUp.id.desc()).all()
+    return render_template('admin_wallet_topups.html', topups=topups)
+
+
+@app.route('/admin/wallet-topup/<int:topup_id>/<action>', methods=['POST'])
+@login_required
+def admin_wallet_topup_action(topup_id, action):
+    if not admin_only():
+        abort(403)
+    topup = db.session.get(WalletTopUp, topup_id) or abort(404)
+    if topup.status != 'pending':
+        flash('هذا الطلب تمت مراجعته مسبقاً.', 'error')
+        return redirect(url_for('admin_wallet_topups'))
+    note = (request.form.get('admin_note') or '').strip()[:250]
+    if action == 'approve':
+        topup.status = 'approved'
+        topup.admin_note = note
+        topup.reviewed_at = datetime.utcnow()
+        db.session.add(WalletTransaction(user_id=topup.user_id, transaction_type='topup', amount_iqd=topup.amount_iqd, reference_type='wallet_topup', reference_id=topup.id, note='شحن رصيد معتمد'))
+    elif action == 'reject':
+        topup.status = 'rejected'
+        topup.admin_note = note
+        topup.reviewed_at = datetime.utcnow()
+    else:
+        abort(404)
+    db.session.commit()
+    flash('تم تحديث طلب شحن الرصيد.', 'success')
+    return redirect(url_for('admin_wallet_topups'))
+
+
 # =========================
 # Customer Account
 # =========================
@@ -2530,7 +2633,9 @@ def account():
         payments=payments,
         service_requests=service_requests,
         service_orders=service_orders,
-        balance='0.00'
+        wallet_topups=WalletTopUp.query.filter_by(user_id=current_user.id).order_by(WalletTopUp.id.desc()).all(),
+        wallet_transactions=WalletTransaction.query.filter_by(user_id=current_user.id).order_by(WalletTransaction.id.desc()).limit(20).all(),
+        balance=f'{wallet_balance_iqd(current_user.id):,} د.ع'
     )
 
 

@@ -117,6 +117,9 @@ nav{display:flex;justify-content:space-between;align-items:center;gap:15px;margi
 </div>
 {% else %}<div class="empty">لا توجد دفعات في حسابك حالياً.</div>{% endif %}
 
+<div class="title"><h2>المحفظة</h2><span class="count">{{ wallet_topups|length }}</span></div>
+<div class="list"><article class="item"><div class="head"><div><h3>رصيدك الحالي: {{ balance }}</h3><div class="meta">تقدر تشحن رصيدك وتنتظر موافقة الإدارة.</div></div><a class="btn" href="{{ url_for('wallet_top_up') }}">شحن الرصيد</a></div></article>
+{% for topup in wallet_topups[:5] %}<article class="item"><div class="head"><div><h3>شحن {{ '{:,}'.format(topup.amount_iqd) }} د.ع</h3><div class="meta">#{{ topup.id }} · {{ topup.payment_method.name }}</div></div>{% if topup.status == 'approved' %}<span class="badge ok">تمت الإضافة</span>{% elif topup.status == 'rejected' %}<span class="badge bad">مرفوض</span>{% else %}<span class="badge wait">قيد المراجعة</span>{% endif %}</div></article>{% endfor %}</div>
 <div class="title"><h2>مشتريات الخدمات</h2><span class="count">{{ service_orders|length }}</span></div>
 <div class="list">
 {% for order in service_orders %}
