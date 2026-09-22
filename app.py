@@ -2529,6 +2529,27 @@ def learning_hub():
     return render_template('learning_hub.html', cards=cards)
 
 
+@app.route('/lesson/<int:lesson_id>/complete', methods=['POST'])
+@login_required
+def lesson_complete(lesson_id):
+    lesson = db.session.get(Lesson, lesson_id) or abort(404)
+    enrollment = Enrollment.query.filter_by(
+        user_id=current_user.id, course_id=lesson.course_id, status='approved'
+    ).first()
+    if not enrollment and not current_user.is_admin:
+        abort(403)
+    progress = LessonProgress.query.filter_by(user_id=current_user.id, lesson_id=lesson.id).first()
+    if not progress:
+        progress = LessonProgress(user_id=current_user.id, lesson_id=lesson.id)
+        db.session.add(progress)
+    if not progress.completed:
+        progress.completed = True
+        progress.completed_at = datetime.utcnow()
+        progress.updated_at = datetime.utcnow()
+        db.session.commit()
+    return ('', 204)
+
+
 @app.route('/lesson/<int:lesson_id>/progress', methods=['POST'])
 @login_required
 def lesson_progress_toggle(lesson_id):
