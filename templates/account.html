@@ -129,6 +129,12 @@ nav{display:flex;justify-content:space-between;align-items:center;gap:15px;margi
 <div class="title"><h2>المحفظة</h2><span class="count">{{ wallet_topups|length }}</span></div>
 <div class="list"><article class="item"><div class="head"><div><h3>رصيدك الحالي: {{ balance }}</h3><div class="meta">تقدر تشحن رصيدك وتنتظر موافقة الإدارة.</div></div><a class="btn" href="{{ url_for('wallet_top_up') }}">شحن الرصيد</a></div></article>
 {% for topup in wallet_topups[:5] %}<article class="item"><div class="head"><div><h3>شحن {{ '{:,}'.format(topup.amount_iqd) }} د.ع</h3><div class="meta">#{{ topup.id }} · {{ topup.payment_method.name }}</div></div>{% if topup.status == 'approved' %}<span class="badge ok">تمت الإضافة</span>{% elif topup.status == 'rejected' %}<span class="badge bad">مرفوض</span>{% else %}<span class="badge wait">قيد المراجعة</span>{% endif %}</div></article>{% endfor %}</div>
+<div class="title"><h2>مشتريات المتجر</h2><span class="count">{{ store_orders|length }}</span></div>
+<div class="list">{% for order in store_orders %}<article class="item"><div class="head"><div><h3>{{ order.store_item.title }}</h3><div class="meta">طلب #{{ order.id }} · {{ '{:,}'.format(order.amount_iqd) }} د.ع</div></div>{% if order.status == 'completed' %}<span class="badge ok">مكتمل</span>{% elif order.status == 'approved' %}<span class="badge ok">مقبول</span>{% elif order.status == 'rejected' %}<span class="badge bad">مرفوض / تم إرجاع الرصيد</span>{% else %}<span class="badge wait">قيد المراجعة</span>{% endif %}</div>{% if order.admin_note %}<div class="note">{{ order.admin_note }}</div>{% endif %}</article>{% else %}<div class="empty">لا توجد مشتريات من المتجر حالياً.</div>{% endfor %}</div>
+
+<div class="title"><h2>حركة الرصيد</h2><span class="count">{{ wallet_transactions|length }}</span></div>
+<div class="list">{% for tx in wallet_transactions %}<article class="item"><div class="head"><div><h3>{{ tx.note or tx.transaction_type }}</h3><div class="meta">{{ tx.created_at.strftime('%Y-%m-%d %H:%M') }}</div></div><span class="badge {% if tx.amount_iqd >= 0 %}ok{% else %}wait{% endif %}">{{ '+' if tx.amount_iqd >= 0 else '' }}{{ '{:,}'.format(tx.amount_iqd) }} د.ع</span></div></article>{% else %}<div class="empty">لا توجد حركات رصيد بعد.</div>{% endfor %}</div>
+
 <div class="title"><h2>مشتريات الخدمات</h2><span class="count">{{ service_orders|length }}</span></div>
 <div class="list">
 {% for order in service_orders %}
