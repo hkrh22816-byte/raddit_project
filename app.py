@@ -861,7 +861,6 @@ def save_payment_proof(proof_file):
 
 
 @app.route('/protected-video/<int:lesson_id>')
-@login_required
 def protected_video(lesson_id):
 
     lesson = db.session.get(
@@ -869,7 +868,7 @@ def protected_video(lesson_id):
         lesson_id
     ) or abort(404)
 
-    if current_user.is_admin:
+    if current_user.is_authenticated and current_user.is_admin:
         has_access = True
 
     elif lesson.is_preview:
@@ -3758,6 +3757,62 @@ def admin_lessons(course_id):
         'admin_lessons.html',
         course=c
     )
+
+
+@app.route('/admin/lesson/<int:lesson_id>/edit', methods=['GET', 'POST'])
+@login_required
+def admin_lesson_edit(lesson_id):
+    if not admin_only():
+        abort(403)
+    lesson = db.session.get(Lesson, lesson_id) or abort(404)
+    if request.method == 'POST':
+        title = (request.form.get('title') or '').strip()
+        if not title:
+            flash('عنوان الدرس مطلوب.', 'error')
+            return redirect(url_for('admin_lesson_edit', lesson_id=lesson.id))
+        try:
+            position = max(1, int(request.form.get('position') or lesson.position or 1))
+        except ValueError:
+            position = lesson.position or 1
+        video_url = (request.form.get('video_url') or lesson.video_url or '').strip()
+        video_file = request.files.get('video_file')
+        if video_file and video_file.filename:
+            if not allowed_video(video_file.filename):
+                flash('صيغة الفيديو غير مدعومة.', 'error')
+                return redirect(url_for('admin_lesson_edit', lesson_id=lesson.id))
+            uploaded_url = save_video(video_file)
+            if uploaded_url:
+                if lesson.video_url and '://' not in lesson.video_url:
+                    old_path = os.path.join(app.config['UPLOAD_FOLDER'], os.path.basename(lesson.video_url))
+                    if os.path.isfile(old_path):
+                        try:
+                            os.remove(old_path)
+                        except OSError:
+                            pass
+                video_url = uploaded_url
+        lesson.title = title
+        lesson.video_url = video_url
+        lesson.duration = (request.form.get('duration') or '').strip()[:30]
+        lesson.position = position
+        lesson.is_preview = bool(request.form.get('is_preview'))
+        db.session.commit()
+        flash('تم تحديث الدرس.', 'success')
+        return redirect(url_for('admin_lessons', course_id=lesson.course_id))
+    return render_template('admin_lesson_edit.html', lesson=lesson)
+
+
+@app.route('/admin/course/<int:course_id>/lessons/reorder', methods=['POST'])
+@login_required
+def admin_lessons_reorder(course_id):
+    if not admin_only():
+        abort(403)
+    course = db.session.get(Course, course_id) or abort(404)
+    ordered = sorted(course.lessons, key=lambda x: (x.position, x.id))
+    for index, lesson in enumerate(ordered, 1):
+        lesson.position = index
+    db.session.commit()
+    flash('تم ترتيب الدروس بالتسلسل.', 'success')
+    return redirect(url_for('admin_lessons', course_id=course.id))
 
 
 # =========================

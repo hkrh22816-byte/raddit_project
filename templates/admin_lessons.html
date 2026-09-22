@@ -175,9 +175,7 @@
 
     <div class="box">
 
-        <h2>
-            الدروس الحالية ({{ course.lessons|length }})
-        </h2>
+        <h2>الدروس الحالية ({{ course.lessons|length }})</h2><p style="color:#91a396">فعّل «درس تجريبي مجاني» على أي فيديو تريد الزائر يشوفه قبل الاشتراك.</p><form method="post" action="{{ url_for('admin_lessons_reorder', course_id=course.id) }}" style="margin-bottom:14px"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn" type="submit">ترتيب الدروس تلقائياً</button></form>
 
         {% for l in course.lessons %}
 
@@ -201,7 +199,7 @@
 
             </div>
 
-            <form
+            <div style="display:flex;gap:8px"><a class="btn" style="text-decoration:none;color:#00170c" href="{{ url_for('admin_lesson_edit', lesson_id=l.id) }}">تعديل</a><form
                 method="post"
                 action="{{ url_for('admin_lesson_delete', lesson_id=l.id) }}"
                 onsubmit="return confirm('حذف الدرس؟')"
@@ -212,7 +210,7 @@
                     حذف
                 </button>
 
-            </form>
+            </form></div>
 
         </div>
 
