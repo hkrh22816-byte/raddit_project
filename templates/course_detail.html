@@ -1560,15 +1560,6 @@ footer{
 
                 {% if l.is_preview or has_course_access %}
 
-                    {% if has_course_access %}
-                    <form method="post" action="{{ url_for('lesson_progress_toggle', lesson_id=l.id) }}" style="margin:12px 0">
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                        <button class="btn" type="submit" style="margin-top:0;{% if l.id in completed_lesson_ids %}background:#071b12;color:#00f58a{% endif %}">
-                            {{ 'مكتمل — اضغط للتراجع' if l.id in completed_lesson_ids else 'علّم الدرس كمكتمل' }}
-                        </button>
-                    </form>
-                    {% endif %}
-
                     {% if l.video_url %}
 
 
@@ -1581,6 +1572,7 @@ footer{
                                     controls
                                     controlsList="nodownload"
                                     preload="metadata"
+                                    {% if has_course_access %}data-complete-url="{{ url_for('lesson_complete', lesson_id=l.id) }}"{% endif %}
                                 >
 
                                     <source
@@ -1725,6 +1717,16 @@ footer{
 
 
 <script>
+document.querySelectorAll('video[data-complete-url]').forEach(video => {
+    video.addEventListener('ended', () => {
+        if (video.dataset.completedSent) return;
+        video.dataset.completedSent = '1';
+        fetch(video.dataset.completeUrl, {
+            method: 'POST',
+            headers: {'X-CSRFToken': '{{ csrf_token() }}'}
+        }).catch(() => { video.dataset.completedSent = ''; });
+    });
+});
 
 const elements =
     document.querySelectorAll(
