@@ -567,6 +567,18 @@ class Enrollment(db.Model):
     )
 
 
+class LessonProgress(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
+    lesson_id = db.Column(db.Integer, db.ForeignKey('lesson.id'), nullable=False, index=True)
+    completed = db.Column(db.Boolean, default=False, nullable=False)
+    completed_at = db.Column(db.DateTime, nullable=True)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    user = db.relationship('User', backref='lesson_progress')
+    lesson = db.relationship('Lesson', backref='progress_records')
+    __table_args__ = (db.UniqueConstraint('user_id', 'lesson_id', name='unique_user_lesson_progress'),)
+
+
 # =========================
 # Payment Methods
 # =========================
@@ -2472,12 +2484,70 @@ def course_detail(course_id):
             ):
                 has_course_access = True
 
+    completed_lesson_ids = set()
+    if current_user.is_authenticated and has_course_access:
+        completed_lesson_ids = {
+            row.lesson_id for row in LessonProgress.query.filter_by(
+                user_id=current_user.id, completed=True
+            ).filter(LessonProgress.lesson_id.in_([l.id for l in c.lessons] or [-1])).all()
+        }
+
     return render_template(
         'course_detail.html',
         course=c,
         has_course_access=has_course_access,
-        enrollment=enrollment
+        enrollment=enrollment,
+        completed_lesson_ids=completed_lesson_ids
     )
+
+
+@app.route('/learn')
+@login_required
+def learning_hub():
+    enrollments = Enrollment.query.filter_by(
+        user_id=current_user.id, status='approved'
+    ).order_by(Enrollment.id.desc()).all()
+    cards = []
+    for enrollment in enrollments:
+        course = enrollment.course
+        lessons = list(course.lessons)
+        lesson_ids = [l.id for l in lessons]
+        completed_ids = set()
+        if lesson_ids:
+            completed_ids = {
+                row.lesson_id for row in LessonProgress.query.filter(
+                    LessonProgress.user_id == current_user.id,
+                    LessonProgress.completed.is_(True),
+                    LessonProgress.lesson_id.in_(lesson_ids)
+                ).all()
+            }
+        next_lesson = next((l for l in lessons if l.id not in completed_ids), lessons[-1] if lessons else None)
+        total = len(lessons)
+        completed = len(completed_ids)
+        percent = int((completed / total) * 100) if total else 0
+        cards.append({'course': course, 'total': total, 'completed': completed,
+                      'percent': percent, 'next_lesson': next_lesson})
+    return render_template('learning_hub.html', cards=cards)
+
+
+@app.route('/lesson/<int:lesson_id>/progress', methods=['POST'])
+@login_required
+def lesson_progress_toggle(lesson_id):
+    lesson = db.session.get(Lesson, lesson_id) or abort(404)
+    enrollment = Enrollment.query.filter_by(
+        user_id=current_user.id, course_id=lesson.course_id, status='approved'
+    ).first()
+    if not enrollment and not current_user.is_admin:
+        abort(403)
+    progress = LessonProgress.query.filter_by(user_id=current_user.id, lesson_id=lesson.id).first()
+    if not progress:
+        progress = LessonProgress(user_id=current_user.id, lesson_id=lesson.id)
+        db.session.add(progress)
+    progress.completed = not progress.completed
+    progress.completed_at = datetime.utcnow() if progress.completed else None
+    progress.updated_at = datetime.utcnow()
+    db.session.commit()
+    return redirect(url_for('course_detail', course_id=lesson.course_id, _anchor=f'lesson-{lesson.id}'))
 
 
 # =========================
@@ -2543,8 +2613,8 @@ def course_buy_wallet(course_id):
         amount_iqd=-amount_iqd, reference_type='course', reference_id=c.id,
         note=f'شراء كورس: {c.title}'[:250]))
     db.session.commit()
-    flash('تم شراء الكورس من رصيد Rabbit وتفعيله مباشرة.', 'success')
-    return redirect(url_for('course_detail', course_id=c.id))
+    flash('تم شراء الكورس وتفعيله. دخلناك مباشرة إلى منطقة الدراسة.', 'success')
+    return redirect(url_for('learning_hub'))
 
 
 # =========================
