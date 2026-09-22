@@ -294,6 +294,30 @@ class PasswordResetOTP(db.Model):
     )
 
 
+
+class Service(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(160), nullable=False)
+    category = db.Column(db.String(80), nullable=False, default='خدمات رقمية')
+    short_description = db.Column(db.String(280), default='')
+    description = db.Column(db.Text, default='')
+    price = db.Column(db.String(60), default='حسب الطلب')
+    is_active = db.Column(db.Boolean, default=True, nullable=False)
+    position = db.Column(db.Integer, default=1, nullable=False)
+
+
+class StoreItem(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(160), nullable=False)
+    category = db.Column(db.String(80), nullable=False, default='منتج رقمي')
+    short_description = db.Column(db.String(280), default='')
+    description = db.Column(db.Text, default='')
+    price = db.Column(db.String(60), default='حسب العرض')
+    stock_status = db.Column(db.String(30), default='available', nullable=False)
+    is_active = db.Column(db.Boolean, default=True, nullable=False)
+    position = db.Column(db.Integer, default=1, nullable=False)
+
+
 class ServiceRequest(db.Model):
 
     id = db.Column(
@@ -905,6 +929,32 @@ def seed_courses():
         db.session.commit()
 
 
+
+SERVICE_SEED = [
+    ('إدارة صفحات السوشيال ميديا', 'إدارة السوشيال', 'إدارة وتنظيم المحتوى والحسابات التجارية.', 'إدارة المحتوى، تنظيم النشر، ومتابعة حضور العلامة التجارية.', 'حسب الطلب'),
+    ('تصميم السوشيال ميديا والهوية', 'تصميم', 'تصاميم احترافية للمنشورات والحملات.', 'تصميم منشورات، أغلفة، مواد إعلانية وهوية بصرية متناسقة.', 'حسب الطلب'),
+    ('مونتاج الفيديو والريلز', 'مونتاج', 'مونتاج سريع وجذاب للمحتوى القصير والإعلانات.', 'تحرير الفيديو، ترتيب المشاهد، النصوص والحركة بما يناسب المنصة.', 'حسب الطلب'),
+    ('التصوير والإنتاج الإعلاني', 'إنتاج', 'إنتاج إعلانات بمودل أو بدون حسب المشروع.', 'تخطيط وتنفيذ محتوى إعلاني مناسب للمنتج والجمهور والمنصة.', 'حسب الطلب'),
+    ('إدارة الحملات الإعلانية', 'تسويق', 'إعداد ومتابعة الحملات الإعلانية الرقمية.', 'بناء الحملة ومتابعة النتائج وتحسين الأداء وفق هدف النشاط.', 'حسب الميزانية'),
+    ('تنمية الجمهور والمتابعين', 'نمو الجمهور', 'خطط نمو واضحة بحسب المنصة ونوع الجمهور.', 'خدمة نمو جمهور مع توضيح نوع ومصدر الجمهور وعدم تقديم التفاعل غير الحقيقي على أنه نمو عضوي.', 'حسب الطلب'),
+]
+
+STORE_SEED = [
+    ('حسابات رقمية متاحة للبيع', 'حسابات', 'عروض حسابات رقمية متاحة وفق شروط المنصة.', 'يتم عرض التفاصيل المتاحة لكل حساب بشكل واضح. لا يتم تجاوز حماية المنصات أو أنظمة إثبات الملكية.', 'حسب العرض'),
+    ('باقات وتصاميم جاهزة', 'منتجات رقمية', 'حزم رقمية جاهزة للمشاريع وصفحات السوشيال.', 'منتجات رقمية وعروض جاهزة يمكن شراؤها حسب المتوفر.', 'حسب العرض'),
+]
+
+
+def seed_services_and_store():
+    if Service.query.count() == 0:
+        for i, item in enumerate(SERVICE_SEED, 1):
+            db.session.add(Service(title=item[0], category=item[1], short_description=item[2], description=item[3], price=item[4], position=i))
+    if StoreItem.query.count() == 0:
+        for i, item in enumerate(STORE_SEED, 1):
+            db.session.add(StoreItem(title=item[0], category=item[1], short_description=item[2], description=item[3], price=item[4], position=i))
+    db.session.commit()
+
+
 # =========================
 # Home
 # =========================
@@ -915,6 +965,112 @@ def home():
     return render_template(
         'index.html'
     )
+
+
+
+@app.route('/services')
+def services():
+    items = Service.query.filter_by(is_active=True).order_by(Service.position.asc(), Service.id.asc()).all()
+    return render_template('services.html', services=items)
+
+
+@app.route('/services/<int:service_id>')
+def service_detail(service_id):
+    item = db.session.get(Service, service_id) or abort(404)
+    if not item.is_active and not admin_only():
+        abort(404)
+    return render_template('service_detail.html', service=item)
+
+
+@app.route('/store')
+def store():
+    items = StoreItem.query.filter_by(is_active=True).order_by(StoreItem.position.asc(), StoreItem.id.asc()).all()
+    return render_template('store.html', items=items)
+
+
+@app.route('/admin/services')
+@login_required
+def admin_services():
+    if not admin_only():
+        abort(403)
+    return render_template('admin_services.html', services=Service.query.order_by(Service.position.asc(), Service.id.asc()).all())
+
+
+@app.route('/admin/service/new', methods=['POST'])
+@login_required
+def admin_service_new():
+    if not admin_only():
+        abort(403)
+    title=(request.form.get('title') or '').strip()
+    if not title:
+        flash('اسم الخدمة مطلوب.', 'error')
+        return redirect(url_for('admin_services'))
+    db.session.add(Service(
+        title=title,
+        category=(request.form.get('category') or 'خدمات رقمية').strip(),
+        short_description=(request.form.get('short_description') or '').strip(),
+        description=(request.form.get('description') or '').strip(),
+        price=(request.form.get('price') or 'حسب الطلب').strip(),
+        position=int(request.form.get('position') or 1),
+        is_active=bool(request.form.get('is_active'))
+    ))
+    db.session.commit()
+    flash('تمت إضافة الخدمة.', 'success')
+    return redirect(url_for('admin_services'))
+
+
+@app.route('/admin/service/<int:item_id>/toggle', methods=['POST'])
+@login_required
+def admin_service_toggle(item_id):
+    if not admin_only():
+        abort(403)
+    item=db.session.get(Service,item_id) or abort(404)
+    item.is_active=not item.is_active
+    db.session.commit()
+    return redirect(url_for('admin_services'))
+
+
+@app.route('/admin/store')
+@login_required
+def admin_store():
+    if not admin_only():
+        abort(403)
+    return render_template('admin_store.html', items=StoreItem.query.order_by(StoreItem.position.asc(), StoreItem.id.asc()).all())
+
+
+@app.route('/admin/store/new', methods=['POST'])
+@login_required
+def admin_store_new():
+    if not admin_only():
+        abort(403)
+    title=(request.form.get('title') or '').strip()
+    if not title:
+        flash('اسم العرض مطلوب.', 'error')
+        return redirect(url_for('admin_store'))
+    db.session.add(StoreItem(
+        title=title,
+        category=(request.form.get('category') or 'منتج رقمي').strip(),
+        short_description=(request.form.get('short_description') or '').strip(),
+        description=(request.form.get('description') or '').strip(),
+        price=(request.form.get('price') or 'حسب العرض').strip(),
+        stock_status=(request.form.get('stock_status') or 'available').strip(),
+        position=int(request.form.get('position') or 1),
+        is_active=bool(request.form.get('is_active'))
+    ))
+    db.session.commit()
+    flash('تمت إضافة العرض للمتجر.', 'success')
+    return redirect(url_for('admin_store'))
+
+
+@app.route('/admin/store/<int:item_id>/toggle', methods=['POST'])
+@login_required
+def admin_store_toggle(item_id):
+    if not admin_only():
+        abort(403)
+    item=db.session.get(StoreItem,item_id) or abort(404)
+    item.is_active=not item.is_active
+    db.session.commit()
+    return redirect(url_for('admin_store'))
 
 
 # =========================
@@ -2867,6 +3023,7 @@ with app.app_context():
 
     db.create_all()
     seed_courses()
+    seed_services_and_store()
 
     admin_username = os.environ.get('ADMIN_USERNAME')
     admin_password = os.environ.get('ADMIN_PASSWORD')
