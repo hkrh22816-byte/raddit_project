@@ -2945,9 +2945,9 @@ def admin_wallet_topup_action(topup_id, action):
     return redirect(url_for('admin_wallet_topups'))
 
 
-@app.route('/admin/payment-proof/<path:filename>')
+@app.route('/admin/wallet-payment-proof/<path:filename>')
 @login_required
-def admin_payment_proof(filename):
+def admin_wallet_payment_proof(filename):
     if not admin_only():
         abort(403)
     safe_name = os.path.basename(filename)
