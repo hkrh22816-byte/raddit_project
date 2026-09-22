@@ -1350,10 +1350,7 @@ footer{
 
                 </div>
 
-                <p class="muted">
-                    اشتراكك في هذه الدورة مفعّل.
-                    يمكنك الآن مشاهدة جميع الدروس المتاحة.
-                </p>
+                <p class="muted">اشتراكك في هذه الدورة مفعّل. يمكنك الآن مشاهدة جميع الدروس المتاحة.</p><a class="btn" href="{{ url_for('learning_hub') }}">الرجوع إلى كورساتي</a>
 
             </section>
 
@@ -1502,7 +1499,7 @@ footer{
         {% for l in course.lessons %}
 
 
-            <article class="lesson reveal">
+            <article class="lesson reveal" id="lesson-{{ l.id }}">
 
 
                 <div class="lesson-top">
@@ -1563,6 +1560,14 @@ footer{
 
                 {% if l.is_preview or has_course_access %}
 
+                    {% if has_course_access %}
+                    <form method="post" action="{{ url_for('lesson_progress_toggle', lesson_id=l.id) }}" style="margin:12px 0">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button class="btn" type="submit" style="margin-top:0;{% if l.id in completed_lesson_ids %}background:#071b12;color:#00f58a{% endif %}">
+                            {{ 'مكتمل — اضغط للتراجع' if l.id in completed_lesson_ids else 'علّم الدرس كمكتمل' }}
+                        </button>
+                    </form>
+                    {% endif %}
 
                     {% if l.video_url %}
 
