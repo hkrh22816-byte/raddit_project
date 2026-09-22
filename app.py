@@ -1070,6 +1070,15 @@ def seed_services_and_store():
 
     db.session.commit()
 
+@app.context_processor
+def inject_wallet_balance():
+    if current_user.is_authenticated:
+        return {
+            'header_wallet_balance': f'{wallet_balance_iqd(current_user.id):,} د.ع'
+        }
+    return {'header_wallet_balance': None}
+
+
 # =========================
 # Home
 # =========================
