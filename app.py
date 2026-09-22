@@ -1118,6 +1118,37 @@ def admin_service_new():
     return redirect(url_for('admin_services'))
 
 
+@app.route('/admin/service/<int:item_id>/edit', methods=['GET', 'POST'])
+@login_required
+def admin_service_edit(item_id):
+    if not admin_only():
+        abort(403)
+    item = db.session.get(Service, item_id) or abort(404)
+
+    if request.method == 'POST':
+        title = (request.form.get('title') or '').strip()
+        if not title:
+            flash('اسم الخدمة مطلوب.', 'error')
+            return redirect(url_for('admin_service_edit', item_id=item.id))
+        try:
+            position = max(1, int(request.form.get('position') or 1))
+        except ValueError:
+            position = 1
+
+        item.title = title[:160]
+        item.category = ((request.form.get('category') or 'خدمات رقمية').strip())[:80]
+        item.short_description = ((request.form.get('short_description') or '').strip())[:280]
+        item.description = (request.form.get('description') or '').strip()
+        item.price = ((request.form.get('price') or 'حسب الطلب').strip())[:60]
+        item.position = position
+        item.is_active = bool(request.form.get('is_active'))
+        db.session.commit()
+        flash('تم تحديث الخدمة.', 'success')
+        return redirect(url_for('admin_services'))
+
+    return render_template('admin_service_edit.html', service=item)
+
+
 @app.route('/admin/service/<int:item_id>/toggle', methods=['POST'])
 @login_required
 def admin_service_toggle(item_id):
