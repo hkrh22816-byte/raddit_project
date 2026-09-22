@@ -614,7 +614,7 @@ class ServiceOrder(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     service_id = db.Column(db.Integer, db.ForeignKey('service.id'), nullable=False)
-    payment_method_id = db.Column(db.Integer, db.ForeignKey('payment_method.id'), nullable=False)
+    payment_method_id = db.Column(db.Integer, db.ForeignKey('payment_method.id'), nullable=True)
     service_package_id = db.Column(db.Integer, db.ForeignKey('service_package.id'), nullable=True)
     package_label = db.Column(db.String(120), default='')
     amount = db.Column(db.String(60), default='')
@@ -1381,6 +1381,7 @@ def admin_service_new():
         short_description=(request.form.get('short_description') or '').strip(),
         description=(request.form.get('description') or '').strip(),
         price=(request.form.get('price') or 'حسب الطلب').strip(),
+        price_iqd=parse_iqd_price(request.form.get('price_iqd')),
         position=position,
         is_active=bool(request.form.get('is_active'))
     ))
@@ -1411,6 +1412,7 @@ def admin_service_edit(item_id):
         item.short_description = ((request.form.get('short_description') or '').strip())[:280]
         item.description = (request.form.get('description') or '').strip()
         item.price = ((request.form.get('price') or 'حسب الطلب').strip())[:60]
+        item.price_iqd = parse_iqd_price(request.form.get('price_iqd'))
         item.position = position
         item.is_active = bool(request.form.get('is_active'))
         db.session.commit()
@@ -1493,14 +1495,19 @@ def admin_store_new():
     if not title:
         flash('اسم العرض مطلوب.', 'error')
         return redirect(url_for('admin_store'))
+    try:
+        store_position = max(1, int(request.form.get('position') or 1))
+    except ValueError:
+        store_position = 1
     db.session.add(StoreItem(
         title=title,
         category=(request.form.get('category') or 'منتج رقمي').strip(),
         short_description=(request.form.get('short_description') or '').strip(),
         description=(request.form.get('description') or '').strip(),
         price=(request.form.get('price') or 'حسب العرض').strip(),
+        price_iqd=parse_iqd_price(request.form.get('price_iqd')),
         stock_status=(request.form.get('stock_status') or 'available').strip(),
-        position=int(request.form.get('position') or 1),
+        position=store_position,
         is_active=bool(request.form.get('is_active'))
     ))
     db.session.commit()
