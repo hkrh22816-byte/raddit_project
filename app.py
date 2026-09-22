@@ -974,6 +974,123 @@ def valid_password(value):
 
 
 # =========================
+# Registration verification
+# =========================
+
+REGISTER_OTP_MINUTES = 10
+REGISTER_OTP_MAX_ATTEMPTS = 5
+
+
+def registration_contact_exists(method, contact):
+    if method == 'email':
+        return (
+            User.query.filter(db.func.lower(User.email) == contact).first()
+            or User.query.filter(db.func.lower(User.email_or_phone) == contact).first()
+        ) is not None
+
+    return (
+        User.query.filter_by(phone=contact).first()
+        or User.query.filter_by(email_or_phone=contact).first()
+    ) is not None
+
+
+def deliver_registration_email(contact, code):
+    if not os.environ.get('RAILWAY_ENVIRONMENT'):
+        flash(f'LOCAL TEST OTP: {code}', 'message')
+        return True
+
+    api_key = (os.environ.get('RESEND_API_KEY') or '').strip()
+    from_email = (
+        os.environ.get('RESEND_FROM_EMAIL')
+        or 'Rabbit Security <security@rabbitrq.com>'
+    ).strip()
+
+    if not api_key:
+        app.logger.error('Registration email could not be sent: missing Resend config.')
+        return False
+
+    resend.api_key = api_key
+
+    params = {
+        'from': from_email,
+        'to': [contact],
+        'subject': 'رمز تأكيد حسابك - RABBIT',
+        'html': (
+            '<div dir="rtl" style="font-family:Arial,sans-serif;line-height:1.8">'
+            '<h2>RABBIT</h2>'
+            '<p>رمز تأكيد إنشاء حسابك هو:</p>'
+            f'<p style="font-size:30px;font-weight:700;letter-spacing:6px">{code}</p>'
+            f'<p>ينتهي هذا الرمز خلال {REGISTER_OTP_MINUTES} دقائق.</p>'
+            '<p>إذا لم تطلب إنشاء حساب، تجاهل هذه الرسالة.</p>'
+            '</div>'
+        ),
+        'text': (
+            f'RABBIT\n\nرمز تأكيد إنشاء الحساب: {code}\n'
+            f'ينتهي الرمز خلال {REGISTER_OTP_MINUTES} دقائق.'
+        )
+    }
+
+    try:
+        resend.Emails.send(params)
+        return True
+    except Exception as exc:
+        app.logger.error(
+            'Resend registration delivery failed: %s',
+            type(exc).__name__
+        )
+        return False
+
+
+def clear_registration_session():
+    for key in (
+        'reg_method',
+        'reg_contact',
+        'reg_code_hash',
+        'reg_expires_at',
+        'reg_attempts',
+        'reg_verified'
+    ):
+        session.pop(key, None)
+
+
+def find_user_by_login_identifier(identifier):
+    raw = (identifier or '').strip()
+    username = normalize_username(raw)
+    email = normalize_email(raw)
+    phone = normalize_iraqi_phone(raw)
+
+    user = User.query.filter(
+        db.func.lower(User.username) == username
+    ).first()
+    if user:
+        return user
+
+    if valid_email(email):
+        user = User.query.filter(
+            db.func.lower(User.email) == email
+        ).first()
+        if user:
+            return user
+
+        user = User.query.filter(
+            db.func.lower(User.email_or_phone) == email
+        ).first()
+        if user:
+            return user
+
+    if phone:
+        user = User.query.filter_by(phone=phone).first()
+        if user:
+            return user
+
+        user = User.query.filter_by(email_or_phone=phone).first()
+        if user:
+            return user
+
+    return None
+
+
+# =========================
 # Password recovery
 # =========================
 
@@ -1381,212 +1498,199 @@ def reset_password():
 def auth_page():
 
     if current_user.is_authenticated:
-        return redirect(
-            url_for('home')
-        )
+        return redirect(url_for('home'))
+
+    mode = request.args.get('mode', 'login')
+    if mode not in ('login', 'register'):
+        mode = 'login'
 
     if request.method == 'POST':
+        action = (request.form.get('action') or '').strip()
 
-        action = request.form.get(
-            'action'
-        )
+        if action == 'login':
+            identifier = (request.form.get('identifier') or '').strip()
+            password = request.form.get('password') or ''
 
-        username = normalize_username(
-            request.form.get('username')
-        )
+            if not identifier or not password:
+                flash('أدخل اسم المستخدم أو الإيميل أو رقم الهاتف وكلمة المرور.', 'error')
+                return redirect(url_for('auth_page'))
 
-        password = (
-            request.form.get('password')
-            or ''
-        )
+            user = find_user_by_login_identifier(identifier)
 
-        if action == 'register':
+            if user and check_password_hash(user.password, password):
+                login_user(user)
+                return redirect(url_for('home'))
 
-            full_name = (
-                request.form.get('full_name')
-                or ''
-            ).strip()
+            flash('بيانات تسجيل الدخول غير صحيحة.', 'error')
+            return redirect(url_for('auth_page'))
 
-            email = normalize_email(
-                request.form.get('email')
+        if action == 'register_start':
+            method = (request.form.get('contact_method') or '').strip()
+            raw_contact = (request.form.get('contact') or '').strip()
+
+            if method == 'email':
+                contact = normalize_email(raw_contact)
+                if not valid_email(contact):
+                    flash('اكتب بريداً إلكترونياً صحيحاً.', 'error')
+                    return redirect(url_for('auth_page', mode='register'))
+
+            elif method == 'phone':
+                contact = normalize_iraqi_phone(raw_contact)
+                if not contact:
+                    flash('اكتب رقم موبايل عراقي صحيح، مثال: 07XXXXXXXXX.', 'error')
+                    return redirect(url_for('auth_page', mode='register'))
+
+                # SMS/WhatsApp provider is intentionally not faked.
+                flash('تأكيد رقم الهاتف سيُفعّل بعد ربط مزود الرسائل. استخدم البريد الإلكتروني حالياً.', 'error')
+                return redirect(url_for('auth_page', mode='register'))
+
+            else:
+                flash('اختر البريد الإلكتروني أو رقم الهاتف.', 'error')
+                return redirect(url_for('auth_page', mode='register'))
+
+            if registration_contact_exists(method, contact):
+                flash('هذه وسيلة التواصل مرتبطة بحساب مسبقاً.', 'error')
+                return redirect(url_for('auth_page', mode='register'))
+
+            code = f'{secrets.randbelow(1000000):06d}'
+
+            clear_registration_session()
+            session['reg_method'] = method
+            session['reg_contact'] = contact
+            session['reg_code_hash'] = generate_password_hash(code)
+            session['reg_expires_at'] = (
+                datetime.utcnow() + timedelta(minutes=REGISTER_OTP_MINUTES)
+            ).isoformat()
+            session['reg_attempts'] = 0
+            session['reg_verified'] = False
+
+            if not deliver_registration_email(contact, code):
+                clear_registration_session()
+                flash('تعذر إرسال رمز التحقق حالياً. حاول مرة أخرى بعد قليل.', 'error')
+                return redirect(url_for('auth_page', mode='register'))
+
+            flash('أرسلنا رمز تحقق من 6 أرقام إلى بريدك.', 'success')
+            return redirect(url_for('auth_page', mode='register'))
+
+        if action == 'register_verify':
+            contact = session.get('reg_contact')
+            code_hash = session.get('reg_code_hash')
+            expires_raw = session.get('reg_expires_at')
+            attempts = int(session.get('reg_attempts', 0))
+            code = re.sub(r'\D', '', request.form.get('code') or '')
+
+            if not contact or not code_hash or not expires_raw:
+                clear_registration_session()
+                flash('ابدأ إنشاء الحساب من جديد.', 'error')
+                return redirect(url_for('auth_page', mode='register'))
+
+            try:
+                expires_at = datetime.fromisoformat(expires_raw)
+            except ValueError:
+                clear_registration_session()
+                flash('انتهت جلسة التحقق. اطلب رمزاً جديداً.', 'error')
+                return redirect(url_for('auth_page', mode='register'))
+
+            valid = (
+                datetime.utcnow() <= expires_at
+                and attempts < REGISTER_OTP_MAX_ATTEMPTS
+                and re.fullmatch(r'\d{6}', code)
+                and check_password_hash(code_hash, code)
             )
 
-            phone = normalize_iraqi_phone(
-                request.form.get('phone')
-            )
+            if not valid:
+                session['reg_attempts'] = attempts + 1
+                if session['reg_attempts'] >= REGISTER_OTP_MAX_ATTEMPTS:
+                    clear_registration_session()
+                    flash('انتهت محاولات التحقق. اطلب رمزاً جديداً.', 'error')
+                else:
+                    flash('رمز التحقق غير صحيح أو منتهي الصلاحية.', 'error')
+                return redirect(url_for('auth_page', mode='register'))
 
-            if full_name and len(full_name) > 120:
-                flash(
-                    'الاسم طويل جداً.',
-                    'error'
-                )
-                return redirect(
-                    url_for('auth_page')
-                )
+            session['reg_verified'] = True
+            session.pop('reg_code_hash', None)
+            session.pop('reg_expires_at', None)
+            session.pop('reg_attempts', None)
+
+            flash('تم تأكيد البريد. أكمل بيانات حسابك.', 'success')
+            return redirect(url_for('auth_page', mode='register'))
+
+        if action == 'register_complete':
+            if not session.get('reg_verified'):
+                flash('يجب تأكيد وسيلة التواصل أولاً.', 'error')
+                return redirect(url_for('auth_page', mode='register'))
+
+            method = session.get('reg_method')
+            contact = session.get('reg_contact')
+            username = normalize_username(request.form.get('username'))
+            password = request.form.get('password') or ''
+
+            if method not in ('email', 'phone') or not contact:
+                clear_registration_session()
+                flash('انتهت جلسة التسجيل. ابدأ من جديد.', 'error')
+                return redirect(url_for('auth_page', mode='register'))
 
             if not valid_username(username):
                 flash(
-                    'اسم المستخدم يجب أن يكون من 3 إلى 30 خانة، وبالأحرف الإنجليزية والأرقام والنقطة والشرطة السفلية فقط.',
+                    'اسم المستخدم يجب أن يكون من 3 إلى 30 خانة وبالأحرف الإنجليزية والأرقام و . و _ فقط.',
                     'error'
                 )
-                return redirect(
-                    url_for('auth_page')
-                )
-
-            if not valid_email(email):
-                flash(
-                    'اكتب بريداً إلكترونياً صحيحاً.',
-                    'error'
-                )
-                return redirect(
-                    url_for('auth_page')
-                )
-
-            if not phone:
-                flash(
-                    'اكتب رقم موبايل عراقي صحيح، مثال: 07XXXXXXXXX.',
-                    'error'
-                )
-                return redirect(
-                    url_for('auth_page')
-                )
+                return redirect(url_for('auth_page', mode='register'))
 
             if not valid_password(password):
                 flash(
                     'كلمة المرور يجب أن تكون 8 خانات على الأقل وتحتوي حرفاً إنجليزياً ورقماً.',
                     'error'
                 )
-                return redirect(
-                    url_for('auth_page')
-                )
+                return redirect(url_for('auth_page', mode='register'))
 
-            if User.query.filter(
-                db.func.lower(User.username)
-                == username
-            ).first():
-                flash(
-                    'اسم المستخدم مستخدم مسبقاً.',
-                    'error'
-                )
-                return redirect(
-                    url_for('auth_page')
-                )
+            if User.query.filter(db.func.lower(User.username) == username).first():
+                flash('اسم المستخدم مستخدم مسبقاً.', 'error')
+                return redirect(url_for('auth_page', mode='register'))
 
-            if User.query.filter(
-                db.func.lower(User.email)
-                == email
-            ).first():
-                flash(
-                    'البريد الإلكتروني مستخدم مسبقاً.',
-                    'error'
-                )
-                return redirect(
-                    url_for('auth_page')
-                )
-
-            if User.query.filter_by(
-                phone=phone
-            ).first():
-                flash(
-                    'رقم الهاتف مستخدم مسبقاً.',
-                    'error'
-                )
-                return redirect(
-                    url_for('auth_page')
-                )
-
-            # Protect against duplicate contacts still stored in old accounts.
-            legacy_contact = User.query.filter(
-                (db.func.lower(User.email_or_phone) == email)
-                | (User.email_or_phone == phone)
-            ).first()
-
-            if legacy_contact:
-                flash(
-                    'البريد الإلكتروني أو رقم الهاتف مستخدم مسبقاً.',
-                    'error'
-                )
-                return redirect(
-                    url_for('auth_page')
-                )
+            if registration_contact_exists(method, contact):
+                clear_registration_session()
+                flash('وسيلة التواصل أصبحت مرتبطة بحساب آخر. ابدأ من جديد.', 'error')
+                return redirect(url_for('auth_page', mode='register'))
 
             user = User(
                 username=username,
-                full_name=full_name or None,
-                email=email,
-                phone=phone,
-                email_or_phone=email,
-                password=generate_password_hash(
-                    password
-                ),
-                email_verified=False,
-                phone_verified=False,
+                email=contact if method == 'email' else None,
+                phone=contact if method == 'phone' else None,
+                email_or_phone=contact,
+                password=generate_password_hash(password),
+                email_verified=(method == 'email'),
+                phone_verified=(method == 'phone'),
                 is_admin=False
             )
 
             db.session.add(user)
             db.session.commit()
-
+            clear_registration_session()
             login_user(user)
 
-            flash(
-                'تم إنشاء الحساب بنجاح.',
-                'success'
-            )
+            flash('تم إنشاء الحساب وتأكيده بنجاح.', 'success')
+            return redirect(url_for('home'))
 
-            return redirect(
-                url_for('home')
-            )
+        if action == 'register_restart':
+            clear_registration_session()
+            return redirect(url_for('auth_page', mode='register'))
 
-        elif action == 'login':
+        flash('حدث خطأ في الطلب، حاول مرة أخرى.', 'error')
+        return redirect(url_for('auth_page', mode=mode))
 
-            if not username or not password:
-                flash(
-                    'أدخل اسم المستخدم وكلمة المرور.',
-                    'error'
-                )
-                return redirect(
-                    url_for('auth_page')
-                )
-
-            user = User.query.filter(
-                db.func.lower(User.username)
-                == username
-            ).first()
-
-            if (
-                user
-                and check_password_hash(
-                    user.password,
-                    password
-                )
-            ):
-                login_user(user)
-
-                return redirect(
-                    url_for('home')
-                )
-
-            flash(
-                'خطأ في اسم المستخدم أو كلمة المرور.',
-                'error'
-            )
-
-            return redirect(
-                url_for('auth_page')
-            )
-
-        flash(
-            'حدث خطأ في الطلب، حاول مرة أخرى.',
-            'error'
-        )
-
-        return redirect(
-            url_for('auth_page')
-        )
+    reg_stage = 'contact'
+    if session.get('reg_contact') and not session.get('reg_verified'):
+        reg_stage = 'verify'
+    elif session.get('reg_contact') and session.get('reg_verified'):
+        reg_stage = 'complete'
 
     return render_template(
-        'login.html'
+        'login.html',
+        auth_mode=mode,
+        reg_stage=reg_stage,
+        reg_method=session.get('reg_method'),
+        reg_contact=session.get('reg_contact')
     )
 
 

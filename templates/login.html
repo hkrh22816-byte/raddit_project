@@ -1,858 +1,116 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
-
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-    <title>RABBIT | Access Terminal</title>
-
-    <style>
-        :root {
-            --bg: #030605;
-            --panel: rgba(7, 15, 11, 0.96);
-            --green: #00f58a;
-            --white: #f4fff9;
-            --text: #c8d7d0;
-            --muted: #71847b;
-            --border: rgba(0, 245, 138, 0.14);
-            --danger: #ff5364;
-        }
-
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        html, body {
-            min-height: 100%;
-        }
-
-        body {
-            min-height: 100vh;
-
-            background:
-                radial-gradient(
-                    circle at 50% 45%,
-                    rgba(0, 245, 138, 0.06),
-                    transparent 34%
-                ),
-                linear-gradient(
-                    rgba(0, 245, 138, 0.018) 1px,
-                    transparent 1px
-                ),
-                linear-gradient(
-                    90deg,
-                    rgba(0, 245, 138, 0.018) 1px,
-                    transparent 1px
-                ),
-                var(--bg);
-
-            background-size:
-                auto,
-                52px 52px,
-                52px 52px;
-
-            color: var(--white);
-
-            font-family:
-                "Segoe UI",
-                Tahoma,
-                Arial,
-                sans-serif;
-
-            display: flex;
-            justify-content: center;
-            align-items: center;
-
-            padding: 35px 20px;
-
-            overflow-x: hidden;
-        }
-
-        body::before {
-            content: "";
-
-            position: fixed;
-
-            width: 620px;
-            height: 620px;
-
-            border: 1px solid rgba(0,245,138,0.045);
-
-            border-radius: 50%;
-
-            box-shadow:
-                0 0 0 100px rgba(0,245,138,0.012),
-                0 0 0 200px rgba(0,245,138,0.008);
-
-            pointer-events: none;
-        }
-
-        body::after {
-            content: "";
-
-            position: fixed;
-            inset: 0;
-
-            pointer-events: none;
-
-            opacity: 0.10;
-
-            background:
-                repeating-linear-gradient(
-                    to bottom,
-                    transparent 0,
-                    transparent 3px,
-                    rgba(255,255,255,0.015) 4px
-                );
-        }
-
-        .page {
-            width: 100%;
-            max-width: 1120px;
-
-            display: grid;
-            grid-template-columns: 1fr 470px;
-
-            gap: 65px;
-
-            align-items: center;
-
-            position: relative;
-            z-index: 2;
-        }
-
-        /* BRAND */
-
-        .brand-side {
-            padding: 25px 35px;
-        }
-
-        .logo-area {
-            display: inline-flex;
-            align-items: center;
-            gap: 15px;
-
-            text-decoration: none;
-
-            margin-bottom: 45px;
-        }
-
-        .rabbit-logo {
-            width: 42px;
-            height: 42px;
-
-            border: 2px solid var(--green);
-
-            border-radius: 11px;
-
-            position: relative;
-
-            transform: rotate(45deg);
-
-            background:
-                linear-gradient(
-                    145deg,
-                    rgba(0,245,138,0.12),
-                    rgba(0,245,138,0.015)
-                );
-
-            box-shadow:
-                0 0 25px rgba(0,245,138,0.14);
-        }
-
-        .rabbit-logo::before {
-            content: "";
-
-            position: absolute;
-
-            width: 12px;
-            height: 12px;
-
-            top: 13px;
-            left: 13px;
-
-            background: var(--green);
-
-            border-radius: 2px;
-
-            transform: rotate(-45deg);
-
-            box-shadow:
-                0 0 13px var(--green);
-        }
-
-        .logo-text {
-            color: var(--white);
-
-            font-size: 25px;
-            font-weight: 800;
-
-            letter-spacing: 7px;
-        }
-
-        .logo-dot {
-            color: var(--green);
-        }
-
-        .terminal-line {
-            color: var(--green);
-
-            font-family:
-                Consolas,
-                "Courier New",
-                monospace;
-
-            font-size: 12px;
-
-            letter-spacing: 1px;
-
-            margin-bottom: 16px;
-        }
-
-        .brand-side h1 {
-            font-size: clamp(43px, 5vw, 68px);
-
-            line-height: 1.15;
-
-            margin-bottom: 22px;
-
-            letter-spacing: -2px;
-        }
-
-        .brand-side h1 span {
-            color: var(--green);
-
-            text-shadow:
-                0 0 30px rgba(0,245,138,0.16);
-        }
-
-        .brand-side p {
-            max-width: 530px;
-
-            color: var(--muted);
-
-            line-height: 2;
-
-            font-size: 15px;
-        }
-
-        .security-info {
-            display: flex;
-            gap: 28px;
-
-            margin-top: 35px;
-
-            direction: ltr;
-        }
-
-        .security-item {
-            font-family:
-                Consolas,
-                monospace;
-
-            font-size: 10px;
-
-            color: #53655c;
-
-            letter-spacing: 1px;
-        }
-
-        .security-item strong {
-            display: block;
-
-            color: var(--green);
-
-            font-weight: 500;
-
-            margin-bottom: 6px;
-        }
-
-        .back-home {
-            display: inline-block;
-
-            margin-top: 25px;
-
-            color: var(--muted);
-
-            text-decoration: none;
-
-            font-size: 12px;
-
-            transition: 0.25s;
-        }
-
-        .back-home:hover {
-            color: var(--green);
-        }
-
-        /* LOGIN PANEL */
-
-        .auth-box {
-            width: 100%;
-
-            background:
-                linear-gradient(
-                    145deg,
-                    rgba(10,20,15,0.96),
-                    rgba(4,9,7,0.98)
-                );
-
-            border: 1px solid var(--border);
-
-            border-radius: 8px;
-
-            padding: 36px;
-
-            position: relative;
-
-            box-shadow:
-                0 30px 80px rgba(0,0,0,0.38);
-
-            overflow: hidden;
-        }
-
-        .auth-box::before {
-            content: "";
-
-            position: absolute;
-
-            width: 75px;
-            height: 1px;
-
-            top: 0;
-            right: 35px;
-
-            background: var(--green);
-
-            box-shadow:
-                0 0 12px var(--green);
-        }
-
-        .panel-number {
-            color: var(--green);
-
-            font-family:
-                Consolas,
-                monospace;
-
-            font-size: 10px;
-
-            letter-spacing: 1.5px;
-
-            margin-bottom: 27px;
-        }
-
-        .auth-box h2 {
-            font-size: 27px;
-            margin-bottom: 8px;
-        }
-
-        .auth-description {
-            color: var(--muted);
-
-            font-size: 13px;
-
-            line-height: 1.8;
-
-            margin-bottom: 25px;
-        }
-
-        /* MESSAGES */
-
-        .alert {
-            padding: 12px 14px;
-
-            border-radius: 4px;
-
-            margin-bottom: 18px;
-
-            font-size: 12px;
-
-            line-height: 1.7;
-        }
-
-        .alert-success {
-            color: #73ffb8;
-
-            background:
-                rgba(0,245,138,0.055);
-
-            border:
-                1px solid rgba(0,245,138,0.25);
-        }
-
-        .alert-error {
-            color: #ff9ba5;
-
-            background:
-                rgba(255,83,100,0.07);
-
-            border:
-                1px solid rgba(255,83,100,0.27);
-        }
-
-        .alert-message {
-            color: #d4e3dc;
-
-            background:
-                rgba(255,255,255,0.035);
-
-            border:
-                1px solid rgba(255,255,255,0.09);
-        }
-
-        /* FORM */
-
-        .field {
-            margin-bottom: 15px;
-        }
-
-        .field label {
-            display: flex;
-            justify-content: space-between;
-
-            margin-bottom: 8px;
-
-            color: var(--text);
-
-            font-size: 12px;
-        }
-
-        .field-code {
-            direction: ltr;
-
-            color: #46584f;
-
-            font-family:
-                Consolas,
-                monospace;
-
-            font-size: 9px;
-        }
-
-        input {
-            width: 100%;
-            height: 50px;
-
-            padding: 0 15px;
-
-            background:
-                rgba(255,255,255,0.018);
-
-            border:
-                1px solid rgba(255,255,255,0.09);
-
-            color: var(--white);
-
-            border-radius: 4px;
-
-            outline: none;
-
-            text-align: right;
-
-            font-size: 14px;
-
-            transition: 0.25s;
-        }
-
-        input::placeholder {
-            color: #46564e;
-        }
-
-        input:hover {
-            border-color:
-                rgba(0,245,138,0.20);
-        }
-
-        input:focus {
-            border-color:
-                rgba(0,245,138,0.55);
-
-            background:
-                rgba(0,245,138,0.025);
-
-            box-shadow:
-                0 0 0 3px rgba(0,245,138,0.035);
-        }
-
-        .buttons {
-            margin-top: 25px;
-        }
-
-        button {
-            width: 100%;
-
-            min-height: 49px;
-
-            padding: 12px;
-
-            border-radius: 4px;
-
-            cursor: pointer;
-
-            font-weight: 700;
-
-            font-size: 14px;
-
-            transition: 0.25s;
-        }
-
-        .login-btn {
-            background: var(--green);
-
-            color: #001b0f;
-
-            border: 1px solid var(--green);
-        }
-
-        .login-btn:hover {
-            transform: translateY(-2px);
-
-            box-shadow:
-                0 12px 35px rgba(0,245,138,0.16);
-        }
-
-        .register-btn {
-            margin-top: 10px;
-
-            background: transparent;
-
-            color: var(--text);
-
-            border:
-                1px solid rgba(255,255,255,0.12);
-        }
-
-        .register-btn:hover {
-            color: var(--green);
-
-            border-color:
-                rgba(0,245,138,0.45);
-
-            transform: translateY(-2px);
-        }
-
-        .panel-footer {
-            margin-top: 24px;
-
-            padding-top: 18px;
-
-            border-top:
-                1px solid rgba(255,255,255,0.05);
-
-            display: flex;
-
-            justify-content: space-between;
-
-            direction: ltr;
-
-            color: #415148;
-
-            font-family:
-                Consolas,
-                monospace;
-
-            font-size: 9px;
-
-            letter-spacing: 1px;
-        }
-
-        .online {
-            color: var(--green);
-        }
-
-        /* MOBILE */
-
-        @media (max-width: 950px) {
-
-            body {
-                align-items: flex-start;
-            }
-
-            .page {
-                grid-template-columns: 1fr;
-
-                max-width: 520px;
-
-                gap: 25px;
-            }
-
-            .brand-side {
-                padding: 10px 5px;
-
-                text-align: center;
-            }
-
-            .logo-area {
-                margin-bottom: 25px;
-            }
-
-            .brand-side h1 {
-                font-size: 42px;
-            }
-
-            .brand-side p {
-                margin: auto;
-            }
-
-            .security-info {
-                justify-content: center;
-            }
-        }
-
-        @media (max-width: 550px) {
-
-            body {
-                padding: 20px 15px;
-            }
-
-            .brand-side h1 {
-                font-size: 35px;
-            }
-
-            .brand-side p {
-                font-size: 13px;
-            }
-
-            .security-info {
-                display: none;
-            }
-
-            .auth-box {
-                padding: 27px 20px;
-            }
-
-            .logo-text {
-                font-size: 21px;
-                letter-spacing: 5px;
-            }
-        }
-
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>RABBIT | Access</title>
+<style>
+:root{--bg:#030605;--panel:#07100c;--green:#00f58a;--text:#f4fff9;--muted:#71847b;--line:rgba(0,245,138,.16);--danger:#ff6675}
+*{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(circle at 50% 35%,rgba(0,245,138,.08),transparent 34%),linear-gradient(rgba(0,245,138,.018) 1px,transparent 1px),linear-gradient(90deg,rgba(0,245,138,.018) 1px,transparent 1px),var(--bg);background-size:auto,52px 52px,52px 52px;color:var(--text);font-family:"Segoe UI",Tahoma,Arial,sans-serif;display:grid;place-items:center;padding:24px}
+.shell{width:min(1080px,100%);display:grid;grid-template-columns:1fr 470px;gap:60px;align-items:center}
+.brand{padding:20px}.logo{display:flex;align-items:center;gap:14px;text-decoration:none;color:#fff;font-weight:900;letter-spacing:7px;font-size:25px}.mark{width:42px;height:42px;border:2px solid var(--green);border-radius:11px;transform:rotate(45deg);box-shadow:0 0 28px rgba(0,245,138,.18);position:relative}.mark:after{content:"";position:absolute;width:12px;height:12px;background:var(--green);top:13px;left:13px;border-radius:2px;box-shadow:0 0 14px var(--green)}
+.brand h1{font-size:clamp(42px,5vw,70px);line-height:1.05;margin:40px 0 18px}.brand h1 span{color:var(--green)}.brand p{color:var(--muted);line-height:2;max-width:530px}.terminal{color:var(--green);font:12px Consolas,monospace;margin-top:34px}
+.card{background:linear-gradient(145deg,rgba(10,20,15,.97),rgba(4,9,7,.99));border:1px solid var(--line);border-radius:18px;padding:34px;box-shadow:0 30px 90px rgba(0,0,0,.45);position:relative;overflow:hidden}.card:before{content:"";position:absolute;top:0;right:35px;width:90px;height:2px;background:var(--green);box-shadow:0 0 16px var(--green)}
+.tabs{display:grid;grid-template-columns:1fr 1fr;background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.06);padding:5px;border-radius:12px;margin-bottom:28px}.tab{padding:12px;text-align:center;text-decoration:none;color:var(--muted);border-radius:8px;font-size:13px;font-weight:700}.tab.active{background:rgba(0,245,138,.10);color:var(--green);box-shadow:inset 0 0 0 1px rgba(0,245,138,.16)}
+h2{margin:0 0 8px;font-size:27px}.sub{margin:0 0 24px;color:var(--muted);font-size:13px;line-height:1.8}.alert{padding:12px 14px;border-radius:9px;margin-bottom:16px;font-size:12px;line-height:1.7;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.035)}.alert-success{color:#73ffb8;border-color:rgba(0,245,138,.25);background:rgba(0,245,138,.055)}.alert-error{color:#ffabb3;border-color:rgba(255,83,100,.27);background:rgba(255,83,100,.07)}
+.field{position:relative;margin:16px 0}.field input{width:100%;height:56px;background:rgba(255,255,255,.018);border:1px solid rgba(255,255,255,.09);border-radius:11px;color:#fff;outline:0;padding:20px 15px 7px;font-size:14px;transition:.25s}.field label{position:absolute;right:15px;top:18px;color:#64766d;font-size:13px;pointer-events:none;transition:.2s}.field input:focus,.field input:not(:placeholder-shown){border-color:rgba(0,245,138,.48);box-shadow:0 0 0 3px rgba(0,245,138,.035)}.field input:focus+label,.field input:not(:placeholder-shown)+label{top:7px;font-size:9px;color:var(--green);letter-spacing:.3px}
+.password-wrap{position:relative}.eye{position:absolute;left:10px;top:10px;width:38px;height:38px;border:0;background:transparent;color:#809188;cursor:pointer;font-size:17px}
+.btn{width:100%;height:51px;border-radius:11px;border:1px solid var(--green);background:var(--green);color:#001b0f;font-weight:800;cursor:pointer;margin-top:8px;transition:.25s}.btn:hover{transform:translateY(-2px);box-shadow:0 12px 35px rgba(0,245,138,.16)}.btn.secondary{background:transparent;color:var(--muted);border-color:rgba(255,255,255,.1)}.forgot{display:block;text-align:center;color:var(--muted);font-size:12px;text-decoration:none;margin-top:16px}.forgot:hover{color:var(--green)}
+.method{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:18px 0}.method input{display:none}.method label{border:1px solid rgba(255,255,255,.09);border-radius:11px;padding:14px;text-align:center;color:var(--muted);cursor:pointer;transition:.2s}.method input:checked+label{border-color:var(--green);color:var(--green);background:rgba(0,245,138,.06)}.soon{display:block;font-size:9px;margin-top:4px;color:#56675f}
+.otp{display:flex;direction:ltr;gap:8px;justify-content:center;margin:24px 0}.otp input{width:50px;height:58px;text-align:center;border-radius:10px;border:1px solid rgba(255,255,255,.11);background:rgba(255,255,255,.025);color:#fff;font-size:24px;outline:0}.otp input:focus,.otp input.filled{border-color:var(--green);box-shadow:0 0 18px rgba(0,245,138,.12)}.progress{height:3px;background:rgba(255,255,255,.06);border-radius:99px;overflow:hidden;margin:0 0 22px}.progress i{display:block;height:100%;width:0;background:var(--green);box-shadow:0 0 12px var(--green);transition:.25s}
+.verified{padding:11px;border:1px solid rgba(0,245,138,.18);background:rgba(0,245,138,.04);border-radius:10px;color:#8affc5;font-size:12px;margin-bottom:18px;direction:ltr;text-align:center;overflow-wrap:anywhere}
+@media(max-width:900px){.shell{grid-template-columns:1fr;max-width:520px;gap:20px}.brand{text-align:center}.brand h1{font-size:38px;margin-top:25px}.brand p{margin:auto}.logo{justify-content:center}}@media(max-width:520px){body{padding:14px}.brand p,.terminal{display:none}.brand h1{font-size:31px}.card{padding:25px 18px}.otp{gap:5px}.otp input{width:43px;height:54px}}
+</style>
 </head>
-
-
 <body>
+<main class="shell">
+<section class="brand">
+<a class="logo" href="{{ url_for('home') }}"><span class="mark"></span><span>RABBIT<span style="color:var(--green)">.</span></span></a>
+<div class="terminal">&gt; rabbit.identity.verify()</div>
+<h1>دخول أسرع.<br><span>حساب أوضح.</span></h1>
+<p>استخدم اسم المستخدم أو البريد أو رقم الهاتف للدخول. وعند إنشاء حساب جديد نتحقق من وسيلة التواصل قبل إنشاء الحساب.</p>
+</section>
 
-<main class="page">
+<section class="card">
+<div class="tabs">
+<a class="tab {% if auth_mode != 'register' %}active{% endif %}" href="{{ url_for('auth_page') }}">تسجيل الدخول</a>
+<a class="tab {% if auth_mode == 'register' %}active{% endif %}" href="{{ url_for('auth_page', mode='register') }}">إنشاء حساب</a>
+</div>
 
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% if messages %}{% for category,message in messages %}
+<div class="alert {% if category=='success' %}alert-success{% elif category=='error' %}alert-error{% endif %}">{{ message }}</div>
+{% endfor %}{% endif %}
+{% endwith %}
 
-    <section class="brand-side">
-
-        <a
-            href="{{ url_for('home') }}"
-            class="logo-area"
-        >
-
-            <div class="rabbit-logo"></div>
-
-            <span class="logo-text">
-                RABBIT<span class="logo-dot">.</span>
-            </span>
-
-        </a>
-
-
-        <div class="terminal-line">
-            &gt; rabbit.access_terminal()
-        </div>
-
-
-        <h1>
-            بوابة
-            <span>RABBIT</span>
-        </h1>
-
-
-        <p>
-            سجّل دخولك للوصول إلى حسابك والكورسات
-            والخدمات الرقمية، أو أنشئ حساباً جديداً
-            وابدأ استخدام المنصة.
-        </p>
-
-
-        <div class="security-info">
-
-            <div class="security-item">
-                <strong>CONNECTION</strong>
-                SECURE
-            </div>
-
-            <div class="security-item">
-                <strong>SESSION</strong>
-                ACTIVE
-            </div>
-
-            <div class="security-item">
-                <strong>SYSTEM</strong>
-                ONLINE
-            </div>
-
-        </div>
-
-
-        <a
-            href="{{ url_for('home') }}"
-            class="back-home"
-        >
-            ← العودة إلى الرئيسية
-        </a>
-
-    </section>
-
-
-    <section class="auth-box">
-
-        <div class="panel-number">
-            01 / USER ACCESS
-        </div>
-
-
-        <h2>
-            تسجيل الدخول
-        </h2>
-
-
-        <p class="auth-description">
-            أدخل بيانات حسابك، أو استخدم زر إنشاء
-            حساب جديد إذا كانت هذه زيارتك الأولى.
-        </p>
-
-
-        {% with messages = get_flashed_messages(with_categories=true) %}
-
-            {% if messages %}
-
-                {% for category, message in messages %}
-
-                    <div class="alert
-                        {% if category == 'success' %}
-                            alert-success
-                        {% elif category == 'error' %}
-                            alert-error
-                        {% else %}
-                            alert-message
-                        {% endif %}
-                    ">
-                        {{ message }}
-                    </div>
-
-                {% endfor %}
-
-            {% endif %}
-
-        {% endwith %}
-
-
-        <form
-            method="POST"
-            action="{{ url_for('auth_page') }}"
-        >
+{% if auth_mode != 'register' %}
+<h2>تسجيل الدخول</h2>
+<p class="sub">خانة واحدة تكفي: اليوزر أو الإيميل أو رقم الهاتف.</p>
+<form method="POST" action="{{ url_for('auth_page') }}">
 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<input type="hidden" name="action" value="login">
+<div class="field"><input id="identifier" name="identifier" type="text" placeholder=" " autocomplete="username" required><label for="identifier">اسم المستخدم / الإيميل / رقم الهاتف</label></div>
+<div class="field password-wrap"><input id="login-password" name="password" type="password" placeholder=" " autocomplete="current-password" required><label for="login-password">كلمة المرور</label><button class="eye" type="button" data-eye="login-password" aria-label="إظهار كلمة المرور">◉</button></div>
+<button class="btn" type="submit">دخول إلى RABBIT</button>
+<a class="forgot" href="{{ url_for('forgot_password') }}">نسيت كلمة المرور؟</a>
+</form>
 
+{% elif reg_stage == 'contact' %}
+<h2>إنشاء حساب</h2>
+<p class="sub">اختر وسيلة واحدة فقط للتحقق. البريد الإلكتروني يعمل الآن، والهاتف سيُفعّل بعد ربط خدمة الرسائل.</p>
+<form method="POST" action="{{ url_for('auth_page', mode='register') }}" id="contact-form">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<input type="hidden" name="action" value="register_start">
+<div class="method">
+<div><input id="m-email" type="radio" name="contact_method" value="email" checked><label for="m-email">البريد الإلكتروني</label></div>
+<div><input id="m-phone" type="radio" name="contact_method" value="phone"><label for="m-phone">رقم الهاتف<span class="soon">قريباً</span></label></div>
+</div>
+<div class="field"><input id="contact" name="contact" type="text" placeholder=" " autocomplete="email" required><label id="contact-label" for="contact">البريد الإلكتروني</label></div>
+<button class="btn" type="submit">إرسال رمز التحقق</button>
+</form>
 
-            <div class="field">
+{% elif reg_stage == 'verify' %}
+<h2>تأكيد الرمز</h2>
+<p class="sub">أدخل الرمز المكوّن من 6 أرقام. ينتقل المؤشر تلقائياً بين الخانات.</p>
+<div class="verified">{{ reg_contact }}</div>
+<form method="POST" action="{{ url_for('auth_page', mode='register') }}" id="otp-form">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<input type="hidden" name="action" value="register_verify">
+<input type="hidden" name="code" id="otp-code">
+<div class="otp">
+{% for i in range(6) %}<input type="text" inputmode="numeric" maxlength="1" class="otp-digit" aria-label="رقم {{ i + 1 }}">{% endfor %}
+</div>
+<div class="progress"><i id="otp-progress"></i></div>
+<button class="btn" type="submit">تأكيد الرمز</button>
+</form>
+<form method="POST" action="{{ url_for('auth_page', mode='register') }}">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="action" value="register_restart">
+<button class="btn secondary" type="submit">تغيير البريد</button>
+</form>
 
-                <label>
-                    <span>اسم المستخدم</span>
-                    <span class="field-code">USER_ID</span>
-                </label>
-
-                <input
-                    type="text"
-                    name="username"
-                    placeholder="أدخل اسم المستخدم"
-                    autocomplete="username"
-                    required
-                >
-
-            </div>
-
-
-            <div class="field">
-
-                <label>
-                    <span>
-                        البريد الإلكتروني أو رقم الهاتف
-                    </span>
-
-                    <span class="field-code">
-                        CONTACT
-                    </span>
-                </label>
-
-                <input
-                    type="text"
-                    name="email_or_phone"
-                    placeholder="مطلوب عند إنشاء حساب جديد فقط"
-                    autocomplete="email"
-                >
-
-            </div>
-
-
-            <div class="field">
-
-                <label>
-                    <span>كلمة المرور</span>
-                    <span class="field-code">PASSWORD</span>
-                </label>
-
-                <input
-                    type="password"
-                    name="password"
-                    placeholder="أدخل كلمة المرور"
-                    autocomplete="current-password"
-                    required
-                >
-
-            </div>
-
-
-            <div class="buttons">
-
-                <button
-                    type="submit"
-                    name="action"
-                    value="login"
-                    class="login-btn"
-                >
-                    تسجيل الدخول
-                </button>
-
-
-                <button
-                    type="submit"
-                    name="action"
-                    value="register"
-                    class="register-btn"
-                >
-                    إنشاء حساب جديد
-                </button>
-
-            </div>
-
-        </form>
-
-
-        <div class="panel-footer">
-
-            <span>
-                RABBIT ACCESS NODE
-            </span>
-
-            <span class="online">
-                ● ONLINE
-            </span>
-
-        </div>
-
-    </section>
-
+{% else %}
+<h2>آخر خطوة</h2>
+<p class="sub">تم التحقق. اختر اسم مستخدم وكلمة مرور لحسابك.</p>
+<div class="verified">{{ reg_contact }}</div>
+<form method="POST" action="{{ url_for('auth_page', mode='register') }}">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<input type="hidden" name="action" value="register_complete">
+<div class="field"><input id="new-username" name="username" type="text" placeholder=" " minlength="3" maxlength="30" pattern="[A-Za-z0-9._]+" autocomplete="username" required><label for="new-username">اسم المستخدم</label></div>
+<div class="field password-wrap"><input id="new-password" name="password" type="password" placeholder=" " minlength="8" autocomplete="new-password" required><label for="new-password">كلمة المرور</label><button class="eye" type="button" data-eye="new-password" aria-label="إظهار كلمة المرور">◉</button></div>
+<button class="btn" type="submit">إنشاء الحساب والدخول</button>
+</form>
+{% endif %}
+</section>
 </main>
-
+<script>
+document.querySelectorAll('[data-eye]').forEach(function(b){b.addEventListener('click',function(){var i=document.getElementById(b.dataset.eye);i.type=i.type==='password'?'text':'password';b.textContent=i.type==='password'?'◉':'◎';});});
+var email=document.getElementById('m-email'),phone=document.getElementById('m-phone'),contact=document.getElementById('contact'),label=document.getElementById('contact-label');
+function syncContact(){if(!contact)return;if(phone&&phone.checked){contact.type='tel';contact.inputMode='tel';contact.autocomplete='tel';label.textContent='رقم الهاتف العراقي';}else{contact.type='email';contact.inputMode='email';contact.autocomplete='email';label.textContent='البريد الإلكتروني';}}
+if(email)email.addEventListener('change',syncContact);if(phone)phone.addEventListener('change',syncContact);syncContact();
+var digits=[].slice.call(document.querySelectorAll('.otp-digit')),hidden=document.getElementById('otp-code'),bar=document.getElementById('otp-progress');
+function otpSync(){if(!hidden)return;hidden.value=digits.map(function(x){return x.value;}).join('');digits.forEach(function(x){x.classList.toggle('filled',!!x.value);});bar.style.width=((hidden.value.length/6)*100)+'%';}
+digits.forEach(function(el,idx){el.addEventListener('input',function(){el.value=el.value.replace(/\D/g,'').slice(-1);if(el.value&&idx<5)digits[idx+1].focus();otpSync();});el.addEventListener('keydown',function(e){if(e.key==='Backspace'&&!el.value&&idx>0)digits[idx-1].focus();});el.addEventListener('paste',function(e){e.preventDefault();var s=(e.clipboardData.getData('text')||'').replace(/\D/g,'').slice(0,6);s.split('').forEach(function(c,i){digits[i].value=c;});otpSync();digits[Math.min(s.length,5)].focus();});});
+var otpForm=document.getElementById('otp-form');if(otpForm)otpForm.addEventListener('submit',function(e){otpSync();if(hidden.value.length!==6){e.preventDefault();digits.find(function(x){return !x.value;})?.focus();}});
+</script>
 </body>
 </html>
