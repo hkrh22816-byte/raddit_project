@@ -538,6 +538,25 @@ class PaymentMethod(db.Model):
 # Course Payments
 # =========================
 
+class ServiceOrder(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    service_id = db.Column(db.Integer, db.ForeignKey('service.id'), nullable=False)
+    payment_method_id = db.Column(db.Integer, db.ForeignKey('payment_method.id'), nullable=False)
+    page_url = db.Column(db.Text, default='')
+    details = db.Column(db.Text, default='')
+    contact = db.Column(db.String(80), default='')
+    refund_account = db.Column(db.String(250), default='')
+    transaction_id = db.Column(db.String(250), default='')
+    proof_filename = db.Column(db.String(250), default='')
+    status = db.Column(db.String(30), default='pending', nullable=False)
+    admin_note = db.Column(db.Text, default='')
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    user = db.relationship('User', backref='service_orders')
+    service = db.relationship('Service', backref='orders')
+    payment_method = db.relationship('PaymentMethod', backref='service_orders')
+
+
 class CoursePayment(db.Model):
 
     id = db.Column(
@@ -931,12 +950,16 @@ def seed_courses():
 
 
 SERVICE_SEED = [
-    ('إدارة صفحات السوشيال ميديا', 'إدارة السوشيال', 'إدارة وتنظيم المحتوى والحسابات التجارية.', 'إدارة المحتوى، تنظيم النشر، ومتابعة حضور العلامة التجارية.', 'حسب الطلب'),
-    ('تصميم السوشيال ميديا والهوية', 'تصميم', 'تصاميم احترافية للمنشورات والحملات.', 'تصميم منشورات، أغلفة، مواد إعلانية وهوية بصرية متناسقة.', 'حسب الطلب'),
-    ('مونتاج الفيديو والريلز', 'مونتاج', 'مونتاج سريع وجذاب للمحتوى القصير والإعلانات.', 'تحرير الفيديو، ترتيب المشاهد، النصوص والحركة بما يناسب المنصة.', 'حسب الطلب'),
-    ('التصوير والإنتاج الإعلاني', 'إنتاج', 'إنتاج إعلانات بمودل أو بدون حسب المشروع.', 'تخطيط وتنفيذ محتوى إعلاني مناسب للمنتج والجمهور والمنصة.', 'حسب الطلب'),
-    ('إدارة الحملات الإعلانية', 'تسويق', 'إعداد ومتابعة الحملات الإعلانية الرقمية.', 'بناء الحملة ومتابعة النتائج وتحسين الأداء وفق هدف النشاط.', 'حسب الميزانية'),
-    ('تنمية الجمهور والمتابعين', 'نمو الجمهور', 'خطط نمو واضحة بحسب المنصة ونوع الجمهور.', 'خدمة نمو جمهور مع توضيح نوع ومصدر الجمهور وعدم تقديم التفاعل غير الحقيقي على أنه نمو عضوي.', 'حسب الطلب'),
+    ('إنشاء موقع ويب سايت', 'المواقع والتطبيقات', 'موقع احترافي مناسب لنشاطك ومتوافق مع الهاتف.', 'تصميم وتطوير موقع ويب حسب متطلبات المشروع، مع صفحات أساسية وتجربة استخدام مرتبة وربط بيانات التواصل.', 'حسب المشروع'),
+    ('إنشاء متجر إلكتروني', 'المواقع والتطبيقات', 'متجر إلكتروني منظم لعرض وبيع المنتجات.', 'إنشاء متجر إلكتروني بواجهة واضحة وصفحات منتجات وطلبات بما يناسب طبيعة النشاط.', 'حسب المشروع'),
+    ('إنشاء تطبيق', 'المواقع والتطبيقات', 'تطوير تطبيق حسب فكرة ومتطلبات المشروع.', 'دراسة المتطلبات ثم تنفيذ التطبيق والواجهات والوظائف المتفق عليها ضمن تفاصيل الطلب.', 'حسب المشروع'),
+    ('إدارة صفحات السوشيال ميديا', 'إدارة صفحات السوشيال ميديا', 'إدارة شهرية متكاملة للصفحة والمحتوى.', 'إدارة الصفحة لمدة شهر، إدارة الحملات الإعلانية، تصميم 4 بوستات، وتصوير فيديو واحد ضمن الباقة.', '300,000 د.ع'),
+    ('تصميم السوشيال ميديا والهوية', 'إدارة صفحات السوشيال ميديا', 'تصاميم احترافية للمنشورات والحملات.', 'تصميم منشورات وأغلفة ومواد إعلانية وهوية بصرية متناسقة حسب الاتفاق.', 'حسب الطلب'),
+    ('زيادة متابعين Instagram', 'زيادة المتابعين', 'خدمة نمو للمتابعين على Instagram حسب الباقة.', 'اختر الخدمة وأرسل رابط الحساب والتفاصيل المطلوبة، ثم تتم مراجعة الطلب وتنفيذه حسب الباقة المتفق عليها.', 'حسب الباقة'),
+    ('زيادة متابعين TikTok', 'زيادة المتابعين', 'خدمة نمو للمتابعين على TikTok حسب الباقة.', 'اختر الخدمة وأرسل رابط الحساب والتفاصيل المطلوبة، ثم تتم مراجعة الطلب وتنفيذه حسب الباقة المتفق عليها.', 'حسب الباقة'),
+    ('استرجاع حساب Instagram', 'حل مشاكل السوشيال ميديا', 'مساعدة باسترجاع حساب Instagram.', 'أرسل رابط الحساب والتفاصيل المتوفرة، وبعد استلام الطلب نتواصل معك لإكمال إجراءات الاسترجاع.', 'حسب الحالة'),
+    ('استرجاع حساب Facebook', 'حل مشاكل السوشيال ميديا', 'مساعدة باسترجاع حساب Facebook.', 'أرسل رابط الحساب والتفاصيل المتوفرة، وبعد استلام الطلب نتواصل معك لإكمال إجراءات الاسترجاع.', 'حسب الحالة'),
+    ('حل مشاكل البريد الإلكتروني', 'حل مشاكل السوشيال ميديا', 'مساعدة في مشاكل الوصول والاسترداد للبريد الإلكتروني.', 'أرسل تفاصيل المشكلة، وبعد مراجعة الطلب نتواصل معك لإكمال خطوات المعالجة والاسترداد المتاحة.', 'حسب الحالة'),
 ]
 
 STORE_SEED = [
@@ -971,7 +994,25 @@ def home():
 @app.route('/services')
 def services():
     items = Service.query.filter_by(is_active=True).order_by(Service.position.asc(), Service.id.asc()).all()
-    return render_template('services.html', services=items)
+    categories = []
+    for item in items:
+        category = (item.category or 'خدمات أخرى').strip()
+        group = next((entry for entry in categories if entry['name'] == category), None)
+        if group is None:
+            group = {'name': category, 'services': []}
+            categories.append(group)
+        group['services'].append(item)
+    return render_template('services.html', services=items, categories=categories)
+
+
+@app.route('/services/category/<path:category>')
+def service_category(category):
+    items = Service.query.filter_by(is_active=True, category=category).order_by(
+        Service.position.asc(), Service.id.asc()
+    ).all()
+    if not items:
+        abort(404)
+    return render_template('service_category.html', category=category, services=items)
 
 
 @app.route('/services/<int:service_id>')
@@ -979,7 +1020,65 @@ def service_detail(service_id):
     item = db.session.get(Service, service_id) or abort(404)
     if not item.is_active and not admin_only():
         abort(404)
-    return render_template('service_detail.html', service=item)
+    payment_methods = PaymentMethod.query.filter_by(is_active=True).order_by(
+        PaymentMethod.position.asc(), PaymentMethod.id.asc()
+    ).all()
+    return render_template('service_detail.html', service=item, payment_methods=payment_methods)
+
+
+@app.route('/services/<int:service_id>/buy', methods=['POST'])
+@login_required
+@limiter.limit("10 per hour")
+def service_buy(service_id):
+    item = db.session.get(Service, service_id) or abort(404)
+    if not item.is_active:
+        abort(404)
+
+    page_url = (request.form.get('page_url') or '').strip()
+    details = (request.form.get('details') or '').strip()
+    contact = (request.form.get('contact') or '').strip()
+    refund_account = (request.form.get('refund_account') or '').strip()
+    transaction_id = (request.form.get('transaction_id') or '').strip()
+
+    try:
+        payment_method_id = int(request.form.get('payment_method_id') or 0)
+    except ValueError:
+        payment_method_id = 0
+
+    method = db.session.get(PaymentMethod, payment_method_id)
+    if not method or not method.is_active:
+        flash('اختر طريقة دفع متاحة.', 'error')
+        return redirect(url_for('service_detail', service_id=service_id))
+
+    if not page_url or not contact or not refund_account or not transaction_id:
+        flash('أكمل رابط الحساب أو المشروع وبيانات الدفع والتواصل.', 'error')
+        return redirect(url_for('service_detail', service_id=service_id))
+
+    if len(page_url) > 1000 or len(details) > 3000 or len(contact) > 80 or len(refund_account) > 250 or len(transaction_id) > 250:
+        flash('بعض البيانات أطول من الحد المسموح.', 'error')
+        return redirect(url_for('service_detail', service_id=service_id))
+
+    proof = save_payment_proof(request.files.get('payment_proof'))
+    if not proof:
+        flash('ارفع إثبات دفع بصيغة صورة أو PDF.', 'error')
+        return redirect(url_for('service_detail', service_id=service_id))
+
+    order = ServiceOrder(
+        user_id=current_user.id,
+        service_id=item.id,
+        payment_method_id=method.id,
+        page_url=page_url,
+        details=details,
+        contact=contact,
+        refund_account=refund_account,
+        transaction_id=transaction_id,
+        proof_filename=proof,
+        status='pending'
+    )
+    db.session.add(order)
+    db.session.commit()
+    flash('تم استلام طلب الخدمة والدفع للمراجعة.', 'success')
+    return redirect(url_for('account'))
 
 
 @app.route('/store')
@@ -1002,6 +1101,10 @@ def admin_service_new():
     if not admin_only():
         abort(403)
     title=(request.form.get('title') or '').strip()
+    try:
+        position = max(1, int(request.form.get('position') or 1))
+    except ValueError:
+        position = 1
     if not title:
         flash('اسم الخدمة مطلوب.', 'error')
         return redirect(url_for('admin_services'))
@@ -1011,12 +1114,43 @@ def admin_service_new():
         short_description=(request.form.get('short_description') or '').strip(),
         description=(request.form.get('description') or '').strip(),
         price=(request.form.get('price') or 'حسب الطلب').strip(),
-        position=int(request.form.get('position') or 1),
+        position=position,
         is_active=bool(request.form.get('is_active'))
     ))
     db.session.commit()
     flash('تمت إضافة الخدمة.', 'success')
     return redirect(url_for('admin_services'))
+
+
+@app.route('/admin/service/<int:item_id>/edit', methods=['GET', 'POST'])
+@login_required
+def admin_service_edit(item_id):
+    if not admin_only():
+        abort(403)
+    item = db.session.get(Service, item_id) or abort(404)
+
+    if request.method == 'POST':
+        title = (request.form.get('title') or '').strip()
+        if not title:
+            flash('اسم الخدمة مطلوب.', 'error')
+            return redirect(url_for('admin_service_edit', item_id=item.id))
+        try:
+            position = max(1, int(request.form.get('position') or 1))
+        except ValueError:
+            position = 1
+
+        item.title = title[:160]
+        item.category = ((request.form.get('category') or 'خدمات رقمية').strip())[:80]
+        item.short_description = ((request.form.get('short_description') or '').strip())[:280]
+        item.description = (request.form.get('description') or '').strip()
+        item.price = ((request.form.get('price') or 'حسب الطلب').strip())[:60]
+        item.position = position
+        item.is_active = bool(request.form.get('is_active'))
+        db.session.commit()
+        flash('تم تحديث الخدمة.', 'success')
+        return redirect(url_for('admin_services'))
+
+    return render_template('admin_service_edit.html', service=item)
 
 
 @app.route('/admin/service/<int:item_id>/toggle', methods=['POST'])
@@ -2207,6 +2341,31 @@ def admin_payment_reject(payment_id):
     return redirect(url_for('admin_payments'))
 
 
+@app.route('/admin/service-orders')
+@login_required
+def admin_service_orders():
+    if not admin_only():
+        abort(403)
+    orders = ServiceOrder.query.order_by(ServiceOrder.id.desc()).all()
+    return render_template('admin_service_orders.html', orders=orders)
+
+
+@app.route('/admin/service-order/<int:order_id>/<action>', methods=['POST'])
+@login_required
+def admin_service_order_status(order_id, action):
+    if not admin_only():
+        abort(403)
+    order = db.session.get(ServiceOrder, order_id) or abort(404)
+    allowed = {'approve': 'approved', 'reject': 'rejected', 'refund': 'refunded', 'complete': 'completed'}
+    if action not in allowed:
+        abort(404)
+    order.status = allowed[action]
+    order.admin_note = (request.form.get('admin_note') or '').strip()
+    db.session.commit()
+    flash('تم تحديث حالة طلب الخدمة.', 'success')
+    return redirect(url_for('admin_service_orders'))
+
+
 # =========================
 # Customer Account
 # =========================
@@ -2240,11 +2399,16 @@ def account():
         username=current_user.username
     ).order_by(ServiceRequest.id.desc()).all()
 
+    service_orders = ServiceOrder.query.filter_by(
+        user_id=current_user.id
+    ).order_by(ServiceOrder.id.desc()).all()
+
     return render_template(
         'account.html',
         course_items=course_items,
         payments=payments,
         service_requests=service_requests,
+        service_orders=service_orders,
         balance='0.00'
     )
 
