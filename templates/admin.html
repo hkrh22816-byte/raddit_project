@@ -262,12 +262,10 @@ th{
             الموقع
         </a>
 
-        <a
-            class="btn btn2"
-            href="{{ url_for('logout') }}"
-        >
-            تسجيل الخروج
-        </a>
+        <form method="post" action="{{ url_for('logout') }}" style="display:inline;margin:0;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn btn2" type="submit">تسجيل الخروج</button>
+        </form>
 
     </div>
 
@@ -381,6 +379,16 @@ th{
 
 </div>
 
+
+<div class="card manage" style="margin-top:18px">
+    <div><h2>إدارة الخدمات</h2><p>أضف الخدمات، رتّبها، وأظهر أو أخفِ ما تريد عرضه للزبائن.</p></div>
+    <a class="btn" href="{{ url_for('admin_services') }}">فتح إدارة الخدمات ←</a>
+</div>
+
+<div class="card manage" style="margin-top:18px">
+    <div><h2>إدارة المتجر</h2><p>أضف العروض والمنتجات والحسابات المتاحة وحدد حالة توفرها.</p></div>
+    <a class="btn" href="{{ url_for('admin_store') }}">فتح إدارة المتجر ←</a>
+</div>
 
 <!-- ========================= -->
 <!-- PAYMENT SYSTEM -->

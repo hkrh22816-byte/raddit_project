@@ -1546,19 +1546,11 @@
 
 
     <nav>
-
-        <a href="{{ url_for('home') }}">
-            الرئيسية
-        </a>
-
-        <a href="#services">
-            الخدمات
-        </a>
-
-        <a href="{{ url_for('courses') }}">
-            الكورسات
-        </a>
-
+        <a href="{{ url_for('home') }}">الرئيسية</a>
+        <a href="{{ url_for('courses') }}">الكورسات</a>
+        <a href="{{ url_for('services') }}">الخدمات</a>
+        <a href="{{ url_for('store') }}">المتجر</a>
+        {% if current_user.is_authenticated %}<a href="{{ url_for('account') }}">حسابي</a>{% endif %}
     </nav>
 
 
@@ -1697,21 +1689,9 @@
 
 
         <div class="hero-actions">
-
-            <a
-                href="{{ url_for('courses') }}"
-                class="main-btn primary-btn"
-            >
-                استكشف الكورسات
-            </a>
-
-            <a
-                href="#services"
-                class="main-btn secondary-btn"
-            >
-                استكشف الخدمات
-            </a>
-
+            <a href="{{ url_for('courses') }}" class="main-btn primary-btn">أريد أتعلم</a>
+            <a href="{{ url_for('services') }}" class="main-btn secondary-btn">أريد خدمة</a>
+            <a href="{{ url_for('store') }}" class="main-btn secondary-btn">أريد أشتري</a>
         </div>
 
     </div>
@@ -1798,9 +1778,7 @@
                 أقوى على منصات التواصل الاجتماعي.
             </p>
 
-            <span class="card-link">
-                VIEW_SERVICE →
-            </span>
+            <a class="card-link" href="{{ url_for('services') }}">OPEN_SERVICES →</a>
 
         </div>
 
@@ -1823,9 +1801,7 @@
                 للأفراد والمشاريع والشركات.
             </p>
 
-            <span class="card-link">
-                START_PROJECT →
-            </span>
+            <a class="card-link" href="{{ url_for('services') }}">START_PROJECT →</a>
 
         </div>
 
@@ -1848,9 +1824,7 @@
                 المعطلة أو المخترقة.
             </p>
 
-            <span class="card-link">
-                REQUEST_SERVICE →
-            </span>
+            <a class="card-link" href="{{ url_for('store') }}">OPEN_STORE →</a>
 
         </div>
 
