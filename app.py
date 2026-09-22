@@ -861,7 +861,6 @@ def save_payment_proof(proof_file):
 
 
 @app.route('/protected-video/<int:lesson_id>')
-@login_required
 def protected_video(lesson_id):
 
     lesson = db.session.get(
@@ -869,7 +868,7 @@ def protected_video(lesson_id):
         lesson_id
     ) or abort(404)
 
-    if current_user.is_admin:
+    if current_user.is_authenticated and current_user.is_admin:
         has_access = True
 
     elif lesson.is_preview:
