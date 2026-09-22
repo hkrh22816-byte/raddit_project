@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RABBIT | رمز التحقق</title>
+    <style>
+        :root {
+            --bg:#030605; --panel:rgba(7,15,11,.97); --green:#00f58a;
+            --white:#f4fff9; --text:#c8d7d0; --muted:#71847b;
+            --border:rgba(0,245,138,.14); --danger:#ff5364;
+        }
+        * { box-sizing:border-box; }
+        body {
+            margin:0; min-height:100vh; display:flex; align-items:center;
+            justify-content:center; padding:24px; color:var(--white);
+            font-family:"Segoe UI",Tahoma,Arial,sans-serif;
+            background:
+                linear-gradient(rgba(0,245,138,.018) 1px,transparent 1px),
+                linear-gradient(90deg,rgba(0,245,138,.018) 1px,transparent 1px),
+                var(--bg);
+            background-size:52px 52px;
+        }
+        .box {
+            width:100%; max-width:480px; padding:36px;
+            background:linear-gradient(145deg,rgba(10,20,15,.96),rgba(4,9,7,.98));
+            border:1px solid var(--border); border-radius:8px;
+            box-shadow:0 30px 80px rgba(0,0,0,.38);
+        }
+        .logo { font-weight:800; letter-spacing:6px; font-size:22px; margin-bottom:28px; }
+        .logo span,.code { color:var(--green); }
+        h1 { margin:0 0 10px; font-size:27px; }
+        .desc { color:var(--muted); line-height:1.9; font-size:13px; margin-bottom:24px; }
+        label { display:block; color:var(--text); font-size:12px; margin-bottom:8px; }
+        input {
+            width:100%; height:50px; padding:0 15px; border-radius:4px;
+            border:1px solid rgba(255,255,255,.09);
+            background:rgba(255,255,255,.018); color:var(--white);
+            outline:none; font-size:14px;
+        }
+        input:focus { border-color:rgba(0,245,138,.55); }
+        button {
+            width:100%; min-height:49px; margin-top:20px; border-radius:4px;
+            border:1px solid var(--green); background:var(--green);
+            color:#001b0f; font-weight:700; cursor:pointer; font-size:14px;
+        }
+        .back {
+            display:block; margin-top:18px; text-align:center;
+            color:var(--muted); text-decoration:none; font-size:12px;
+        }
+        .alert {
+            padding:12px 14px; border-radius:4px; margin-bottom:18px;
+            font-size:12px; line-height:1.7;
+        }
+        .alert-success { color:#73ffb8; background:rgba(0,245,138,.055); border:1px solid rgba(0,245,138,.25); }
+        .alert-error { color:#ff9ba5; background:rgba(255,83,100,.07); border:1px solid rgba(255,83,100,.27); }
+        .alert-message { color:#d4e3dc; background:rgba(255,255,255,.035); border:1px solid rgba(255,255,255,.09); }
+    </style>
+</head>
+<body>
+    <main class="box">
+        <div class="logo">RABBIT<span>.</span></div>
+        <div class="code">SECURE ACCOUNT RECOVERY</div>
+        <h1>رمز التحقق</h1>
+        <p class="desc">أدخل رمز التحقق. الرمز صالح لمدة 10 دقائق ولمحاولات محدودة.</p>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }}">{{ message }}</div>
+            {% endfor %}
+        {% endwith %}
+
+        <form method="POST" action="{{ url_for('verify_reset_code') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <label>رمز التحقق المكوّن من 6 أرقام</label>
+            <input
+                type="text"
+                name="code"
+                placeholder="000000"
+                inputmode="numeric"
+                autocomplete="one-time-code"
+                minlength="6"
+                maxlength="6"
+                pattern="[0-9]{6}"
+                required
+            >
+            <button type="submit">تحقق من الرمز</button>
+        </form>
+
+        <a class="back" href="{{ url_for('auth_page') }}">العودة إلى تسجيل الدخول</a>
+    </main>
+</body>
+</html>
