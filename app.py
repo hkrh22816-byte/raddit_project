@@ -300,6 +300,15 @@ def parse_iqd_price(value):
     return int(raw) if raw.isdigit() else None
 
 
+class AccountingExpense(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    amount_iqd = db.Column(db.Integer, nullable=False)
+    category = db.Column(db.String(80), default='مصروف عام', nullable=False)
+    note = db.Column(db.String(250), default='')
+    expense_date = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+
 class PasswordResetOTP(db.Model):
     id = db.Column(db.Integer, primary_key=True)
 
@@ -2926,6 +2935,41 @@ def admin_panel():
     )
 
 
+@app.route('/admin/accounting/expense', methods=['POST'])
+@login_required
+def admin_accounting_expense():
+    if not admin_only():
+        abort(403)
+    try:
+        amount = int(request.form.get('amount_iqd') or 0)
+        expense_date = datetime.strptime(request.form.get('expense_date') or '', '%Y-%m-%d')
+    except (ValueError, TypeError):
+        flash('تأكد من مبلغ وتاريخ المصروف.', 'error')
+        return redirect(url_for('admin_accounting'))
+    category = (request.form.get('category') or 'مصروف عام').strip()[:80]
+    note = (request.form.get('note') or '').strip()[:250]
+    if amount <= 0:
+        flash('مبلغ المصروف يجب أن يكون أكبر من صفر.', 'error')
+        return redirect(url_for('admin_accounting'))
+    db.session.add(AccountingExpense(amount_iqd=amount, category=category, note=note, expense_date=expense_date))
+    db.session.commit()
+    flash('تم تسجيل المصروف.', 'success')
+    return redirect(url_for('admin_accounting', year=expense_date.year, month=expense_date.month))
+
+
+@app.route('/admin/accounting/expense/<int:expense_id>/delete', methods=['POST'])
+@login_required
+def admin_accounting_expense_delete(expense_id):
+    if not admin_only():
+        abort(403)
+    item = db.session.get(AccountingExpense, expense_id) or abort(404)
+    year, month = item.expense_date.year, item.expense_date.month
+    db.session.delete(item)
+    db.session.commit()
+    flash('تم حذف المصروف.', 'success')
+    return redirect(url_for('admin_accounting', year=year, month=month))
+
+
 @app.route('/admin/accounting')
 @login_required
 def admin_accounting():
@@ -2962,7 +3006,13 @@ def admin_accounting():
         WalletTransaction.created_at < end
     ).all()
     refunds_iqd = sum(x.amount_iqd for x in refunds if x.amount_iqd > 0)
-    net_sales_iqd = max(0, sales_iqd - refunds_iqd)
+    net_sales_iqd = sales_iqd - refunds_iqd
+    expenses = AccountingExpense.query.filter(
+        AccountingExpense.expense_date >= start,
+        AccountingExpense.expense_date < end
+    ).order_by(AccountingExpense.expense_date.desc(), AccountingExpense.id.desc()).all()
+    expenses_iqd = sum(x.amount_iqd for x in expenses)
+    profit_iqd = net_sales_iqd - expenses_iqd
 
     daily = {}
     for tx in wallet_sales:
@@ -2983,6 +3033,7 @@ def admin_accounting():
     return render_template('admin_accounting.html',
         year=year, month=month, cash_in=cash_in, sales_iqd=sales_iqd,
         refunds_iqd=refunds_iqd, net_sales_iqd=net_sales_iqd,
+        expenses_iqd=expenses_iqd, profit_iqd=profit_iqd, expenses=expenses,
         daily=sorted(daily.items()), transactions=transactions)
 
 
