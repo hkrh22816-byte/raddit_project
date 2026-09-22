@@ -21,7 +21,16 @@ nav{display:flex;justify-content:space-between;align-items:center;gap:15px;margi
 .service-details{margin-top:11px;color:#bdc9c1;line-height:1.7}.footer{text-align:center;margin-top:30px;color:var(--muted);font-size:12px}
 @media(max-width:700px){.profile,.dashboard{grid-template-columns:1fr}.hero h1{font-size:32px}.head{flex-direction:column}nav{align-items:flex-start}}
 </style>
-</head>
+<!-- mobile-ui-polish-marker --><style>
+@media(max-width:700px){
+ .wrap{width:calc(100% - 20px);padding-top:14px}
+ nav{display:block;margin-bottom:14px}.brand{display:block;margin-bottom:12px;font-size:23px}.navlinks{display:flex;flex-wrap:nowrap;overflow-x:auto;padding-bottom:5px;scrollbar-width:none}.navlinks::-webkit-scrollbar{display:none}.navlinks a{white-space:nowrap;padding:8px 11px;font-size:12px}
+ .hero{padding:20px 16px}.hero h1{font-size:30px}.profile{grid-template-columns:1fr}.field{padding:12px}
+ .dashboard{grid-template-columns:1fr}.box{padding:18px}.balance{font-size:30px;direction:rtl}
+ .title{margin-top:24px}.title h2{font-size:18px}.item{padding:15px}.details{gap:10px;display:grid}.actions .btn{width:100%;text-align:center}
+ .table{border-radius:10px}.row{min-width:580px}.head{gap:10px}.badge{align-self:flex-start}
+}
+</style></head>
 <body>
 <div class="wrap">
 <nav>
