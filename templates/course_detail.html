@@ -1418,6 +1418,16 @@ footer{
 
                 </form>
 
+                {% if course.price_iqd %}
+                <form method="post" action="{{ url_for('course_buy_wallet', course_id=course.id) }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button class="btn" type="submit" style="margin-right:8px;background:#071b12;color:#00f58a">
+                        شراء من رصيد Rabbit — {{ "{:,}".format(course.price_iqd) }} د.ع
+                    </button>
+                </form>
+                <p class="muted" style="margin-top:12px">رصيدك الحالي: {{ header_wallet_balance }}</p>
+                {% endif %}
+
             </section>
 
 

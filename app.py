@@ -446,6 +446,11 @@ class Course(db.Model):
         default='قريباً'
     )
 
+    price_iqd = db.Column(
+        db.Integer,
+        nullable=True
+    )
+
     instructor = db.Column(
         db.String(120),
         default='سيتم الإعلان عنه قريباً'
@@ -2462,6 +2467,40 @@ def request_course_enrollment(course_id):
     return redirect(url_for('course_payment', course_id=c.id))
 
 
+@app.route('/course/<int:course_id>/buy-wallet', methods=['POST'])
+@login_required
+@limiter.limit("10 per hour")
+def course_buy_wallet(course_id):
+    c = db.session.get(Course, course_id) or abort(404)
+    if not c.is_published and not admin_only():
+        abort(404)
+    amount_iqd = c.price_iqd or parse_iqd_price(c.price)
+    if not amount_iqd:
+        flash('هذا الكورس لا يملك سعراً بالدينار للدفع من الرصيد حالياً.', 'error')
+        return redirect(url_for('course_detail', course_id=c.id))
+    enrollment = Enrollment.query.filter_by(user_id=current_user.id, course_id=c.id).first()
+    if enrollment and enrollment.status == 'approved':
+        flash('هذا الكورس مفعّل عندك بالفعل.', 'success')
+        return redirect(url_for('course_detail', course_id=c.id))
+    db.session.execute(sql_text('SELECT id FROM "user" WHERE id = :uid FOR UPDATE'), {'uid': current_user.id})
+    if wallet_balance_iqd(current_user.id) < amount_iqd:
+        db.session.rollback()
+        flash('رصيدك غير كافي. أضف رصيداً ثم أعد المحاولة.', 'error')
+        return redirect(url_for('course_detail', course_id=c.id))
+    if not enrollment:
+        enrollment = Enrollment(user_id=current_user.id, course_id=c.id, status='approved')
+        db.session.add(enrollment)
+        db.session.flush()
+    else:
+        enrollment.status = 'approved'
+    db.session.add(WalletTransaction(user_id=current_user.id, transaction_type='purchase',
+        amount_iqd=-amount_iqd, reference_type='course', reference_id=c.id,
+        note=f'شراء كورس: {c.title}'[:250]))
+    db.session.commit()
+    flash('تم شراء الكورس من رصيد Rabbit وتفعيله مباشرة.', 'success')
+    return redirect(url_for('course_detail', course_id=c.id))
+
+
 # =========================
 # Customer Course Payment
 # =========================
@@ -3228,6 +3267,7 @@ def admin_course_new():
                 'price',
                 'قريباً'
             ),
+            price_iqd=parse_iqd_price(request.form.get('price_iqd')),
 
             instructor=request.form.get(
                 'instructor',
@@ -3297,6 +3337,7 @@ def admin_course_edit(course_id):
             'price',
             ''
         )
+        c.price_iqd = parse_iqd_price(request.form.get('price_iqd'))
 
         c.instructor = request.form.get(
             'instructor',
@@ -3615,6 +3656,13 @@ with app.app_context():
             cols = {c['name'] for c in inspector.get_columns('service_order')}
             if 'payment_method_id' in cols:
                 connection.execute(sql_text('ALTER TABLE service_order ALTER COLUMN payment_method_id DROP NOT NULL')) if db.engine.dialect.name == 'postgresql' else None
+
+    inspector = inspect(db.engine)
+    if 'course' in inspector.get_table_names():
+        course_columns = {column['name'] for column in inspector.get_columns('course')}
+        if 'price_iqd' not in course_columns:
+            with db.engine.begin() as connection:
+                connection.execute(sql_text('ALTER TABLE course ADD COLUMN price_iqd INTEGER'))
 
     seed_courses()
     seed_services_and_store()
