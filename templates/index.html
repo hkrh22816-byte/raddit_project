@@ -1494,7 +1494,21 @@
         }
 
     </style>
-</head>
+<!-- mobile-ui-polish-marker --><style>
+@media(max-width:700px){
+ header{position:relative;padding:12px 14px;gap:10px;min-height:auto}
+ .logo-area{order:1}.account-area{order:2;width:auto;margin:0;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+ .logo-text{font-size:17px;letter-spacing:4px}.rabbit-logo{width:32px;height:32px}.rabbit-logo::before{top:8px;left:8px}
+ .account-area .user-box,.admin-btn{display:none}.auth-btn{padding:8px 9px;font-size:10px;white-space:nowrap}
+ nav{order:3;width:calc(100% + 28px);margin:2px -14px -12px;padding:12px 14px;justify-content:flex-start;overflow-x:auto;gap:20px;border-top:1px solid var(--border);scrollbar-width:none}
+ nav::-webkit-scrollbar{display:none}nav a{font-size:12px;white-space:nowrap}
+ .hero{min-height:auto;padding:72px 16px 65px}.hero-content{width:100%}.system-status{margin-bottom:22px}
+ .hero h1{font-size:42px;line-height:1.22}.hero p{font-size:14px;line-height:1.8}
+ .hero-actions{display:grid;grid-template-columns:1fr;gap:10px}.main-btn{width:100%;padding:14px}
+ .container{width:min(100% - 28px,1200px);padding:55px 0}.section-header{margin-bottom:22px}.card{padding:22px;min-height:190px}
+ footer{padding:22px 14px}
+}
+</style></head>
 
 
 <body class="intro-lock">
