@@ -1315,7 +1315,7 @@ def service_detail(service_id):
 
 @app.route('/services/<int:service_id>/pay-test', methods=['POST'])
 @login_required
-@limiter.limit('5 per hour')
+@limiter.limit('20 per hour')
 def service_pay_test(service_id):
     item = db.session.get(Service, service_id) or abort(404)
     if not item.is_active:
@@ -1487,7 +1487,7 @@ def store_detail(item_id):
 
 @app.route('/store/<int:item_id>/pay-test', methods=['POST'])
 @login_required
-@limiter.limit('5 per hour')
+@limiter.limit('20 per hour')
 def store_pay_test(item_id):
     item = db.session.get(StoreItem, item_id) or abort(404)
     if not item.is_active or item.stock_status != 'available':
