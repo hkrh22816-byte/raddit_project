@@ -1569,7 +1569,6 @@
 
     <nav>
         <a href="{{ url_for('home') }}">الرئيسية</a>
-        <a href="{{ url_for('courses') }}">الكورسات</a>
         <a href="{{ url_for('services') }}">الخدمات</a>
         <a href="{{ url_for('store') }}">المتجر</a>
         {% if current_user.is_authenticated %}<a href="{{ url_for('account') }}">حسابي</a>{% endif %}
@@ -1694,8 +1693,8 @@
 
             <p>
                 حسابك متصل الآن بمنصة RABBIT.
-                اختر الكورس الذي تريد تعلمه أو انتقل
-                إلى خدماتنا الرقمية وابدأ طلبك.
+                تصفح خدماتنا الرقمية واختر ما يناسب مشروعك،
+                أو استكشف المنتجات المتاحة في المتجر.
             </p>
 
         {% else %}
@@ -1706,18 +1705,16 @@
             </h1>
 
             <p>
-                منصة رقمية تجمع الكورسات والخدمات التقنية
-                والحلول الرقمية في مكان واحد،
-                بتجربة مصممة لعالم الإنترنت والتقنية.
+                خدمات رقمية ومنتجات إلكترونية تساعدك
+                على تطوير حضورك ومشروعك عبر الإنترنت.
             </p>
 
         {% endif %}
 
 
         <div class="hero-actions">
-            <a href="{{ url_for('courses') }}" class="main-btn primary-btn">أريد أتعلم</a>
-            <a href="{{ url_for('services') }}" class="main-btn secondary-btn">أريد خدمة</a>
-            <a href="{{ url_for('store') }}" class="main-btn secondary-btn">أريد أشتري</a>
+            <a href="{{ url_for('services') }}" class="main-btn primary-btn">تصفح الخدمات</a>
+            <a href="{{ url_for('store') }}" class="main-btn secondary-btn">تصفح المتجر</a>
         </div>
 
     </div>
@@ -1744,7 +1741,7 @@
             </div>
 
             <h2 class="section-title">
-                اختر مسارك
+                خدماتنا ومتجرنا
             </h2>
 
         </div>
@@ -1755,35 +1752,6 @@
 
 
     <div class="grid">
-
-
-        <!-- COURSES -->
-
-        <div
-            class="card"
-            onclick="window.location.href='{{ url_for('courses') }}'"
-        >
-
-            <div class="card-number">
-                01 / COURSES
-            </div>
-
-            <h3>
-                الكورسات الرقمية
-            </h3>
-
-            <p>
-                كورسات أونلاين مسجلة وحصرية.
-                اختر الكورس المناسب واطلب الاشتراك،
-                وبعد تفعيل حسابك داخل الكورس
-                يمكنك الوصول إلى الدروس المحمية.
-            </p>
-
-            <span class="card-link">
-                OPEN_COURSES →
-            </span>
-
-        </div>
 
 
         <!-- SOCIAL -->

@@ -9,23 +9,13 @@
 <div class="full"><label>رابط الحساب أو الصفحة أو المشروع</label><input name="page_url" type="url" required placeholder="https://..."></div>
 <div class="full"><label>تفاصيل إضافية</label><textarea name="details" placeholder="اكتب أي تفاصيل تريد إضافتها للطلب"></textarea></div>
 <div><label>رقم التواصل</label><input name="contact" required placeholder="07xxxxxxxxx"></div>
-<div><label>طريقة الدفع</label><select id="paymentMethod" name="payment_method_id" required><option value="">اختر طريقة الدفع</option>{% for method in payment_methods %}<option value="{{ method.id }}">{{ method.name }}</option>{% endfor %}</select></div>
+<div><label>طريقة الدفع</label><select id="paymentMethod" name="payment_method_id" required><option value="">اختر كي كارد أو زين كاش</option>{% for method in payment_methods %}<option value="{{ method.id }}">{{ method.name }}</option>{% endfor %}</select></div>
 <div><label>رقم العملية / التحويل</label><input name="transaction_id" required></div>
 <div><label>رقم أو حساب استرجاع المبلغ</label><input name="refund_account" required></div>
 <div class="full"><label>إثبات الدفع</label><input type="file" name="payment_proof" accept=".png,.jpg,.jpeg,.webp,.pdf" required></div>
 <div class="full">{% for method in payment_methods %}<div class="method-details" data-method="{{ method.id }}"><strong>{{ method.name }}</strong>{% if method.account_name %}<div style="margin-top:8px">الاسم: {{ method.account_name }}</div>{% endif %}{% if method.account_number %}<div class="number">{{ method.account_number }}</div>{% endif %}</div>{% endfor %}</div>
 <div class="full"><button class="btn" type="submit">إرسال الطلب والدفع للمراجعة</button></div></div></form>
-{% if current_user.is_authenticated %}
-<form method="post" action="{{ url_for('service_buy_wallet', service_id=service.id) }}" style="margin-top:12px">
-<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-{% if packages %}<input type="hidden" name="package_id" id="walletPackage">{% endif %}
-<input type="hidden" name="page_url" id="walletPage"><input type="hidden" name="details" id="walletDetails"><input type="hidden" name="contact" id="walletContact">
-<button class="btn" type="submit" style="background:#071b12;color:#00f58a;border:1px solid #00f58a">الدفع من رصيد Rabbit — {{ header_wallet_balance }}</button>
-</form>
-<script>
-(function(){const wf=document.currentScript.previousElementSibling;wf.addEventListener('submit',function(){const map=[['walletPage','input[name="page_url"]'],['walletDetails','textarea[name="details"]'],['walletContact','input[name="contact"]'],['walletPackage','#packageBuy']];map.forEach(([a,b])=>{const x=document.getElementById(a),y=document.querySelector(b);if(x&&y)x.value=y.value;});});})();
-</script>
-{% endif %}
+<p class="support">الدفع حالياً يدوي فقط عبر كي كارد أو زين كاش، والطلب يتفعل بعد مراجعة إثبات التحويل.</p>
 {% else %}<a class="btn" style="display:block;text-align:center" href="{{ url_for('auth_page') }}">سجل الدخول للشراء</a>{% endif %}
 <a class="support" href="{{ url_for('home') }}">عندك استفسار قبل الشراء؟ تواصل ويانا</a></section></div><script>
 const pay=document.getElementById('paymentMethod');if(pay){pay.addEventListener('change',()=>{document.querySelectorAll('.method-details').forEach(e=>e.classList.toggle('show',e.dataset.method===pay.value));});}

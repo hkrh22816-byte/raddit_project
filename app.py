@@ -389,14 +389,19 @@ class StoreOrder(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     store_item_id = db.Column(db.Integer, db.ForeignKey('store_item.id'), nullable=False)
+    payment_method_id = db.Column(db.Integer, db.ForeignKey('payment_method.id'), nullable=True)
     amount_iqd = db.Column(db.Integer, nullable=False)
     status = db.Column(db.String(30), default='pending', nullable=False)
     contact = db.Column(db.String(80), default='')
     details = db.Column(db.Text, default='')
+    transaction_id = db.Column(db.String(250), default='')
+    refund_account = db.Column(db.String(250), default='')
+    proof_filename = db.Column(db.String(250), default='')
     admin_note = db.Column(db.Text, default='')
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     user = db.relationship('User', backref='store_orders')
     store_item = db.relationship('StoreItem', backref='orders')
+    payment_method = db.relationship('PaymentMethod', backref='store_orders')
 
 
 class ServiceRequest(db.Model):
@@ -630,6 +635,21 @@ class PaymentMethod(db.Model):
         db.Integer,
         default=1
     )
+
+
+def is_supported_manual_payment(method):
+    if not method or not method.is_active:
+        return False
+    label = f"{method.name or ''} {method.network or ''}".casefold().replace(' ', '')
+    return any(token in label for token in (
+        'qicard', 'كيكارد', 'كيكارت', 'qiكارد', 'زينكاش', 'zaincash'
+    ))
+
+
+def get_supported_manual_payment_methods():
+    return [method for method in PaymentMethod.query.filter_by(is_active=True)
+            .order_by(PaymentMethod.position.asc(), PaymentMethod.id.asc()).all()
+            if is_supported_manual_payment(method)]
 
 
 # =========================
@@ -1173,9 +1193,7 @@ def service_detail(service_id):
     item = db.session.get(Service, service_id) or abort(404)
     if not item.is_active and not admin_only():
         abort(404)
-    payment_methods = PaymentMethod.query.filter_by(is_active=True).order_by(
-        PaymentMethod.position.asc(), PaymentMethod.id.asc()
-    ).all()
+    payment_methods = get_supported_manual_payment_methods()
     packages = ServicePackage.query.filter_by(service_id=item.id, is_active=True).order_by(ServicePackage.position.asc(), ServicePackage.id.asc()).all()
     return render_template('service_detail.html', service=item, payment_methods=payment_methods, packages=packages)
 
@@ -1214,8 +1232,8 @@ def service_buy(service_id):
         payment_method_id = 0
 
     method = db.session.get(PaymentMethod, payment_method_id)
-    if not method or not method.is_active:
-        flash('اختر طريقة دفع متاحة.', 'error')
+    if not is_supported_manual_payment(method):
+        flash('اختر كي كارد أو زين كاش كطريقة دفع.', 'error')
         return redirect(url_for('service_detail', service_id=service_id))
 
     if not page_url or not contact or not refund_account or not transaction_id:
@@ -1257,50 +1275,8 @@ def service_buy(service_id):
 @limiter.limit("10 per hour")
 def service_buy_wallet(service_id):
     item = db.session.get(Service, service_id) or abort(404)
-    if not item.is_active:
-        abort(404)
-    page_url = (request.form.get('page_url') or '').strip()
-    details = (request.form.get('details') or '').strip()
-    contact = (request.form.get('contact') or '').strip()
-    package = None
-    package_label = ''
-    amount_iqd = item.price_iqd or parse_iqd_price(item.price)
-    if item.packages:
-        try:
-            package_id = int(request.form.get('package_id') or 0)
-        except ValueError:
-            package_id = 0
-        package = db.session.get(ServicePackage, package_id)
-        if not package or package.service_id != item.id or not package.is_active:
-            flash('اختر الباقة المطلوبة.', 'error')
-            return redirect(url_for('service_detail', service_id=service_id))
-        package_label = package.label
-        amount_iqd = package.price_iqd
-    if not amount_iqd:
-        flash('هذه الخدمة لا تملك سعراً بالدينار للدفع من الرصيد حالياً.', 'error')
-        return redirect(url_for('service_detail', service_id=service_id))
-    if not page_url or not contact or len(page_url) > 1000 or len(details) > 3000 or len(contact) > 80:
-        flash('أكمل رابط الحساب أو المشروع وبيانات التواصل.', 'error')
-        return redirect(url_for('service_detail', service_id=service_id))
-    db.session.execute(sql_text('SELECT id FROM "user" WHERE id = :uid FOR UPDATE'), {'uid': current_user.id})
-    if wallet_balance_iqd(current_user.id) < amount_iqd:
-        db.session.rollback()
-        flash('رصيدك غير كافي. أضف رصيداً ثم أعد المحاولة.', 'error')
-        return redirect(url_for('service_detail', service_id=service_id))
-    order = ServiceOrder(user_id=current_user.id, service_id=item.id,
-        payment_method_id=None, service_package_id=package.id if package else None,
-        package_label=package_label, amount=f"{amount_iqd:,} د.ع", page_url=page_url,
-        details=details, contact=contact, refund_account='', transaction_id='RABBIT WALLET',
-        proof_filename='', status='pending')
-    db.session.add(order)
-    db.session.flush()
-    db.session.add(WalletTransaction(user_id=current_user.id, transaction_type='purchase',
-        amount_iqd=-amount_iqd, reference_type='service_order', reference_id=order.id,
-        note=f'شراء خدمة: {item.title}'[:250]))
-    db.session.commit()
-    flash('تم الدفع من رصيد Rabbit وإرسال الطلب.', 'success')
-    return redirect(url_for('account'))
-
+    flash('الدفع متاح حالياً يدوياً عبر كي كارد أو زين كاش.', 'error')
+    return redirect(url_for('service_detail', service_id=item.id))
 
 @app.route('/store')
 def store():
@@ -1312,41 +1288,62 @@ def store_detail(item_id):
     item = db.session.get(StoreItem, item_id) or abort(404)
     if not item.is_active:
         abort(404)
-    return render_template('store_detail.html', item=item, price_iqd=item.price_iqd or parse_iqd_price(item.price))
+    return render_template('store_detail.html', item=item,
+                           price_iqd=item.price_iqd or parse_iqd_price(item.price),
+                           payment_methods=get_supported_manual_payment_methods())
 
 
-@app.route('/store/<int:item_id>/buy-wallet', methods=['POST'])
+@app.route('/store/<int:item_id>/buy', methods=['POST'])
 @login_required
 @limiter.limit("10 per hour")
-def store_buy_wallet(item_id):
+def store_buy(item_id):
     item = db.session.get(StoreItem, item_id) or abort(404)
     if not item.is_active or item.stock_status != 'available':
         abort(404)
     amount_iqd = item.price_iqd or parse_iqd_price(item.price)
     if not amount_iqd:
-        flash('هذا العرض لا يملك سعراً بالدينار للشراء من الرصيد حالياً.', 'error')
+        flash('السعر غير محدد حالياً. تواصل ويانا لمعرفة السعر.', 'error')
+        return redirect(url_for('store_detail', item_id=item.id))
+    try:
+        method_id = int(request.form.get('payment_method_id') or 0)
+    except ValueError:
+        method_id = 0
+    method = db.session.get(PaymentMethod, method_id)
+    if not is_supported_manual_payment(method):
+        flash('اختر كي كارد أو زين كاش كطريقة دفع.', 'error')
         return redirect(url_for('store_detail', item_id=item.id))
     contact = (request.form.get('contact') or '').strip()
     details = (request.form.get('details') or '').strip()
-    if not contact or len(contact) > 80 or len(details) > 2000:
-        flash('أدخل وسيلة تواصل صحيحة.', 'error')
+    transaction_id = (request.form.get('transaction_id') or '').strip()
+    refund_account = (request.form.get('refund_account') or '').strip()
+    if not contact or not transaction_id or not refund_account:
+        flash('أكمل رقم التواصل ورقم التحويل وحساب الاسترجاع.', 'error')
         return redirect(url_for('store_detail', item_id=item.id))
-    db.session.execute(sql_text('SELECT id FROM "user" WHERE id = :uid FOR UPDATE'), {'uid': current_user.id})
-    if wallet_balance_iqd(current_user.id) < amount_iqd:
-        db.session.rollback()
-        flash('رصيدك غير كافي. أضف رصيداً ثم أعد المحاولة.', 'error')
+    if len(contact) > 80 or len(details) > 2000 or len(transaction_id) > 250 or len(refund_account) > 250:
+        flash('بعض البيانات أطول من الحد المسموح.', 'error')
         return redirect(url_for('store_detail', item_id=item.id))
-    order = StoreOrder(user_id=current_user.id, store_item_id=item.id, amount_iqd=amount_iqd,
-                       status='pending', contact=contact, details=details)
-    db.session.add(order)
-    db.session.flush()
-    db.session.add(WalletTransaction(user_id=current_user.id, transaction_type='purchase',
-        amount_iqd=-amount_iqd, reference_type='store_order', reference_id=order.id,
-        note=f'شراء من المتجر: {item.title}'[:250]))
+    proof = save_payment_proof(request.files.get('payment_proof'))
+    if not proof:
+        flash('ارفع إثبات الدفع بصيغة صورة أو PDF.', 'error')
+        return redirect(url_for('store_detail', item_id=item.id))
+    db.session.add(StoreOrder(
+        user_id=current_user.id, store_item_id=item.id,
+        payment_method_id=method.id, amount_iqd=amount_iqd,
+        status='pending', contact=contact, details=details,
+        transaction_id=transaction_id, refund_account=refund_account,
+        proof_filename=proof
+    ))
     db.session.commit()
-    flash('تم الشراء من رصيد Rabbit وإرسال الطلب.', 'success')
+    flash('وصل طلبك وإثبات الدفع. الطلب بانتظار مراجعة الإدارة.', 'success')
     return redirect(url_for('account'))
 
+
+@app.route('/store/<int:item_id>/buy-wallet', methods=['POST'])
+@login_required
+def store_buy_wallet(item_id):
+    item = db.session.get(StoreItem, item_id) or abort(404)
+    flash('الدفع متاح حالياً يدوياً عبر كي كارد أو زين كاش.', 'error')
+    return redirect(url_for('store_detail', item_id=item.id))
 
 @app.route('/admin/store-orders')
 @login_required
@@ -1354,6 +1351,21 @@ def admin_store_orders():
     if not admin_only():
         abort(403)
     return render_template('admin_store_orders.html', orders=StoreOrder.query.order_by(StoreOrder.id.desc()).all())
+
+
+@app.route('/admin/store-order-proof/<int:order_id>')
+@login_required
+def admin_store_order_proof(order_id):
+    if not admin_only():
+        abort(403)
+    order = db.session.get(StoreOrder, order_id) or abort(404)
+    if not order.proof_filename:
+        abort(404)
+    return send_from_directory(
+        app.config['PAYMENT_PROOF_FOLDER'],
+        os.path.basename(order.proof_filename),
+        conditional=True
+    )
 
 
 @app.route('/admin/store-order/<int:order_id>/<action>', methods=['POST'])
@@ -1371,7 +1383,7 @@ def admin_store_order_action(order_id, action):
         flash('هذا الانتقال غير مسموح أو الطلب تمت معالجته مسبقاً.', 'error')
         return redirect(url_for('admin_store_orders'))
     note = (request.form.get('admin_note') or '').strip()[:250]
-    if action == 'reject':
+    if action == 'reject' and order.payment_method_id is None:
         existing_refund = WalletTransaction.query.filter_by(
             user_id=order.user_id, transaction_type='refund',
             reference_type='store_order_refund', reference_id=order.id
@@ -2677,12 +2689,7 @@ def course_payment(course_id):
         db.session.add(enrollment)
         db.session.commit()
 
-    methods = PaymentMethod.query.filter_by(
-        is_active=True
-    ).order_by(
-        PaymentMethod.position.asc(),
-        PaymentMethod.id.asc()
-    ).all()
+    methods = get_supported_manual_payment_methods()
 
     latest_payment = CoursePayment.query.filter_by(
         user_id=current_user.id,
@@ -2907,7 +2914,7 @@ def admin_service_order_status(order_id, action):
 @login_required
 @limiter.limit("10 per hour")
 def wallet_top_up():
-    methods = PaymentMethod.query.filter_by(is_active=True).order_by(PaymentMethod.position.asc(), PaymentMethod.id.asc()).all()
+    methods = get_supported_manual_payment_methods()
     if request.method == 'POST':
         try:
             amount_iqd = int(request.form.get('amount_iqd') or 0)
@@ -3225,7 +3232,7 @@ def admin_launch_check():
     courses = Course.query.filter_by(is_published=True).all()
     services = Service.query.filter_by(is_active=True).all()
     store_items = StoreItem.query.filter_by(is_active=True).all()
-    methods = PaymentMethod.query.filter_by(is_active=True).all()
+    methods = get_supported_manual_payment_methods()
     checks = [
         ('طرق الدفع', bool(methods), f'{len(methods)} طريقة مفعلة' if methods else 'أضف طريقة دفع واحدة على الأقل'),
         ('الكورسات المنشورة', bool(courses), f'{len(courses)} كورس منشور' if courses else 'لا يوجد كورس منشور'),
@@ -4008,6 +4015,24 @@ with app.app_context():
                             f'ADD COLUMN {column_name} {column_type}'
                         )
                     )
+
+    inspector = inspect(db.engine)
+    if 'store_order' in inspector.get_table_names():
+        store_order_columns = {
+            column['name'] for column in inspector.get_columns('store_order')
+        }
+        store_order_additions = {
+            'payment_method_id': 'INTEGER',
+            'transaction_id': "VARCHAR(250) DEFAULT ''",
+            'refund_account': "VARCHAR(250) DEFAULT ''",
+            'proof_filename': "VARCHAR(250) DEFAULT ''",
+        }
+        with db.engine.begin() as connection:
+            for column_name, column_type in store_order_additions.items():
+                if column_name not in store_order_columns:
+                    connection.execute(sql_text(
+                        f'ALTER TABLE store_order ADD COLUMN {column_name} {column_type}'
+                    ))
 
     inspector = inspect(db.engine)
     with db.engine.begin() as connection:
