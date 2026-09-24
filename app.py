@@ -14,6 +14,12 @@ import mimetypes
 import re
 import secrets
 import resend
+import hashlib
+import hmac
+import json
+import time
+from urllib.request import Request as UrlRequest, urlopen
+from urllib.error import HTTPError, URLError
 from datetime import datetime, timedelta
 from urllib.parse import urlparse
 
@@ -140,6 +146,8 @@ limiter = Limiter(
 @app.before_request
 def protect_post_requests():
     if request.method == 'POST':
+        if request.endpoint == 'swiftpay_webhook':
+            return
         source = request.headers.get('Origin') or request.headers.get('Referer')
 
         if not source:
@@ -397,6 +405,9 @@ class StoreOrder(db.Model):
     transaction_id = db.Column(db.String(250), default='')
     refund_account = db.Column(db.String(250), default='')
     proof_filename = db.Column(db.String(250), default='')
+    payment_provider = db.Column(db.String(30), default='', nullable=False)
+    gateway_invoice_id = db.Column(db.String(120), default='', nullable=False)
+    gateway_payment_id = db.Column(db.String(120), default='', nullable=False)
     admin_note = db.Column(db.Text, default='')
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     user = db.relationship('User', backref='store_orders')
@@ -652,6 +663,104 @@ def get_supported_manual_payment_methods():
             if is_supported_manual_payment(method)]
 
 
+def swiftpay_test_api_key():
+    key = (os.environ.get('SWIFTPAY_TEST_API_KEY') or '').strip()
+    if os.environ.get('SWIFTPAY_MODE', '').strip().lower() != 'test':
+        return ''
+    return key if key.startswith('spi_test_') else ''
+
+
+def swiftpay_test_enabled_for_admin():
+    return bool(admin_only() and swiftpay_test_api_key())
+
+
+def normalize_iraqi_mobile(value):
+    value = (value or '').translate(str.maketrans(
+        '٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹',
+        '01234567890123456789'
+    ))
+    digits = re.sub(r'\D', '', value)
+    if digits.startswith('00964'):
+        digits = digits[5:]
+    elif digits.startswith('964'):
+        digits = digits[3:]
+    if digits.startswith('0'):
+        digits = digits[1:]
+    if len(digits) != 10 or not digits.startswith('7'):
+        return ''
+    return '+964' + digits
+
+
+def create_swiftpay_test_invoice(order_type, order_id, customer_name,
+                                 customer_phone, description, amount_iqd):
+    api_key = swiftpay_test_api_key()
+    if not api_key or not isinstance(amount_iqd, int) or amount_iqd < 1:
+        return None
+
+    payload = {
+        'customerName': (customer_name or 'Rabbit customer')[:120],
+        'customerPhone': customer_phone,
+        'items': [{
+            'description': (description or 'Rabbit order')[:200],
+            'quantity': 1,
+            'unitPrice': str(amount_iqd),
+        }],
+        'taxAmount': '0',
+        'notes': f'Rabbit {order_type} order #{order_id} (test)',
+    }
+    api_request = UrlRequest(
+        'https://api.swiftpayiq.com/api/v1/invoices',
+        data=json.dumps(payload, ensure_ascii=False).encode('utf-8'),
+        headers={
+            'Authorization': f'Bearer {api_key}',
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+        },
+        method='POST',
+    )
+    try:
+        with urlopen(api_request, timeout=15) as response:
+            result = json.loads(response.read().decode('utf-8'))
+    except HTTPError as exc:
+        app.logger.warning('SwiftPay test invoice request failed with HTTP %s', exc.code)
+        return None
+    except (URLError, TimeoutError, OSError, ValueError, json.JSONDecodeError):
+        app.logger.warning('SwiftPay test invoice request failed')
+        return None
+
+    invoice = result.get('invoice') or {}
+    pay_page = result.get('payPage') or {}
+    invoice_id = str(invoice.get('id') or '')
+    pay_url = str(pay_page.get('url') or '')
+    parsed = urlparse(pay_url)
+    if (not invoice_id or len(invoice_id) > 120 or parsed.scheme != 'https'
+            or parsed.hostname != 'swiftpayiq.com'):
+        app.logger.warning('SwiftPay test invoice response was incomplete or invalid')
+        return None
+    return invoice_id, pay_url
+
+
+def verify_swiftpay_test_webhook(raw_body, signature_header):
+    secret = (os.environ.get('SWIFTPAY_TEST_WEBHOOK_SECRET') or '').strip()
+    if (os.environ.get('SWIFTPAY_MODE', '').strip().lower() != 'test'
+            or not secret.startswith('whsec_') or not signature_header):
+        return False
+    parts = {}
+    try:
+        for item in signature_header.split(','):
+            name, value = item.strip().split('=', 1)
+            parts[name] = value
+        timestamp = int(parts['t'])
+        signature = parts['v1']
+    except (KeyError, TypeError, ValueError):
+        return False
+    if abs(time.time() - timestamp) > 300 or not re.fullmatch(r'[0-9a-fA-F]{64}', signature):
+        return False
+    signed_payload = str(timestamp).encode('ascii') + b'.' + raw_body
+    expected = hmac.new(secret.encode('utf-8'), signed_payload, hashlib.sha256).hexdigest()
+    return hmac.compare_digest(expected, signature.lower())
+
+
 # =========================
 # Course Payments
 # =========================
@@ -670,6 +779,9 @@ class ServiceOrder(db.Model):
     refund_account = db.Column(db.String(250), default='')
     transaction_id = db.Column(db.String(250), default='')
     proof_filename = db.Column(db.String(250), default='')
+    payment_provider = db.Column(db.String(30), default='', nullable=False)
+    gateway_invoice_id = db.Column(db.String(120), default='', nullable=False)
+    gateway_payment_id = db.Column(db.String(120), default='', nullable=False)
     status = db.Column(db.String(30), default='pending', nullable=False)
     admin_note = db.Column(db.Text, default='')
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
@@ -1195,7 +1307,86 @@ def service_detail(service_id):
         abort(404)
     payment_methods = get_supported_manual_payment_methods()
     packages = ServicePackage.query.filter_by(service_id=item.id, is_active=True).order_by(ServicePackage.position.asc(), ServicePackage.id.asc()).all()
-    return render_template('service_detail.html', service=item, payment_methods=payment_methods, packages=packages)
+    return render_template(
+        'service_detail.html', service=item, payment_methods=payment_methods,
+        packages=packages, swiftpay_test_enabled=swiftpay_test_enabled_for_admin()
+    )
+
+
+@app.route('/services/<int:service_id>/pay-test', methods=['POST'])
+@login_required
+@limiter.limit('5 per hour')
+def service_pay_test(service_id):
+    item = db.session.get(Service, service_id) or abort(404)
+    if not item.is_active:
+        abort(404)
+    if not admin_only():
+        abort(404)
+    if not swiftpay_test_api_key():
+        flash('الدفع التجريبي غير مضبوط حالياً.', 'error')
+        return redirect(url_for('service_detail', service_id=item.id))
+
+    contact = normalize_iraqi_mobile(request.form.get('contact'))
+    page_url = (request.form.get('page_url') or '').strip()
+    details = (request.form.get('details') or '').strip()
+    if not contact:
+        flash('اكتب رقم موبايل عراقي صحيح حتى تُنشأ فاتورة الاختبار.', 'error')
+        return redirect(url_for('service_detail', service_id=item.id))
+    if not page_url or len(page_url) > 1000 or len(details) > 3000:
+        flash('أكمل رابط الحساب أو المشروع وتأكد من طول التفاصيل.', 'error')
+        return redirect(url_for('service_detail', service_id=item.id))
+    parsed_page_url = urlparse(page_url)
+    if parsed_page_url.scheme not in {'http', 'https'} or not parsed_page_url.netloc:
+        flash('رابط الحساب أو المشروع غير صحيح.', 'error')
+        return redirect(url_for('service_detail', service_id=item.id))
+
+    package = None
+    if item.packages:
+        try:
+            package_id = int(request.form.get('package_id') or 0)
+        except ValueError:
+            package_id = 0
+        package = db.session.get(ServicePackage, package_id)
+        if not package or package.service_id != item.id or not package.is_active:
+            flash('اختر الباقة المطلوبة.', 'error')
+            return redirect(url_for('service_detail', service_id=item.id))
+        amount_iqd = package.price_iqd
+        package_label = package.label
+    else:
+        amount_iqd = item.price_iqd or parse_iqd_price(item.price)
+        package_label = ''
+    if not amount_iqd or amount_iqd < 1:
+        flash('حدد سعر الخدمة بالدينار قبل تجربة الدفع.', 'error')
+        return redirect(url_for('service_detail', service_id=item.id))
+
+    order = ServiceOrder(
+        user_id=current_user.id,
+        service_id=item.id,
+        service_package_id=package.id if package else None,
+        package_label=package_label,
+        amount=f'{amount_iqd:,} د.ع',
+        page_url=page_url,
+        details=details,
+        contact=contact,
+        status='pending',
+        payment_provider='swiftpay_test',
+    )
+    db.session.add(order)
+    db.session.flush()
+    invoice = create_swiftpay_test_invoice(
+        'service', order.id,
+        current_user.full_name or current_user.username,
+        contact,
+        f'{item.title}{": " + package_label if package_label else ""}',
+        amount_iqd,
+    )
+    if not invoice:
+        db.session.rollback()
+        flash('تعذر إنشاء فاتورة الاختبار. تأكد من إعداد مفتاح SwiftPay التجريبي.', 'error')
+        return redirect(url_for('service_detail', service_id=item.id))
+    order.gateway_invoice_id = invoice[0]
+    db.session.commit()
+    return redirect(invoice[1], code=303)
 
 
 @app.route('/services/<int:service_id>/buy', methods=['POST'])
@@ -1290,7 +1481,61 @@ def store_detail(item_id):
         abort(404)
     return render_template('store_detail.html', item=item,
                            price_iqd=item.price_iqd or parse_iqd_price(item.price),
-                           payment_methods=get_supported_manual_payment_methods())
+                           payment_methods=get_supported_manual_payment_methods(),
+                           swiftpay_test_enabled=swiftpay_test_enabled_for_admin())
+
+
+@app.route('/store/<int:item_id>/pay-test', methods=['POST'])
+@login_required
+@limiter.limit('5 per hour')
+def store_pay_test(item_id):
+    item = db.session.get(StoreItem, item_id) or abort(404)
+    if not item.is_active or item.stock_status != 'available':
+        abort(404)
+    if not admin_only():
+        abort(404)
+    if not swiftpay_test_api_key():
+        flash('الدفع التجريبي غير مضبوط حالياً.', 'error')
+        return redirect(url_for('store_detail', item_id=item.id))
+
+    amount_iqd = item.price_iqd or parse_iqd_price(item.price)
+    contact = normalize_iraqi_mobile(request.form.get('contact'))
+    details = (request.form.get('details') or '').strip()
+    if not amount_iqd or amount_iqd < 1:
+        flash('حدد سعر المنتج بالدينار قبل تجربة الدفع.', 'error')
+        return redirect(url_for('store_detail', item_id=item.id))
+    if not contact:
+        flash('اكتب رقم موبايل عراقي صحيح حتى تُنشأ فاتورة الاختبار.', 'error')
+        return redirect(url_for('store_detail', item_id=item.id))
+    if len(details) > 2000:
+        flash('التفاصيل أطول من الحد المسموح.', 'error')
+        return redirect(url_for('store_detail', item_id=item.id))
+
+    order = StoreOrder(
+        user_id=current_user.id,
+        store_item_id=item.id,
+        amount_iqd=amount_iqd,
+        status='pending',
+        contact=contact,
+        details=details,
+        payment_provider='swiftpay_test',
+    )
+    db.session.add(order)
+    db.session.flush()
+    invoice = create_swiftpay_test_invoice(
+        'store', order.id,
+        current_user.full_name or current_user.username,
+        contact,
+        item.title,
+        amount_iqd,
+    )
+    if not invoice:
+        db.session.rollback()
+        flash('تعذر إنشاء فاتورة الاختبار. تأكد من إعداد مفتاح SwiftPay التجريبي.', 'error')
+        return redirect(url_for('store_detail', item_id=item.id))
+    order.gateway_invoice_id = invoice[0]
+    db.session.commit()
+    return redirect(invoice[1], code=303)
 
 
 @app.route('/store/<int:item_id>/buy', methods=['POST'])
@@ -1336,6 +1581,59 @@ def store_buy(item_id):
     db.session.commit()
     flash('وصل طلبك وإثبات الدفع. الطلب بانتظار مراجعة الإدارة.', 'success')
     return redirect(url_for('account'))
+
+
+@app.route('/payments/swiftpay/test/webhook', methods=['POST'])
+@csrf.exempt
+def swiftpay_webhook():
+    raw_body = request.get_data(cache=True, as_text=False)
+    if not verify_swiftpay_test_webhook(
+            raw_body, request.headers.get('X-SwiftPay-Signature')):
+        abort(400)
+    try:
+        payload = json.loads(raw_body.decode('utf-8'))
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        abort(400)
+
+    event = payload.get('event') if isinstance(payload, dict) else None
+    data = payload.get('data') if isinstance(payload, dict) else None
+    if event != 'invoice.paid' or not isinstance(data, dict):
+        return {'ok': True}
+    if (data.get('isLive') is not False or data.get('status') != 'SUCCEEDED'
+            or not data.get('invoiceId')):
+        return {'ok': True}
+    try:
+        paid_amount = int(data.get('amount'))
+    except (TypeError, ValueError):
+        return {'ok': True}
+
+    invoice_id = str(data['invoiceId'])[:120]
+    order = ServiceOrder.query.filter_by(
+        gateway_invoice_id=invoice_id, payment_provider='swiftpay_test'
+    ).first()
+    if order:
+        expected_amount = parse_iqd_price(order.amount)
+        if order.status in {'rejected', 'refunded'} or paid_amount != expected_amount:
+            return {'ok': True}
+        if order.status not in {'approved', 'completed'}:
+            order.status = 'approved'
+            order.gateway_payment_id = str(data.get('paymentId') or '')[:120]
+            order.transaction_id = str(data.get('gatewayTxnId') or data.get('paymentId') or '')[:250]
+            db.session.commit()
+        return {'ok': True}
+
+    order = StoreOrder.query.filter_by(
+        gateway_invoice_id=invoice_id, payment_provider='swiftpay_test'
+    ).first()
+    if order:
+        if order.status in {'rejected', 'refunded'} or paid_amount != order.amount_iqd:
+            return {'ok': True}
+        if order.status not in {'approved', 'completed'}:
+            order.status = 'approved'
+            order.gateway_payment_id = str(data.get('paymentId') or '')[:120]
+            order.transaction_id = str(data.get('gatewayTxnId') or data.get('paymentId') or '')[:250]
+            db.session.commit()
+    return {'ok': True}
 
 
 @app.route('/store/<int:item_id>/buy-wallet', methods=['POST'])
@@ -4005,6 +4303,9 @@ with app.app_context():
             'service_package_id': 'INTEGER',
             'package_label': "VARCHAR(120) DEFAULT ''",
             'amount': "VARCHAR(60) DEFAULT ''",
+            'payment_provider': "VARCHAR(30) DEFAULT ''",
+            'gateway_invoice_id': "VARCHAR(120) DEFAULT ''",
+            'gateway_payment_id': "VARCHAR(120) DEFAULT ''",
         }
         with db.engine.begin() as connection:
             for column_name, column_type in service_order_additions.items():
@@ -4026,6 +4327,9 @@ with app.app_context():
             'transaction_id': "VARCHAR(250) DEFAULT ''",
             'refund_account': "VARCHAR(250) DEFAULT ''",
             'proof_filename': "VARCHAR(250) DEFAULT ''",
+            'payment_provider': "VARCHAR(30) DEFAULT ''",
+            'gateway_invoice_id': "VARCHAR(120) DEFAULT ''",
+            'gateway_payment_id': "VARCHAR(120) DEFAULT ''",
         }
         with db.engine.begin() as connection:
             for column_name, column_type in store_order_additions.items():

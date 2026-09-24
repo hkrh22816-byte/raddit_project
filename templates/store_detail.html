@@ -12,6 +12,7 @@
 {% with messages=get_flashed_messages(with_categories=true) %}{% for c,m in messages %}<div class="flash">{{ m }}</div>{% endfor %}{% endwith %}
 <section class="hero"><div class="green">{{ item.category }}</div><h1>{{ item.title }}</h1><p class="muted">{{ item.description or item.short_description }}</p><div class="price">{{ item.price }}{% if price_iqd %} · {{ '{:,}'.format(price_iqd) }} د.ع{% endif %}</div></section>
 <section class="box"><h2>الشراء والتحويل اليدوي</h2>
+{% if swiftpay_test_enabled and price_iqd %}<div class="warning">اختبار داخلي فقط — خيار البطاقة ظاهر لحساب الإدارة ولا يستقبل أموالاً حقيقية.</div><form method="post" action="{{ url_for('store_pay_test', item_id=item.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><label>رقم الموبايل العراقي للاختبار</label><input name="contact" required inputmode="tel" maxlength="80" placeholder="07xxxxxxxxx"><label>ملاحظات الطلب</label><textarea name="details" maxlength="2000"></textarea><button class="btn" type="submit">تجربة الدفع بالبطاقة</button></form>{% endif %}
 {% if not price_iqd %}<div class="warning">السعر غير محدد بعد. تواصل ويانا قبل التحويل.</div>
 {% elif not payment_methods %}<div class="warning">خيارات الدفع قيد التجهيز حالياً.</div>
 {% elif current_user.is_authenticated %}
