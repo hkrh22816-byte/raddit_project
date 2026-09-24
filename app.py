@@ -1654,6 +1654,8 @@ def valid_password(value):
 
 REGISTER_OTP_MINUTES = 10
 REGISTER_OTP_MAX_ATTEMPTS = 5
+# Phone signup verification remains paused until WhatsApp delivery is integrated.
+PHONE_REGISTRATION_ENABLED = False
 
 
 def registration_contact_exists(method, contact):
@@ -2222,6 +2224,10 @@ def auth_page():
             method = (request.form.get('contact_method') or '').strip()
             raw_contact = (request.form.get('contact') or '').strip()
 
+            if method == 'phone' and not PHONE_REGISTRATION_ENABLED:
+                flash('إنشاء الحساب متاح حالياً عبر البريد الإلكتروني فقط.', 'error')
+                return redirect(url_for('auth_page', mode='register'))
+
             if method == 'email':
                 contact = normalize_email(raw_contact)
                 if not valid_email(contact):
@@ -2319,7 +2325,7 @@ def auth_page():
             username = normalize_username(request.form.get('username'))
             password = request.form.get('password') or ''
 
-            if method not in ('email', 'phone') or not contact:
+            if method != 'email' or not contact:
                 clear_registration_session()
                 flash('انتهت جلسة التسجيل. ابدأ من جديد.', 'error')
                 return redirect(url_for('auth_page', mode='register'))
@@ -2384,7 +2390,8 @@ def auth_page():
         auth_mode=mode,
         reg_stage=reg_stage,
         reg_method=session.get('reg_method'),
-        reg_contact=session.get('reg_contact')
+        reg_contact=session.get('reg_contact'),
+        phone_registration_enabled=PHONE_REGISTRATION_ENABLED
     )
 
 

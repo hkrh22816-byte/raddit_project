@@ -28,7 +28,7 @@ h2{margin:0 0 8px;font-size:27px}.sub{margin:0 0 24px;color:var(--muted);font-si
 <a class="logo" href="{{ url_for('home') }}"><span class="mark"></span><span>RABBIT<span style="color:var(--green)">.</span></span></a>
 <div class="terminal">&gt; rabbit.identity.verify()</div>
 <h1>دخول أسرع.<br><span>حساب أوضح.</span></h1>
-<p>استخدم اسم المستخدم أو البريد أو رقم الهاتف للدخول. وعند إنشاء حساب جديد نتحقق من وسيلة التواصل قبل إنشاء الحساب.</p>
+<p>استخدم اسم المستخدم أو البريد أو رقم الهاتف للدخول. إنشاء الحساب الجديد والتحقق منه متاحان حالياً عبر البريد الإلكتروني.</p>
 </section>
 
 <section class="card">
@@ -57,15 +57,12 @@ h2{margin:0 0 8px;font-size:27px}.sub{margin:0 0 24px;color:var(--muted);font-si
 
 {% elif reg_stage == 'contact' %}
 <h2>إنشاء حساب</h2>
-<p class="sub">اختر وسيلة واحدة فقط للتحقق. البريد الإلكتروني يعمل الآن، والهاتف سيُفعّل بعد ربط خدمة الرسائل.</p>
+<p class="sub">أدخل بريدك الإلكتروني لنرسل إليه رمز التحقق قبل إنشاء الحساب.</p>
 <form method="POST" action="{{ url_for('auth_page', mode='register') }}" id="contact-form">
 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 <input type="hidden" name="action" value="register_start">
-<div class="method">
-<div><input id="m-email" type="radio" name="contact_method" value="email" checked><label for="m-email">البريد الإلكتروني</label></div>
-<div><input id="m-phone" type="radio" name="contact_method" value="phone"><label for="m-phone">رقم الهاتف<span class="soon">قريباً</span></label></div>
-</div>
-<div class="field"><input id="contact" name="contact" type="text" placeholder=" " autocomplete="email" required><label id="contact-label" for="contact">البريد الإلكتروني</label></div>
+<input type="hidden" name="contact_method" value="email">
+<div class="field"><input id="contact" name="contact" type="email" placeholder=" " autocomplete="email" required><label id="contact-label" for="contact">البريد الإلكتروني</label></div>
 <button class="btn" type="submit">إرسال رمز التحقق</button>
 </form>
 
