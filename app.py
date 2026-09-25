@@ -1752,7 +1752,7 @@ def admin_service_new():
             is_active=True
         ))
     db.session.commit()
-    flash('تمت إضافة الخدمة وباقاتها.', 'success' if packages else 'تمت إضافة الخدمة.')
+    flash('تمت إضافة الخدمة وباقاتها.' if packages else 'تمت إضافة الخدمة.', 'success')
     return redirect(url_for('admin_services'))
 
 
