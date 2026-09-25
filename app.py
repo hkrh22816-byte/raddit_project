@@ -1431,6 +1431,8 @@ def service_detail(service_id):
     for group in grouped_packages:
         if group['platform'] not in [platform['key'] for platform in package_platforms]:
             package_platforms.append({'key': group['platform'], 'name': FOLLOWER_PLATFORMS[group['platform']]})
+    platform_order = {'facebook': 0, 'instagram': 1, 'tiktok': 2, 'telegram': 3}
+    package_platforms.sort(key=lambda platform: platform_order.get(platform['key'], 99))
     return render_template(
         'service_detail.html', service=item, payment_methods=payment_methods,
         packages=packages, follower_service=is_follower_service(item),
