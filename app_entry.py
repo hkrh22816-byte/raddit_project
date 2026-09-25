@@ -1,6 +1,9 @@
 from app import app
 
-# Register the streamlined checkout and wallet routes after the main app
-# has finished loading. Keeping this import here avoids circular-import
-# issues while making the routes available to Jinja url_for() calls.
+# Register checkout and wallet routes only after the main app is fully loaded.
+# This avoids circular imports and guarantees Jinja can resolve the new endpoints.
 import checkout_patch  # noqa: F401,E402
+
+# Keep the public endpoint already used by templates, but execute the
+# real wallet implementation from checkout_patch.
+app.view_functions['store_buy_wallet'] = checkout_patch.store_buy_wallet_v2
