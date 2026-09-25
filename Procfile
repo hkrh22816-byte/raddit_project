@@ -1,1 +1,1 @@
-web: python -m gunicorn checkout_patch:app
+web: python -m gunicorn app_entry:app
