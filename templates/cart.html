@@ -1,35 +1,42 @@
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <title>سلة التسوق | RABBIT</title>
 <style>
-*{box-sizing:border-box}body{margin:0;background:#030605;color:#effff6;font-family:Segoe UI,Tahoma,Arial,sans-serif}.wrap{width:min(980px,calc(100% - 24px));margin:auto;padding:24px 0 80px}a{color:inherit;text-decoration:none}.hero{padding:38px 0 18px}.hero h1{margin:8px 0;font-size:clamp(32px,6vw,48px)}.muted{color:#91a399;line-height:1.8}.flash,.notice{padding:13px;border:1px solid #24513b;margin:12px 0;border-radius:11px;background:#07110c}.items{display:grid;gap:13px}.item,.checkout,.paybox{border:1px solid #16402d;background:#07110c;border-radius:16px;padding:20px}.itemhead{display:flex;justify-content:space-between;gap:15px}.kind{font-size:12px;color:#00f58a}.item h2{font-size:20px;margin:7px 0}.price{font-weight:900;color:#00f58a;white-space:nowrap}.sub{color:#91a399;font-size:14px;line-height:1.8}.remove{border:1px solid #56313a;background:#1c1013;color:#ff9dad;border-radius:8px;padding:9px 12px;font:inherit;cursor:pointer}.total{display:flex;justify-content:space-between;align-items:center;border-top:1px solid #16402d;margin-top:20px;padding-top:18px;font-size:22px;font-weight:900}.checkout{margin-top:22px}.checkout h2{margin:0 0 8px}.paychoices{display:grid;grid-template-columns:1fr 1fr;gap:13px;margin-top:18px}.paychoice{border:1px solid #1b4a34;background:#06100b;color:#fff;border-radius:14px;padding:18px;text-align:right;cursor:pointer;font:inherit;transition:.18s}.paychoice:hover,.paychoice.active{border-color:#00f58a;box-shadow:0 0 0 1px #00f58a;background:#081810}.paychoice strong{display:block;font-size:18px;margin-bottom:6px}.paychoice small{color:#91a399}.paychoice.wallet strong{color:#00f58a}.paypanel{display:none;margin-top:16px}.paypanel.show{display:block}.formgrid{display:grid;grid-template-columns:1fr 1fr;gap:13px}.field.full{grid-column:1/-1}.field label{display:block;margin:0 0 7px;font-weight:700}input,select,textarea{width:100%;padding:12px;border-radius:9px;border:1px solid #1b4a34;background:#020705;color:#fff;font:inherit}textarea{min-height:80px}.btn{width:100%;padding:14px;border:0;border-radius:10px;background:#00f58a;color:#00170c;font-weight:900;font-size:16px;cursor:pointer}.empty{text-align:center;padding:42px;border:1px dashed #24513b;border-radius:14px;color:#91a399}.step{display:flex;gap:9px;align-items:center;color:#91a399;font-size:13px;margin-top:10px}.step b{display:inline-flex;width:24px;height:24px;align-items:center;justify-content:center;border-radius:50%;background:#00f58a;color:#00170c}@media(max-width:650px){.item{padding:16px}.itemhead{flex-direction:column}.paychoices,.formgrid{grid-template-columns:1fr}.field.full{grid-column:auto}.total{font-size:18px}}
+*{box-sizing:border-box}body{margin:0;background:#030605;color:#effff6;font-family:Segoe UI,Tahoma,Arial,sans-serif}.wrap{width:min(980px,calc(100% - 24px));margin:auto;padding:24px 0 80px}a{color:inherit;text-decoration:none}.hero{padding:38px 0 18px}.hero h1{margin:8px 0;font-size:clamp(32px,6vw,48px)}.muted{color:#91a399;line-height:1.8}.flash,.notice{padding:13px;border:1px solid #24513b;margin:12px 0;border-radius:11px;background:#07110c}.items{display:grid;gap:13px}.item,.checkout,.paybox{border:1px solid #16402d;background:#07110c;border-radius:16px;padding:20px}.itemhead{display:flex;justify-content:space-between;gap:15px}.kind{font-size:12px;color:#00f58a}.item h2{font-size:20px;margin:7px 0}.price{font-weight:900;color:#00f58a;white-space:nowrap}.sub{color:#91a399;font-size:14px;line-height:1.8}.remove{border:1px solid #56313a;background:#1c1013;color:#ff9dad;border-radius:8px;padding:9px 12px;font:inherit;cursor:pointer}.total{display:flex;justify-content:space-between;align-items:center;border-top:1px solid #16402d;margin-top:20px;padding-top:18px;font-size:22px;font-weight:900}.checkout{margin-top:22px}.paychoices{display:grid;grid-template-columns:1fr 1fr;gap:13px;margin-top:18px}.paychoice{border:1px solid #1b4a34;background:#06100b;color:#fff;border-radius:14px;padding:18px;text-align:right;cursor:pointer;font:inherit}.paychoice:hover,.paychoice.active{border-color:#00f58a;box-shadow:0 0 0 1px #00f58a;background:#081810}.paychoice strong{display:block;font-size:18px;margin-bottom:6px}.paychoice small{color:#91a399}.paychoice.wallet strong{color:#00f58a}.paypanel{display:none;margin-top:16px}.paypanel.show{display:block}.formgrid{display:grid;grid-template-columns:1fr 1fr;gap:13px}.field.full{grid-column:1/-1}.field label{display:block;margin:0 0 7px;font-weight:700}input,select,textarea{width:100%;padding:12px;border-radius:9px;border:1px solid #1b4a34;background:#020705;color:#fff;font:inherit}textarea{min-height:80px}.btn{width:100%;padding:14px;border:0;border-radius:10px;background:#00f58a;color:#00170c;font-weight:900;font-size:16px;cursor:pointer}.empty{text-align:center;padding:42px;border:1px dashed #24513b;border-radius:14px;color:#91a399}.step{display:flex;gap:9px;align-items:center;color:#91a399;font-size:13px;margin-top:10px}.step b{display:inline-flex;width:24px;height:24px;align-items:center;justify-content:center;border-radius:50%;background:#00f58a;color:#00170c}@media(max-width:650px){.item{padding:16px}.itemhead{flex-direction:column}.paychoices,.formgrid{grid-template-columns:1fr}.field.full{grid-column:auto}.total{font-size:18px}}
 </style>
 </head>
 <body><div class="wrap">
 {% include '_site_header.html' %}
 {% with messages=get_flashed_messages(with_categories=true) %}{% for category,message in messages %}<div class="flash">{{ message }}</div>{% endfor %}{% endwith %}
-<section class="hero"><div class="kind">RABBIT / CART</div><h1>سلة التسوق 🛒</h1><div class="muted">راجع العناصر، وبعدها اختار طريقة الدفع. الحقول ما تظهر إلا حسب الطريقة اللي تختارها.</div></section>
-{% set valid = entries|selectattr('data')|list %}
-{% if valid %}
+<section class="hero"><div class="kind">RABBIT / CART</div><h1>سلة التسوق 🛒</h1><div class="muted">راجع طلباتك، وبعدها اختار الدفع من محفظة Rabbit أو الدفع اليدوي.</div></section>
+
+{% if entries %}
 <main class="items">
+{% set ns = namespace(valid_count=0) %}
 {% for entry in entries %}
-{% if entry.data %}{% set data=entry.data %}{% set row=entry.row %}
-<article class="item"><div class="itemhead"><div><div class="kind">{% if data.type=='service' %}خدمة{% else %}منتج من المتجر{% endif %}</div><h2><a href="{{ data.url }}">{{ data.title }}</a></h2><div class="sub">{% if data.label %}{{ data.label }}{% endif %}{% if data.platform %} · {{ data.platform }}{% if data.package_quantity %} · {{ '{:,}'.format(data.package_quantity) }} {{ data.package_unit }}{% endif %}{% endif %}{% if data.quantity>1 %} · الكمية: {{ data.quantity }}{% endif %}</div></div><div><div class="price">{{ '{:,}'.format(data.line_total) }} د.ع</div><form method="post" action="{{ url_for('cart_remove', cart_item_id=row.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="remove" type="submit">حذف</button></form></div></div></article>
+{% if entry.data %}
+{% set ns.valid_count = ns.valid_count + 1 %}
+{% set data=entry.data %}{% set row=entry.row %}
+<article class="item">
+<div class="itemhead"><div><div class="kind">{% if data.type=='service' %}خدمة{% else %}منتج من المتجر{% endif %}</div><h2><a href="{{ data.url }}">{{ data.title }}</a></h2><div class="sub">{% if data.label %}{{ data.label }}{% endif %}{% if data.platform %} · {{ data.platform }}{% endif %}{% if data.quantity>1 %} · الكمية: {{ data.quantity }}{% endif %}</div></div>
+<div><div class="price">{{ data.line_total }} د.ع</div><form method="post" action="/cart/remove/{{ row.id }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="remove" type="submit">حذف</button></form></div></div>
+</article>
 {% else %}
-<article class="item"><div class="sub">أحد العناصر لم يعد متوفراً أو تغيّر سعره.</div><form method="post" action="{{ url_for('cart_remove', cart_item_id=entry.row.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="remove" type="submit">حذف العنصر</button></form></article>
+<article class="item"><div class="sub">أحد العناصر لم يعد متوفراً أو تغيّر سعره.</div><form method="post" action="/cart/remove/{{ entry.row.id }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="remove" type="submit">حذف العنصر</button></form></article>
 {% endif %}
 {% endfor %}
 </main>
-<div class="total"><span>المجموع</span><span class="price">{{ '{:,}'.format(total_iqd) }} د.ع</span></div>
 
+{% if ns.valid_count > 0 %}
+<div class="total"><span>المجموع</span><span class="price">{{ total_iqd }} د.ع</span></div>
 <section class="checkout">
-<h2>إتمام الشراء</h2>
-<div class="muted">اختار طريقة الدفع أولاً.</div>
+<h2>إتمام الشراء</h2><div class="muted">اختار طريقة الدفع، وبعدها تظهر فقط البيانات المطلوبة.</div>
 <div class="step"><b>1</b><span>طريقة الدفع</span></div>
 <div class="paychoices">
-<button type="button" class="paychoice wallet" data-target="walletPanel"><strong>💚 محفظة Rabbit</strong><small>خصم مباشر من رصيدك — {{ header_wallet_balance }}</small></button>
+<button type="button" class="paychoice wallet" data-target="walletPanel"><strong>💚 محفظة Rabbit</strong><small>خصم مباشر من رصيد المحفظة</small></button>
 <button type="button" class="paychoice" data-target="manualPanel"><strong>💳 دفع يدوي</strong><small>كي كارد أو زين كاش</small></button>
 </div>
 
@@ -38,32 +45,25 @@
 <form method="post" action="/cart/checkout-wallet">
 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 <div class="formgrid">
-{% for entry in valid %}
-{% if entry.data.type=='service' %}
-<div class="field full"><label>رابط الحساب أو المشروع — {{ entry.data.title }}</label><input name="page_url_{{ entry.row.id }}" required placeholder="https://..."><label style="margin-top:10px">ملاحظات (اختياري)</label><textarea name="details_{{ entry.row.id }}" maxlength="2000"></textarea></div>
-{% else %}
-<div class="field full"><label>ملاحظات المنتج — {{ entry.data.title }} (اختياري)</label><textarea name="details_{{ entry.row.id }}" maxlength="2000"></textarea></div>
-{% endif %}
-{% endfor %}
+{% for entry in entries %}{% if entry.data %}
+{% if entry.data.type=='service' %}<div class="field full"><label>رابط الحساب أو المشروع — {{ entry.data.title }}</label><input name="page_url_{{ entry.row.id }}" required placeholder="https://..."><label style="margin-top:10px">ملاحظات (اختياري)</label><textarea name="details_{{ entry.row.id }}" maxlength="2000"></textarea></div>
+{% else %}<div class="field full"><label>ملاحظات المنتج — {{ entry.data.title }} (اختياري)</label><textarea name="details_{{ entry.row.id }}" maxlength="2000"></textarea></div>{% endif %}
+{% endif %}{% endfor %}
 <div class="field full"><label>رقم التواصل</label><input name="contact" required maxlength="80" placeholder="07xxxxxxxxx"></div>
 <div class="field full"><label><input type="checkbox" name="accept_terms" value="yes" required style="width:auto"> أوافق على شروط الشراء وسياسة الطلب والاسترجاع</label></div>
-<div class="field full"><button class="btn" type="submit">الدفع من المحفظة — {{ '{:,}'.format(total_iqd) }} د.ع</button></div>
-</div>
-</form>
+<div class="field full"><button class="btn" type="submit">الدفع من المحفظة</button></div>
+</div></form>
 </div>
 
 <div id="manualPanel" class="paypanel paybox">
 <div class="step"><b>2</b><span>بيانات الطلب والتحويل</span></div>
-<form method="post" action="{{ url_for('cart_checkout') }}" enctype="multipart/form-data">
+<form method="post" action="/cart/checkout" enctype="multipart/form-data">
 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 <div class="formgrid">
-{% for entry in valid %}
-{% if entry.data.type=='service' %}
-<div class="field full"><label>رابط الحساب أو المشروع — {{ entry.data.title }}</label><input name="page_url_{{ entry.row.id }}" required placeholder="https://..."><label style="margin-top:10px">ملاحظات (اختياري)</label><textarea name="details_{{ entry.row.id }}" maxlength="2000"></textarea></div>
-{% else %}
-<div class="field full"><label>ملاحظات المنتج — {{ entry.data.title }} (اختياري)</label><textarea name="details_{{ entry.row.id }}" maxlength="2000"></textarea></div>
-{% endif %}
-{% endfor %}
+{% for entry in entries %}{% if entry.data %}
+{% if entry.data.type=='service' %}<div class="field full"><label>رابط الحساب أو المشروع — {{ entry.data.title }}</label><input name="page_url_{{ entry.row.id }}" required placeholder="https://..."><label style="margin-top:10px">ملاحظات (اختياري)</label><textarea name="details_{{ entry.row.id }}" maxlength="2000"></textarea></div>
+{% else %}<div class="field full"><label>ملاحظات المنتج — {{ entry.data.title }} (اختياري)</label><textarea name="details_{{ entry.row.id }}" maxlength="2000"></textarea></div>{% endif %}
+{% endif %}{% endfor %}
 <div class="field"><label>رقم التواصل</label><input name="contact" required maxlength="80" placeholder="07xxxxxxxxx"></div>
 <div class="field"><label>طريقة الدفع</label><select name="payment_method_id" required><option value="">اختر الطريقة</option>{% for method in payment_methods %}<option value="{{ method.id }}">{{ method.name }}</option>{% endfor %}</select></div>
 <div class="field"><label>رقم العملية / التحويل</label><input name="transaction_id" required maxlength="250"></div>
@@ -71,20 +71,17 @@
 <div class="field full"><label>إثبات التحويل</label><input type="file" name="payment_proof" accept=".jpg,.jpeg,.png,.webp,.pdf" required></div>
 <div class="field full"><label><input type="checkbox" name="accept_terms" value="yes" required style="width:auto"> أوافق على شروط الشراء وسياسة الطلب والاسترجاع</label></div>
 <div class="field full"><button class="btn" type="submit" {% if not payment_methods %}disabled{% endif %}>إرسال الطلب ومراجعة الدفع</button>{% if not payment_methods %}<div class="notice">الدفع اليدوي غير متاح حالياً.</div>{% endif %}</div>
-</div>
-</form>
+</div></form>
 </div>
 </section>
+{% endif %}
 {% else %}
-<div class="empty"><h2>سلتك فارغة</h2><p>أضف خدمة أو منتج وبعدها ارجع كمل الشراء.</p><a class="btn" style="display:inline-block;width:auto" href="{{ url_for('services') }}">تصفح الخدمات</a> <a class="btn" style="display:inline-block;width:auto" href="{{ url_for('store') }}">تصفح المتجر</a></div>
+<div class="empty"><h2>سلتك فارغة</h2><p>أضف خدمة أو منتج وبعدها ارجع كمل الشراء.</p><a class="btn" style="display:inline-block;width:auto" href="/services">تصفح الخدمات</a> <a class="btn" style="display:inline-block;width:auto" href="/store">تصفح المتجر</a></div>
 {% endif %}
 </div>
 <script>
 const choices=[...document.querySelectorAll('.paychoice')];
-choices.forEach(btn=>btn.addEventListener('click',()=>{
-  choices.forEach(x=>x.classList.toggle('active',x===btn));
-  document.querySelectorAll('.paypanel').forEach(p=>p.classList.toggle('show',p.id===btn.dataset.target));
-  const panel=document.getElementById(btn.dataset.target);if(panel)panel.scrollIntoView({behavior:'smooth',block:'start'});
-}));
+choices.forEach(btn=>btn.addEventListener('click',()=>{choices.forEach(x=>x.classList.toggle('active',x===btn));document.querySelectorAll('.paypanel').forEach(p=>p.classList.toggle('show',p.id===btn.dataset.target));const panel=document.getElementById(btn.dataset.target);if(panel)panel.scrollIntoView({behavior:'smooth',block:'start'});}));
 </script>
-{% include '_site_footer.html' %></body></html>
+{% include '_site_footer.html' %}
+</body></html>
