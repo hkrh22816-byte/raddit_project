@@ -1,4 +1,4 @@
-from flask import Flask, render_template, redirect, url_for, request, flash, abort, session
+from flask import Flask, render_template, redirect, url_for, request, flash, abort, session, Response
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -22,6 +22,7 @@ from urllib.request import Request as UrlRequest, urlopen
 from urllib.error import HTTPError, URLError
 from datetime import datetime, timedelta
 from urllib.parse import urlparse
+from xml.sax.saxutils import escape as xml_escape
 
 
 app = Flask(__name__)
@@ -187,13 +188,47 @@ def add_security_headers(response):
         "form-action 'self'; "
         "frame-ancestors 'self'; "
         "object-src 'none'; "
-        "script-src 'self' 'unsafe-inline'; "
+        "script-src 'self' 'unsafe-inline' https://connect.facebook.net https://www.googletagmanager.com; "
         "style-src 'self' 'unsafe-inline'; "
-        "img-src 'self' data: blob:; "
+        "img-src 'self' data: blob: https://www.facebook.com; "
         "font-src 'self' data:; "
         "media-src 'self' blob:; "
-        "connect-src 'self';"
+        "connect-src 'self' https://www.facebook.com https://connect.facebook.net https://www.google-analytics.com https://analytics.google.com https://www.googletagmanager.com;"
     )
+    if response.mimetype == 'text/html':
+        try:
+            if not (request.endpoint or '').startswith('admin_') and request.endpoint != 'admin_panel':
+                pixel_id = get_site_setting('meta_pixel_id')
+                ga_id = get_site_setting('ga4_measurement_id')
+                snippets = []
+                if re.fullmatch(r'\d{5,25}', pixel_id or ''):
+                    snippets.append(
+                        "<script>!function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?"
+                        "n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;"
+                        "n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;"
+                        "t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,"
+                        "'script','https://connect.facebook.net/en_US/fbevents.js');fbq('init','" + pixel_id + "');"
+                        "fbq('track','PageView');</script>"
+                    )
+                if re.fullmatch(r'G-[A-Z0-9]{6,14}', ga_id or ''):
+                    snippets.append(
+                        '<script async src="https://www.googletagmanager.com/gtag/js?id=' + ga_id + '"></script>'
+                        '<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}'
+                        "gtag('js',new Date());gtag('config','" + ga_id + "');</script>"
+                    )
+                if snippets:
+                    html = response.get_data(as_text=True)
+                    response.set_data(html.replace('</body>', ''.join(snippets) + '</body>', 1))
+            verification = get_site_setting('google_search_console_verification')
+            if verification and re.fullmatch(r'[A-Za-z0-9_-]{8,200}', verification):
+                response.set_data(response.get_data(as_text=True).replace(
+                    '</head>',
+                    f'<meta name="google-site-verification" content="{verification}"></head>',
+                    1
+                ))
+        except Exception:
+            # Tracking and verification settings must never make page rendering fail.
+            db.session.rollback()
     if current_user.is_authenticated:
         response.headers.setdefault('Cache-Control', 'no-store, private')
         response.headers.setdefault('Pragma', 'no-cache')
@@ -407,6 +442,26 @@ class Service(db.Model):
 class CatalogMigration(db.Model):
     key = db.Column(db.String(80), primary_key=True)
     completed_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+
+class SiteSetting(db.Model):
+    key = db.Column(db.String(80), primary_key=True)
+    value = db.Column(db.String(240), nullable=False, default='')
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+
+def get_site_setting(key):
+    setting = db.session.get(SiteSetting, key)
+    return setting.value if setting else ''
+
+
+def set_site_setting(key, value):
+    setting = db.session.get(SiteSetting, key)
+    if setting is None:
+        setting = SiteSetting(key=key, value=value)
+        db.session.add(setting)
+    else:
+        setting.value = value
 
 
 class ServicePackage(db.Model):
@@ -1345,7 +1400,7 @@ def inject_wallet_balance():
         return {
             'header_wallet_balance': f'{wallet_balance_iqd(current_user.id):,} د.ع',
             'header_cart_count': CartItem.query.filter_by(user_id=current_user.id).count(),
-            'header_notifications_unread': unread_count
+            'header_notifications_unread': unread_count,
         }
     return {'header_wallet_balance': None, 'header_cart_count': 0, 'header_notifications_unread': 0}
 
@@ -4209,6 +4264,67 @@ def admin_panel():
         ).count(),
         open_support_ticket_count=SupportTicket.query.filter_by(status='open').count()
     )
+
+
+@app.route('/admin/analytics-seo', methods=['GET', 'POST'])
+@login_required
+def admin_analytics_seo():
+    if not admin_only():
+        abort(403)
+    if request.method == 'POST':
+        pixel_id = (request.form.get('meta_pixel_id') or '').strip()
+        ga_id = (request.form.get('ga4_measurement_id') or '').strip().upper()
+        google_verification = (request.form.get('google_search_console_verification') or '').strip()
+        if pixel_id and not re.fullmatch(r'\d{5,25}', pixel_id):
+            flash('معرّف Meta Pixel لازم يكون أرقام فقط.', 'error')
+            return redirect(url_for('admin_analytics_seo'))
+        if ga_id and not re.fullmatch(r'G-[A-Z0-9]{6,14}', ga_id):
+            flash('معرّف Google Analytics لازم يكون بالشكل G-XXXXXXXXXX.', 'error')
+            return redirect(url_for('admin_analytics_seo'))
+        if google_verification and not re.fullmatch(r'[A-Za-z0-9_-]{8,200}', google_verification):
+            flash('انسخ رمز التحقق فقط من Google، بدون وسم HTML.', 'error')
+            return redirect(url_for('admin_analytics_seo'))
+        set_site_setting('meta_pixel_id', pixel_id)
+        set_site_setting('ga4_measurement_id', ga_id)
+        set_site_setting('google_search_console_verification', google_verification)
+        db.session.commit()
+        flash('تم حفظ إعدادات القياس وSEO.', 'success')
+        return redirect(url_for('admin_analytics_seo'))
+    return render_template(
+        'admin_analytics_seo.html',
+        meta_pixel_id=get_site_setting('meta_pixel_id'),
+        ga4_measurement_id=get_site_setting('ga4_measurement_id'),
+        google_search_console_verification=get_site_setting('google_search_console_verification'),
+    )
+
+
+@app.route('/robots.txt')
+def robots_txt():
+    body = (
+        'User-agent: *\n'
+        'Allow: /\n'
+        'Disallow: /admin\n'
+        'Disallow: /account\n'
+        'Disallow: /cart\n'
+        'Disallow: /notifications\n'
+        'Sitemap: https://rabbitrq.com/sitemap.xml\n'
+    )
+    return Response(body, mimetype='text/plain')
+
+
+@app.route('/sitemap.xml')
+def sitemap_xml():
+    origin = 'https://rabbitrq.com'
+    public_paths = [url_for('home'), url_for('services'), url_for('store')]
+    categories = db.session.query(Service.category).filter_by(is_active=True).distinct().all()
+    public_paths.extend(url_for('service_category', category=row[0]) for row in categories if row[0])
+    public_paths.extend(url_for('service_detail', service_id=item.id)
+                       for item in Service.query.filter_by(is_active=True).all())
+    public_paths.extend(url_for('store_detail', item_id=item.id)
+                       for item in StoreItem.query.filter_by(is_active=True, stock_status='available').all())
+    entries = ''.join(f'<url><loc>{xml_escape(origin + path)}</loc></url>' for path in dict.fromkeys(public_paths))
+    xml = '<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' + entries + '</urlset>'
+    return Response(xml, mimetype='application/xml')
 
 
 @app.route('/admin/accounting/expense', methods=['POST'])

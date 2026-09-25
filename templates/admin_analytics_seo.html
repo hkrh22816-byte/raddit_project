@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>التحليلات وSEO | RABBIT</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#050906;color:#f5f7f5;font-family:Arial,sans-serif}.wrap{width:min(920px,94%);margin:auto;padding:30px 0 70px}a{color:#2ee57c;text-decoration:none}.top{display:flex;justify-content:space-between;gap:14px;align-items:center;flex-wrap:wrap}.card{margin-top:20px;padding:24px;background:#08100b;border:1px solid #173221;border-radius:16px}h1{font-size:clamp(28px,5vw,42px);margin:28px 0 8px}.muted{color:#9aaca1;line-height:1.8}.field{margin:22px 0}label{display:block;font-weight:800;margin-bottom:8px}input{width:100%;background:#020605;color:#fff;border:1px solid #28503a;border-radius:9px;padding:14px;font:inherit;direction:ltr;text-align:left}.help{font-size:14px;color:#9aaca1;line-height:1.7;margin-top:7px}.btn{display:inline-block;background:#2ee57c;color:#041008;padding:13px 18px;border:0;border-radius:9px;font:inherit;font-weight:800;cursor:pointer}.flash{margin-top:16px;padding:13px;border-radius:8px;background:#102016}.flash.error{color:#ff9797}.flash.success{color:#2ee57c}.links{display:flex;gap:18px;flex-wrap:wrap;margin-top:16px}.steps{line-height:1.9}.idstate{font-size:13px;color:#2ee57c;margin-top:7px}@media(max-width:600px){.card{padding:18px}}
+</style>
+</head>
+<body><main class="wrap">
+<div class="top"><a href="{{ url_for('admin_panel') }}">← لوحة الإدارة</a><a href="{{ url_for('home') }}" target="_blank" rel="noopener">فتح الموقع ↗</a></div>
+<h1>التحليلات وظهور الموقع في Google</h1>
+<p class="muted">الصق المعرّفات من حساباتك واحفظها. يبدأ القياس مباشرة على صفحات الزوار؛ صفحات الإدارة مستثناة من Meta Pixel وGoogle Analytics.</p>
+{% with messages = get_flashed_messages(with_categories=true) %}{% for category,message in messages %}<div class="flash {{ category }}">{{ message }}</div>{% endfor %}{% endwith %}
+<form class="card" method="post">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<div class="field"><label for="pixel">Meta Pixel ID</label><input id="pixel" name="meta_pixel_id" inputmode="numeric" pattern="[0-9]{5,25}" value="{{ meta_pixel_id }}" placeholder="مثال: 123456789012345" autocomplete="off"><div class="help">من Meta Events Manager افتح مصدر البيانات (Pixel) وانسخ رقم المعرّف فقط. اتركه فارغاً إذا تريد إيقاف التتبع.</div></div>
+<div class="field"><label for="ga">Google Analytics Measurement ID</label><input id="ga" name="ga4_measurement_id" pattern="G-[A-Za-z0-9]{6,14}" value="{{ ga4_measurement_id }}" placeholder="G-XXXXXXXXXX" autocomplete="off"><div class="help">في Google Analytics: الإدارة ← تدفقات البيانات ← موقع الويب، ثم انسخ معرّف القياس الذي يبدأ بـ G-.</div></div>
+<div class="field"><label for="gsc">رمز التحقق من Google Search Console</label><input id="gsc" name="google_search_console_verification" value="{{ google_search_console_verification }}" placeholder="الصق قيمة content فقط" autocomplete="off"><div class="help">أضف rabbitrq.com في Search Console كـ URL prefix باستخدام https://rabbitrq.com، واختر التحقق بطريقة HTML tag. الصق قيمة content فقط، بدون وسم meta.</div></div>
+<button class="btn" type="submit">حفظ الإعدادات</button>
+</form>
+<section class="card"><h2>إرسال خريطة الموقع إلى Google</h2><p class="muted">خريطة الموقع تتضمن الصفحات العامة والخدمات والمنتجات المتاحة فقط. بعد التحقق من الملكية، أرسل هذا الرابط في Search Console:</p><div dir="ltr"><a href="https://rabbitrq.com/sitemap.xml" target="_blank" rel="noopener">https://rabbitrq.com/sitemap.xml</a></div><div class="links"><a href="https://search.google.com/search-console" target="_blank" rel="noopener noreferrer">فتح Search Console ↗</a><a href="https://business.facebook.com/events_manager" target="_blank" rel="noopener noreferrer">فتح Meta Events Manager ↗</a></div></section>
+</main></body></html>
