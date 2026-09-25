@@ -4351,6 +4351,16 @@ with app.app_context():
         db.session.add(CatalogMigration(key=package_label_migration))
         db.session.commit()
 
+    package_copy_migration = 'repair_service_package_copy_v1'
+    if db.session.get(CatalogMigration, package_copy_migration) is None:
+        for package in ServicePackage.query.all():
+            if (package.label or '').startswith('اقة '):
+                package.label = 'ب' + package.label
+            if (package.description or '').endswith('إعداد خط'):
+                package.description = package.description[:-len('إعداد خط')] + 'إعداد خطة تسويقية للمشروع.'
+        db.session.add(CatalogMigration(key=package_copy_migration))
+        db.session.commit()
+
     # Keep ServiceOrder compatible with production databases created before
     # follower packages and price snapshots were introduced.
     inspector = inspect(db.engine)
