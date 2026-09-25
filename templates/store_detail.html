@@ -8,7 +8,7 @@
 </style>
 </head>
 <body><div class="wrap">
-<div id="rabbit-chrome">{% include '_site_header.html' %}</div>
+{% include '_site_header.html' %}
 {% with messages=get_flashed_messages(with_categories=true) %}{% for c,m in messages %}<div class="flash">{{ m }}</div>{% endfor %}{% endwith %}
 <section class="hero"><div class="green">{{ item.category }}</div><h1>{{ item.title }}</h1><p class="muted">{{ item.description or item.short_description }}</p><div class="price">{{ item.price }}{% if price_iqd %} · {{ '{:,}'.format(price_iqd) }} د.ع{% endif %}</div></section>
 {% if current_user.is_authenticated and price_iqd and item.stock_status == 'available' %}<section class="box"><form method="post" action="{{ url_for('cart_add_store', item_id=item.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><label>الكمية للسلة</label><input type="number" name="quantity" min="1" max="99" value="1" required><button class="btn" type="submit">🛒 أضف للسلة وتابع التسوق</button></form></section>{% endif %}
