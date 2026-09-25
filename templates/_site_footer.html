@@ -77,21 +77,40 @@
     return /^\/services\/\d+\/?$/.test(path) || /^\/store\/\d+\/?$/.test(path);
   }
 
+  function savePendingPurchase(payload) {
+    var encoded = JSON.stringify(payload);
+    try { window.localStorage.setItem('rabbit_meta_pending_purchase', encoded); } catch (e) {}
+    try { window.sessionStorage.setItem('rabbit_meta_pending_purchase', encoded); } catch (e) {}
+  }
+
+  function readPendingPurchase() {
+    var raw = null;
+    try { raw = window.localStorage.getItem('rabbit_meta_pending_purchase'); } catch (e) {}
+    if (!raw) {
+      try { raw = window.sessionStorage.getItem('rabbit_meta_pending_purchase'); } catch (e) {}
+    }
+    return raw;
+  }
+
+  function clearPendingPurchase() {
+    try { window.localStorage.removeItem('rabbit_meta_pending_purchase'); } catch (e) {}
+    try { window.sessionStorage.removeItem('rabbit_meta_pending_purchase'); } catch (e) {}
+  }
+
   function markPendingPurchase(form) {
     try {
       var payload = commonParams(form);
       payload.started_at = Date.now();
-      window.sessionStorage.setItem('rabbit_meta_pending_purchase', JSON.stringify(payload));
+      savePendingPurchase(payload);
     } catch (e) {}
   }
 
   function finishPendingPurchase() {
-    var raw;
-    try { raw = window.sessionStorage.getItem('rabbit_meta_pending_purchase'); } catch (e) { return; }
+    var raw = readPendingPurchase();
     if (!raw) return;
 
     var payload;
-    try { payload = JSON.parse(raw); } catch (e) { return; }
+    try { payload = JSON.parse(raw); } catch (e) { clearPendingPurchase(); return; }
 
     var path = window.location.pathname.replace(/\/+$/, '') || '/';
     var walletSuccessPage = path === '/account' || path === '/learning-hub';
@@ -102,9 +121,9 @@
     if (walletSuccessPage) {
       delete payload.started_at;
       track('Purchase', payload);
-      try { window.sessionStorage.removeItem('rabbit_meta_pending_purchase'); } catch (e) {}
+      clearPendingPurchase();
     } else if (failed || (payload.started_at && Date.now() - payload.started_at > 30 * 60 * 1000)) {
-      try { window.sessionStorage.removeItem('rabbit_meta_pending_purchase'); } catch (e) {}
+      clearPendingPurchase();
     }
   }
 
