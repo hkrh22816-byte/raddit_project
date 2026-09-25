@@ -369,6 +369,11 @@ class Service(db.Model):
     position = db.Column(db.Integer, default=1, nullable=False)
 
 
+class CatalogMigration(db.Model):
+    key = db.Column(db.String(80), primary_key=True)
+    completed_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+
 class ServicePackage(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     service_id = db.Column(db.Integer, db.ForeignKey('service.id'), nullable=False)
@@ -1182,18 +1187,7 @@ def seed_courses():
 
 
 
-SERVICE_SEED = [
-    ('إنشاء موقع ويب سايت', 'المواقع والتطبيقات', 'موقع احترافي مناسب لنشاطك ومتوافق مع الهاتف.', 'تصميم وتطوير موقع ويب حسب متطلبات المشروع، مع صفحات أساسية وتجربة استخدام مرتبة وربط بيانات التواصل.', 'حسب المشروع'),
-    ('إنشاء متجر إلكتروني', 'المواقع والتطبيقات', 'متجر إلكتروني منظم لعرض وبيع المنتجات.', 'إنشاء متجر إلكتروني بواجهة واضحة وصفحات منتجات وطلبات بما يناسب طبيعة النشاط.', 'حسب المشروع'),
-    ('إنشاء تطبيق', 'المواقع والتطبيقات', 'تطوير تطبيق حسب فكرة ومتطلبات المشروع.', 'دراسة المتطلبات ثم تنفيذ التطبيق والواجهات والوظائف المتفق عليها ضمن تفاصيل الطلب.', 'حسب المشروع'),
-    ('إدارة صفحات السوشيال ميديا', 'إدارة صفحات السوشيال ميديا', 'إدارة شهرية متكاملة للصفحة والمحتوى.', 'إدارة الصفحة لمدة شهر، إدارة الحملات الإعلانية، تصميم 4 بوستات، وتصوير فيديو واحد ضمن الباقة.', '300,000 د.ع'),
-    ('تصميم السوشيال ميديا والهوية', 'إدارة صفحات السوشيال ميديا', 'تصاميم احترافية للمنشورات والحملات.', 'تصميم منشورات وأغلفة ومواد إعلانية وهوية بصرية متناسقة حسب الاتفاق.', 'حسب الطلب'),
-    ('زيادة متابعين Instagram', 'زيادة المتابعين', 'خدمة نمو للمتابعين على Instagram حسب الباقة.', 'اختر الخدمة وأرسل رابط الحساب والتفاصيل المطلوبة، ثم تتم مراجعة الطلب وتنفيذه حسب الباقة المتفق عليها.', 'حسب الباقة'),
-    ('زيادة متابعين TikTok', 'زيادة المتابعين', 'خدمة نمو للمتابعين على TikTok حسب الباقة.', 'اختر الخدمة وأرسل رابط الحساب والتفاصيل المطلوبة، ثم تتم مراجعة الطلب وتنفيذه حسب الباقة المتفق عليها.', 'حسب الباقة'),
-    ('استرجاع حساب Instagram', 'حل مشاكل السوشيال ميديا', 'مساعدة باسترجاع حساب Instagram.', 'أرسل رابط الحساب والتفاصيل المتوفرة، وبعد استلام الطلب نتواصل معك لإكمال إجراءات الاسترجاع الرسمية المتاحة.', '100$'),
-    ('استرجاع حساب Facebook', 'حل مشاكل السوشيال ميديا', 'مساعدة باسترجاع حساب Facebook.', 'أرسل رابط الحساب والتفاصيل المتوفرة، وبعد استلام الطلب نتواصل معك لإكمال إجراءات الاسترجاع الرسمية المتاحة.', '100$'),
-    ('حل مشاكل البريد الإلكتروني', 'حل مشاكل السوشيال ميديا', 'مساعدة في مشاكل الوصول والاسترداد للبريد الإلكتروني.', 'أرسل تفاصيل المشكلة، وبعد مراجعة الطلب نتواصل معك لإكمال خطوات المعالجة والاسترداد المتاحة.', 'حسب الحالة'),
-]
+SERVICE_SEED = []
 
 STORE_SEED = [
     ('حسابات رقمية متاحة للبيع', 'حسابات', 'عروض حسابات رقمية متاحة وفق شروط المنصة.', 'يتم عرض التفاصيل المتاحة لكل حساب بشكل واضح. لا يتم تجاوز حماية المنصات أو أنظمة إثبات الملكية.', 'حسب العرض'),
@@ -1202,33 +1196,16 @@ STORE_SEED = [
 
 
 def seed_services_and_store():
-    # Keep the production catalog synchronized by service title.
-    # Existing rows are updated instead of duplicated, while new seed services are added.
-    seed_titles = set()
-    for position, item in enumerate(SERVICE_SEED, 1):
-        title, category, short_description, description, price = item
-        seed_titles.add(title)
-        service = Service.query.filter_by(title=title).first()
-        if service is None:
-            service = Service(title=title)
-            db.session.add(service)
-        service.category = category
-        service.short_description = short_description
-        service.description = description
-        service.price = price
-        service.position = position
-        service.is_active = True
-
-    # Retire the original placeholder entries that were replaced by the structured catalog.
-    retired_titles = {
-        'مونتاج الفيديو والريلز',
-        'التصوير والإنتاج الإعلاني',
-        'إدارة الحملات الإعلانية',
-        'تنمية الجمهور والمتابعين'
-    }
-    for service in Service.query.filter(Service.title.in_(retired_titles)).all():
-        if service.title not in seed_titles:
-            service.is_active = False
+    # Remove the existing catalog once; retain it only if old orders unexpectedly exist.
+    cleanup_key = 'delete_service_catalog_v1'
+    if db.session.get(CatalogMigration, cleanup_key) is None:
+        if ServiceOrder.query.count() == 0:
+            ServicePackage.query.delete(synchronize_session=False)
+            Service.query.delete(synchronize_session=False)
+        else:
+            for service in Service.query.all():
+                service.is_active = False
+        db.session.add(CatalogMigration(key=cleanup_key))
 
     if StoreItem.query.count() == 0:
         for i, item in enumerate(STORE_SEED, 1):
@@ -1242,15 +1219,6 @@ def seed_services_and_store():
             ))
     db.session.flush()
 
-    follower_packages = [
-        ('زيادة متابعين Instagram', [(1000, 2000), (5000, 8000), (10000, 15000)]),
-        ('زيادة متابعين TikTok', [(1000, 2000), (5000, 8000), (10000, 15000)])
-    ]
-    for service_title, packages in follower_packages:
-        service = Service.query.filter_by(title=service_title).first()
-        if service and ServicePackage.query.filter_by(service_id=service.id).count() == 0:
-            for pos, (quantity, price_iqd) in enumerate(packages, 1):
-                db.session.add(ServicePackage(service_id=service.id, label=f'{quantity:,} متابع', quantity=quantity, price_iqd=price_iqd, position=pos, is_active=True))
 
     db.session.commit()
 
