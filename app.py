@@ -4331,6 +4331,26 @@ with app.app_context():
                     sql_text("ALTER TABLE service_package ADD COLUMN description TEXT NOT NULL DEFAULT ''")
                 )
 
+    # Separate any package price and details that were pasted into its label.
+    package_label_migration = 'split_package_label_details_v1'
+    if db.session.get(CatalogMigration, package_label_migration) is None:
+        for package in ServicePackage.query.all():
+            label = (package.label or '').strip()
+            amount = f'{package.price_iqd:,}'
+            price_match = re.search(
+                rf'(?<!\\d){re.escape(amount)}\\s*(?:د\\.?\\s*ع|دينار(?:\\s+عراقي)?)',
+                label
+            ) if amount else None
+            if price_match:
+                clean_label = label[:price_match.start()].rstrip(' —–-:،')
+                details = label[price_match.end():].strip(' —–-:،')
+                if clean_label:
+                    package.label = clean_label[:120]
+                    if not package.description and details:
+                        package.description = details[:2000]
+        db.session.add(CatalogMigration(key=package_label_migration))
+        db.session.commit()
+
     # Keep ServiceOrder compatible with production databases created before
     # follower packages and price snapshots were introduced.
     inspector = inspect(db.engine)
