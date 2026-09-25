@@ -805,6 +805,7 @@ class ServiceOrder(db.Model):
     refund_account = db.Column(db.String(250), default='')
     transaction_id = db.Column(db.String(250), default='')
     proof_filename = db.Column(db.String(250), default='')
+    request_attachment_filename = db.Column(db.String(250), default='')
     payment_provider = db.Column(db.String(30), default='', nullable=False)
     gateway_invoice_id = db.Column(db.String(120), default='', nullable=False)
     gateway_payment_id = db.Column(db.String(120), default='', nullable=False)
@@ -1015,6 +1016,32 @@ def save_payment_proof(proof_file):
         unique_name
     )
     proof_file.save(save_path)
+    return unique_name
+
+
+def save_service_request_image(image_file):
+    """Save a private image attachment for an account-recovery service order."""
+    if not image_file or not image_file.filename:
+        return None
+    original_name = secure_filename(image_file.filename)
+    if not original_name or '.' not in original_name:
+        return None
+    extension = original_name.rsplit('.', 1)[1].lower()
+    if extension not in {'jpg', 'jpeg', 'png', 'webp'}:
+        return None
+    declared_type = (image_file.mimetype or '').lower()
+    guessed_type = (mimetypes.guess_type(original_name)[0] or '').lower()
+    if declared_type and not declared_type.startswith('image/'):
+        return None
+    if guessed_type and not guessed_type.startswith('image/'):
+        return None
+    payload = image_file.stream.read(2 * 1024 * 1024 + 1)
+    if not payload or len(payload) > 2 * 1024 * 1024:
+        return None
+    image_file.stream.seek(0)
+    unique_name = uuid.uuid4().hex + '.' + extension
+    save_path = os.path.join(app.config['PAYMENT_PROOF_FOLDER'], unique_name)
+    image_file.save(save_path)
     return unique_name
 
 
@@ -1290,6 +1317,59 @@ FOLLOWER_PLATFORMS = {
     'telegram': 'تليگرام',
 }
 
+ACCOUNT_RECOVERY_SERVICE_TITLE = 'استرجاع حسابات فيسبوك وإنستغرام المعطّلة'
+ACCOUNT_RECOVERY_PLATFORMS = {
+    'facebook': 'فيسبوك',
+    'instagram': 'إنستغرام',
+}
+
+
+def is_account_recovery_service(service):
+    return bool(service and service.title == ACCOUNT_RECOVERY_SERVICE_TITLE)
+
+
+def seed_account_recovery_service():
+    service = Service.query.filter_by(title=ACCOUNT_RECOVERY_SERVICE_TITLE).first()
+    if service is None:
+        next_position = (db.session.query(db.func.max(Service.position)).scalar() or 0) + 1
+        service = Service(
+            title=ACCOUNT_RECOVERY_SERVICE_TITLE,
+            category='استعادة الحسابات',
+            short_description='مراجعة طلبات استعادة حسابات فيسبوك وإنستغرام ومعالجة تقييد الرسائل.',
+            description=(
+                'اختر المنصة ونوع المشكلة، ثم أرفق صورة رسالة التعطيل أو الحظر واكتب اسم المستخدم ورقم التواصل. '
+                'لا ترسل كلمة المرور أو رمز التحقق. مدة العمل المذكورة هي مدة متابعة الطلب، '
+                'أما استعادة الحساب فتعتمد على قرار المنصة ولا يمكن ضمان قبولها.'
+            ),
+            price='تبدأ من 25,000 د.ع',
+            price_iqd=25000,
+            is_active=True,
+            position=next_position,
+        )
+        db.session.add(service)
+        db.session.flush()
+    tiers = [
+        ('حساب معطّل نهائيًا', 150000, 'مدة العمل: من يوم إلى أسبوع.'),
+        ('حساب معطّل عاديًا', 75000, 'مدة المعالجة تُحدد بعد مراجعة الحالة.'),
+        ('حظر إرسال الرسائل', 25000, 'مدة العمل: بحد أقصى 24 ساعة.'),
+    ]
+    existing = {package.label for package in ServicePackage.query.filter_by(service_id=service.id).all()}
+    next_package_position = (db.session.query(db.func.max(ServicePackage.position))
+                             .filter_by(service_id=service.id).scalar() or 0) + 1
+    for offset, (label, price_iqd, description) in enumerate(tiers):
+        if label in existing:
+            continue
+        db.session.add(ServicePackage(
+            service_id=service.id,
+            label=label,
+            quantity=1,
+            price_iqd=price_iqd,
+            position=next_package_position + offset,
+            is_active=True,
+            description=description,
+        ))
+    db.session.commit()
+
 SOCIAL_PACKAGE_GROUPS = {
     'facebook_followers': {'platform': 'facebook', 'label': 'متابعين', 'unit': 'متابع'},
     'telegram_members': {'platform': 'telegram', 'label': 'أعضاء', 'unit': 'عضو'},
@@ -1436,6 +1516,7 @@ def service_detail(service_id):
     return render_template(
         'service_detail.html', service=item, payment_methods=payment_methods,
         packages=packages, follower_service=is_follower_service(item),
+        account_recovery_service=is_account_recovery_service(item),
         follower_platforms=FOLLOWER_PLATFORMS,
         grouped_packages=grouped_packages,
         grouped_package_service=grouped_package_service,
@@ -1536,7 +1617,8 @@ def service_buy(service_id):
     if not item.is_active:
         abort(404)
 
-    page_url = (request.form.get('page_url') or '').strip()
+    account_recovery_service = is_account_recovery_service(item)
+    page_url = ((request.form.get('account_username') if account_recovery_service else request.form.get('page_url')) or '').strip()
     details = (request.form.get('details') or '').strip()
     platform = (request.form.get('platform') or '').strip().lower()
     if is_follower_service(item):
@@ -1544,6 +1626,14 @@ def service_buy(service_id):
             flash('اختر المنصة المطلوبة لزيادة المتابعين.', 'error')
             return redirect(url_for('service_detail', service_id=item.id))
         details = f"المنصة: {FOLLOWER_PLATFORMS[platform]}\n{details}".strip()
+    elif account_recovery_service:
+        if platform not in ACCOUNT_RECOVERY_PLATFORMS:
+            flash('اختر فيسبوك أو إنستغرام.', 'error')
+            return redirect(url_for('service_detail', service_id=item.id))
+        if not page_url or len(page_url) > 100:
+            flash('اكتب اسم المستخدم للحساب.', 'error')
+            return redirect(url_for('service_detail', service_id=item.id))
+        details = f"المنصة: {ACCOUNT_RECOVERY_PLATFORMS[platform]}"
     contact = (request.form.get('contact') or '').strip()
     refund_account = (request.form.get('refund_account') or '').strip()
     transaction_id = (request.form.get('transaction_id') or '').strip()
@@ -1580,15 +1670,27 @@ def service_buy(service_id):
         return redirect(url_for('service_detail', service_id=service_id))
 
     if not page_url or not contact or not refund_account or not transaction_id:
-        flash('أكمل رابط الحساب أو المشروع وبيانات الدفع والتواصل.', 'error')
+        flash('أكمل بيانات الحساب والدفع والتواصل.', 'error')
         return redirect(url_for('service_detail', service_id=service_id))
 
     if len(page_url) > 1000 or len(details) > 3000 or len(contact) > 80 or len(refund_account) > 250 or len(transaction_id) > 250:
         flash('بعض البيانات أطول من الحد المسموح.', 'error')
         return redirect(url_for('service_detail', service_id=service_id))
 
+    attachment_filename = ''
+    if account_recovery_service:
+        attachment_filename = save_service_request_image(request.files.get('deactivation_screenshot')) or ''
+        if not attachment_filename:
+            flash('ارفع صورة رسالة التعطيل أو الحظر بصيغة JPG أو PNG أو WebP وبحجم لا يتجاوز 2 MB.', 'error')
+            return redirect(url_for('service_detail', service_id=item.id))
+
     proof = save_payment_proof(request.files.get('payment_proof'))
     if not proof:
+        if attachment_filename:
+            try:
+                os.remove(os.path.join(app.config['PAYMENT_PROOF_FOLDER'], attachment_filename))
+            except OSError:
+                pass
         flash('ارفع إثبات دفع بصيغة صورة أو PDF.', 'error')
         return redirect(url_for('service_detail', service_id=service_id))
 
@@ -1605,6 +1707,7 @@ def service_buy(service_id):
         refund_account=refund_account,
         transaction_id=transaction_id,
         proof_filename=proof,
+        request_attachment_filename=attachment_filename,
         status='pending'
     )
     db.session.add(order)
@@ -1820,6 +1923,9 @@ def cart_add_service(service_id):
     item = db.session.get(Service, service_id) or abort(404)
     if not item.is_active:
         abort(404)
+    if is_account_recovery_service(item):
+        flash('خدمة استعادة الحساب تُشترى مباشرة حتى ترفق صورة الحالة.', 'error')
+        return redirect(url_for('service_detail', service_id=item.id))
     packages = ServicePackage.query.filter_by(service_id=item.id, is_active=True).filter(ServicePackage.price_iqd > 0).all()
     package = None
     if packages:
@@ -1919,6 +2025,9 @@ def cart_checkout():
         flash('بعض البيانات أطول من الحد المسموح.', 'error')
         return redirect(url_for('cart'))
     for row, data in entries:
+        if data['type'] == 'service' and is_account_recovery_service(db.session.get(Service, row.service_id)):
+            flash('خدمة استعادة الحساب تُشترى مباشرة حتى ترفق صورة الحالة.', 'error')
+            return redirect(url_for('cart'))
         line_details = (request.form.get(f'details_{row.id}') or '').strip()
         if len(line_details) > 2000:
             flash('ملاحظات أحد العناصر أطول من الحد المسموح.', 'error')
@@ -3537,6 +3646,23 @@ def admin_service_orders():
     return render_template('admin_service_orders.html', orders=orders)
 
 
+@app.route('/admin/service-order/<int:order_id>/request-attachment')
+@login_required
+def admin_service_order_attachment(order_id):
+    if not admin_only():
+        abort(403)
+    order = db.session.get(ServiceOrder, order_id) or abort(404)
+    if not order.request_attachment_filename:
+        abort(404)
+    return send_from_directory(
+        app.config['PAYMENT_PROOF_FOLDER'],
+        os.path.basename(order.request_attachment_filename),
+        as_attachment=True,
+        download_name=f'service-order-{order.id}-account-status',
+        conditional=True,
+    )
+
+
 @app.route('/admin/service-order/<int:order_id>/<action>', methods=['POST'])
 @login_required
 def admin_service_order_status(order_id, action):
@@ -4727,6 +4853,7 @@ with app.app_context():
             'service_package_id': 'INTEGER',
             'package_label': "VARCHAR(120) DEFAULT ''",
             'amount': "VARCHAR(60) DEFAULT ''",
+            'request_attachment_filename': "VARCHAR(250) DEFAULT ''",
             'payment_provider': "VARCHAR(30) DEFAULT ''",
             'gateway_invoice_id': "VARCHAR(120) DEFAULT ''",
             'gateway_payment_id': "VARCHAR(120) DEFAULT ''",
@@ -4786,6 +4913,7 @@ with app.app_context():
 
     seed_courses()
     seed_services_and_store()
+    seed_account_recovery_service()
 
     admin_username = os.environ.get('ADMIN_USERNAME')
     admin_password = os.environ.get('ADMIN_PASSWORD')
