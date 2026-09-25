@@ -1716,18 +1716,43 @@ def admin_service_new():
     if not title:
         flash('اسم الخدمة مطلوب.', 'error')
         return redirect(url_for('admin_services'))
-    db.session.add(Service(
-        title=title,
-        category=(request.form.get('category') or 'خدمات رقمية').strip(),
-        short_description=(request.form.get('short_description') or '').strip(),
+
+    package_labels = request.form.getlist('package_label')
+    package_prices = request.form.getlist('package_price_iqd')
+    packages = []
+    for index in range(max(len(package_labels), len(package_prices))):
+        label = package_labels[index].strip() if index < len(package_labels) else ''
+        raw_price = package_prices[index].strip().replace(',', '') if index < len(package_prices) else ''
+        if not label and not raw_price:
+            continue
+        if not label or not raw_price.isdigit() or int(raw_price) < 1:
+            flash('أكمل اسم وسعر كل باقة، أو اترك حقولها فارغة.', 'error')
+            return redirect(url_for('admin_services'))
+        packages.append((label[:120], int(raw_price)))
+
+    service = Service(
+        title=title[:160],
+        category=((request.form.get('category') or 'خدمات رقمية').strip())[:80],
+        short_description=((request.form.get('short_description') or '').strip())[:280],
         description=(request.form.get('description') or '').strip(),
-        price=(request.form.get('price') or 'حسب الطلب').strip(),
+        price=((request.form.get('price') or 'حسب الطلب').strip())[:60],
         price_iqd=parse_iqd_price(request.form.get('price_iqd')),
         position=position,
         is_active=bool(request.form.get('is_active'))
-    ))
+    )
+    db.session.add(service)
+    db.session.flush()
+    for package_position, (label, price_iqd) in enumerate(packages, 1):
+        db.session.add(ServicePackage(
+            service_id=service.id,
+            label=label,
+            quantity=1,
+            price_iqd=price_iqd,
+            position=package_position,
+            is_active=True
+        ))
     db.session.commit()
-    flash('تمت إضافة الخدمة.', 'success')
+    flash('تمت إضافة الخدمة وباقاتها.', 'success' if packages else 'تمت إضافة الخدمة.')
     return redirect(url_for('admin_services'))
 
 
