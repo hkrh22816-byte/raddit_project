@@ -1360,6 +1360,16 @@ def notify_admins(title, body='', link='/admin'):
                                 body=body[:500], link=link[:500]))
 
 
+def order_status_arabic(status):
+    return {
+        'pending': 'قيد المراجعة',
+        'approved': 'تمت الموافقة',
+        'completed': 'مكتمل',
+        'rejected': 'مرفوض',
+        'refunded': 'مسترجع',
+    }.get(status, status)
+
+
 FOLLOWER_PLATFORMS = {
     'instagram': 'إنستغرام',
     'facebook': 'فيسبوك',
@@ -2330,7 +2340,7 @@ def admin_store_order_action(order_id, action):
     order.status = next_status
     order.admin_note = note
     notify_user(order.user_id, 'تحديث طلب المتجر',
-                f'حالة طلبك «{order.store_item.title}»: {next_status}. {note}'.strip(), url_for('account'))
+                f'حالة طلبك «{order.store_item.title}»: {order_status_arabic(next_status)}. {note}'.strip(), url_for('account'))
     db.session.commit()
     flash('تم تحديث طلب المتجر.', 'success')
     return redirect(url_for('admin_store_orders'))
@@ -3873,7 +3883,7 @@ def admin_service_order_status(order_id, action):
     order.status = next_status
     order.admin_note = (request.form.get('admin_note') or '').strip()[:250]
     notify_user(order.user_id, 'تحديث طلب الخدمة',
-                f'حالة طلبك «{order.service.title}»: {next_status}. {order.admin_note}'.strip(), url_for('account'))
+                f'حالة طلبك «{order.service.title}»: {order_status_arabic(next_status)}. {order.admin_note}'.strip(), url_for('account'))
     db.session.commit()
     flash('تم تحديث حالة طلب الخدمة.', 'success')
     return redirect(url_for('admin_service_orders'))
@@ -3947,7 +3957,7 @@ def admin_wallet_topup_action(topup_id, action):
     else:
         abort(404)
     notify_user(topup.user_id, 'تحديث طلب شحن الرصيد',
-                f'حالة طلب شحن {topup.amount_iqd:,} د.ع: {topup.status}. {note}'.strip(), url_for('account'))
+                f'حالة طلب شحن {topup.amount_iqd:,} د.ع: {order_status_arabic(topup.status)}. {note}'.strip(), url_for('account'))
     db.session.commit()
     flash('تم تحديث طلب شحن الرصيد.', 'success')
     return redirect(url_for('admin_wallet_topups'))
