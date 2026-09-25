@@ -1551,93 +1551,7 @@
      HEADER
 ================================ -->
 
-<header>
-
-    <a
-        href="{{ url_for('home') }}"
-        class="logo-area"
-    >
-
-        <div class="rabbit-logo"></div>
-
-        <span class="logo-text">
-            RABBIT<span class="logo-dot">.</span>
-        </span>
-
-    </a>
-
-
-    <nav>
-        <a href="{{ url_for('home') }}">الرئيسية</a>
-        <a href="{{ url_for('services') }}">الخدمات</a>
-        <a href="{{ url_for('store') }}">المتجر</a>
-        {% if current_user.is_authenticated %}<a href="{{ url_for('account') }}">حسابي</a>{% endif %}
-    </nav>
-
-
-    <div class="account-area">
-
-        {% if current_user.is_authenticated %}
-
-            <div class="user-box">
-
-                <span class="user-label">
-                    ACTIVE USER
-                </span>
-
-                <span class="username">
-                    {{ current_user.username }}
-                </span>
-
-            </div>
-
-
-            <a href="{{ url_for('account') }}" class="auth-btn" style="background:transparent;color:var(--green);">
-                الرصيد: {{ header_wallet_balance }}</a><a href="{{ url_for('cart') }}" aria-label="سلة التسوق">🛒 السلة{% if header_cart_count %} ({{ header_cart_count }}){% endif %}
-            </a>
-
-            <a
-                href="{{ url_for('account') }}"
-                class="auth-btn"
-            >
-                حسابي
-            </a>
-
-
-            {% if current_user.is_admin %}
-
-                <a
-                    href="{{ url_for('admin_panel') }}"
-                    class="auth-btn admin-btn"
-                >
-                    لوحة الإدارة
-                </a>
-
-            {% endif %}
-
-
-            <form method="post" action="{{ url_for('logout') }}" style="margin:0;display:inline;">
-<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <button type="submit" class="auth-btn logout-btn" style="cursor:pointer;font-family:inherit;">
-                    تسجيل الخروج
-                </button>
-            </form>
-
-
-        {% else %}
-
-            <a
-                href="{{ url_for('auth_page') }}"
-                class="auth-btn"
-            >
-                تسجيل الدخول
-            </a>
-
-        {% endif %}
-
-    </div>
-
-</header>
+<div id="rabbit-chrome">{% include '_site_header.html' %}</div>
 
 
 
@@ -1920,5 +1834,5 @@
 })();
 </script>
 
-</body>
+{% include '_site_footer.html' %}</body>
 </html>

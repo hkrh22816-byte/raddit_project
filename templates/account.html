@@ -32,17 +32,7 @@ nav{display:flex;justify-content:space-between;align-items:center;gap:15px;margi
 }
 </style></head>
 <body><div class="wrap">
-<nav>
-  <a class="brand" href="{{ url_for('home') }}">RABBIT.</a>
-  <div class="navlinks">
-    <a href="{{ url_for('home') }}">الرئيسية</a>
-
-    <a href="{{ url_for('services') }}">الخدمات</a>
-    <a href="{{ url_for('store') }}">المتجر</a>
-    <a href="{{ url_for('cart') }}">🛒 السلة{% if header_cart_count %} ({{ header_cart_count }}){% endif %}</a>
-    {% if current_user.is_admin %}<a href="{{ url_for('admin_panel') }}">الإدارة</a>{% endif %}
-  </div>
-</nav>
+<div id="rabbit-chrome">{% include '_site_header.html' %}</div>
 
 <section class="hero">
   <div class="terminal">RABBIT ACCOUNT / SYSTEM ONLINE</div>
@@ -175,5 +165,5 @@ nav{display:flex;justify-content:space-between;align-items:center;gap:15px;margi
 </form>
 </div>
 </div>
-</body>
+{% include '_site_footer.html' %}</body>
 </html>

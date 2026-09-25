@@ -1139,78 +1139,7 @@ footer{
 
 <!-- HEADER -->
 
-<header>
-
-    <a
-        href="{{ url_for('home') }}"
-        class="logo-area"
-    >
-
-        <div class="rabbit-logo"></div>
-
-        <span class="logo-text">
-            RABBIT<span class="logo-dot">.</span>
-        </span>
-
-    </a>
-
-
-    <nav>
-
-        <a href="{{ url_for('home') }}">
-            الرئيسية
-        </a>
-
-        <a href="{{ url_for('home') }}#services">
-            الخدمات
-        </a>
-
-        <a
-            href="{{ url_for('courses') }}"
-            class="active"
-        >
-            الكورسات
-        </a>
-
-    </nav>
-
-
-    <div class="account">
-
-        {% if current_user.is_authenticated %}
-
-            {% if current_user.is_admin %}
-
-                <a
-                    href="{{ url_for('admin_panel') }}"
-                    class="account-btn"
-                >
-                    الإدارة
-                </a>
-
-            {% endif %}
-
-            <a
-                href="{{ url_for('logout') }}"
-                class="account-btn logout"
-            >
-                خروج
-            </a>
-
-        {% else %}
-
-            <a
-                href="{{ url_for('auth_page') }}"
-                class="account-btn login-btn"
-            >
-                تسجيل الدخول
-            </a>
-
-        {% endif %}
-
-    </div>
-
-</header>
+<div id="rabbit-chrome">{% include '_site_header.html' %}</div>
 
 
 
@@ -1791,5 +1720,5 @@ elements.forEach(
 </script>
 
 
-</body>
+{% include '_site_footer.html' %}</body>
 </html>

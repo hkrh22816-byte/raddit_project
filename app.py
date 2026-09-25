@@ -1463,6 +1463,11 @@ def home():
     )
 
 
+@app.route('/support')
+def support():
+    return render_template('support.html')
+
+
 
 @app.route('/services')
 def services():
@@ -3197,52 +3202,8 @@ def auth_page():
 
 @app.route('/courses')
 def courses():
-
-    q = request.args.get(
-        'search',
-        ''
-    ).strip()
-
-    cat = request.args.get(
-        'category',
-        ''
-    ).strip()
-
-    query = Course.query.filter_by(
-        is_published=True
-    )
-
-    if cat:
-
-        query = query.filter_by(
-            category=cat
-        )
-
-    if q:
-
-        query = query.filter(
-            Course.title.contains(q)
-            |
-            Course.description.contains(q)
-        )
-
-    cats = [
-        x[0]
-        for x
-        in db.session.query(
-            Course.category
-        ).distinct().all()
-    ]
-
-    return render_template(
-        'courses.html',
-        courses=query.order_by(
-            Course.id
-        ).all(),
-        categories=cats,
-        current_category=cat,
-        search_query=q
-    )
+    # The public catalog stays visible as a coming-soon page until launch.
+    return render_template('courses_coming_soon.html')
 
 
 @app.route(
