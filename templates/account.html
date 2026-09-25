@@ -130,7 +130,7 @@ nav{display:flex;justify-content:space-between;align-items:center;gap:15px;margi
 {% for order in service_orders %}
 <article class="item">
  <div class="head">
-  <div><h3>{{ order.service.title }}</h3><div class="meta">رقم الطلب #{{ order.id }} · {{ order.service.price }}</div></div>
+  <div><h3>{{ order.service.title }}</h3><div class="meta">رقم الطلب #{{ order.id }} · {{ order.amount or order.service.price }}</div></div>
   {% if order.status == 'approved' %}<span class="badge ok">تم قبول الطلب</span>
   {% elif order.status == 'completed' %}<span class="badge ok">تم إنجاز الخدمة</span>
   {% elif order.status == 'rejected' %}<span class="badge bad">تم رفض الطلب</span>
@@ -138,7 +138,7 @@ nav{display:flex;justify-content:space-between;align-items:center;gap:15px;margi
   {% else %}<span class="badge wait">قيد المراجعة</span>{% endif %}
  </div>
  <div class="service-details">{{ order.details or 'لا توجد ملاحظات إضافية.' }}</div>
- <div class="details"><span>طريقة الدفع: <b>{{ order.payment_method.name }}</b></span><span>رقم العملية: <b>{{ order.transaction_id }}</b></span><span>التواصل: <b>{{ order.contact }}</b></span></div>
+ <div class="details"><span>طريقة الدفع: <b>{{ order.payment_method.name if order.payment_method else 'رصيد Rabbit' }}</b></span><span>رقم العملية: <b>{{ order.transaction_id }}</b></span><span>التواصل: <b>{{ order.contact }}</b></span></div>
  {% if order.admin_note %}<div class="note">ملاحظة الإدارة: {{ order.admin_note }}</div>{% endif %}
 </article>
 {% else %}<div class="empty">لا توجد مشتريات خدمات في حسابك حالياً.</div>{% endfor %}

@@ -1718,6 +1718,12 @@ def service_detail(service_id):
         grouped_packages=grouped_packages,
         grouped_package_service=grouped_package_service,
         package_platforms=package_platforms,
+        wallet_balance_display=(f'{wallet_balance_iqd(current_user.id):,} د.ع'
+                                if current_user.is_authenticated else None),
+        wallet_purchase_available=bool(
+            any(package.price_iqd > 0 for package in packages)
+            or item.price_iqd or parse_iqd_price(item.price)
+        ),
         swiftpay_test_enabled=swiftpay_test_enabled_for_admin()
     )
 
@@ -1920,8 +1926,102 @@ def service_buy(service_id):
 @limiter.limit("10 per hour")
 def service_buy_wallet(service_id):
     item = db.session.get(Service, service_id) or abort(404)
-    flash('الدفع متاح حالياً يدوياً عبر كي كارد أو زين كاش.', 'error')
-    return redirect(url_for('service_detail', service_id=item.id))
+    if not item.is_active:
+        abort(404)
+
+    account_recovery_service = is_account_recovery_service(item)
+    page_url = ((request.form.get('account_username') if account_recovery_service
+                 else request.form.get('page_url')) or '').strip()
+    details = (request.form.get('details') or '').strip()
+    platform = (request.form.get('platform') or '').strip().lower()
+    if is_follower_service(item):
+        if platform not in FOLLOWER_PLATFORMS:
+            flash('اختر منصة الخدمة أولاً.', 'error')
+            return redirect(url_for('service_detail', service_id=item.id))
+        details = f"المنصة: {FOLLOWER_PLATFORMS[platform]}\n{details}".strip()
+    elif account_recovery_service:
+        if platform not in ACCOUNT_RECOVERY_PLATFORMS:
+            flash('اختر فيسبوك أو إنستغرام.', 'error')
+            return redirect(url_for('service_detail', service_id=item.id))
+        if not page_url or len(page_url) > 100:
+            flash('اكتب اسم المستخدم للحساب.', 'error')
+            return redirect(url_for('service_detail', service_id=item.id))
+        details = f"المنصة: {ACCOUNT_RECOVERY_PLATFORMS[platform]}"
+
+    contact = (request.form.get('contact') or '').strip()
+    if not page_url or not contact or len(page_url) > 1000 or len(details) > 3000 or len(contact) > 80:
+        flash('أكمل رابط الحساب ورقم التواصل، وتأكد من طول التفاصيل.', 'error')
+        return redirect(url_for('service_detail', service_id=item.id))
+
+    package = None
+    active_packages = ServicePackage.query.filter_by(service_id=item.id, is_active=True).all()
+    package_label = ''
+    if active_packages:
+        try:
+            package_id = int(request.form.get('package_id') or 0)
+        except (TypeError, ValueError):
+            package_id = 0
+        package = db.session.get(ServicePackage, package_id)
+        if not package or package.service_id != item.id or not package.is_active:
+            flash('اختار الباقة المطلوبة أولاً.', 'error')
+            return redirect(url_for('service_detail', service_id=item.id))
+        amount_iqd = package.price_iqd
+        package_label = package.label
+        group = social_package_group(package)
+        if group:
+            if platform != group['platform']:
+                flash('اختار المنصة المطابقة للباقة.', 'error')
+                return redirect(url_for('service_detail', service_id=item.id))
+            package_label = f"{group['label']} — {package.label}"
+            details = (f"نوع الخدمة: {group['label']}\nالمطلوب: {package.quantity:,} "
+                       f"{group['unit']}\n{details}").strip()
+    else:
+        amount_iqd = item.price_iqd or parse_iqd_price(item.price)
+
+    if not amount_iqd or amount_iqd < 1:
+        flash('الخدمة تحتاج سعراً محدداً قبل الدفع من المحفظة.', 'error')
+        return redirect(url_for('service_detail', service_id=item.id))
+
+    # Serialize concurrent wallet purchases so a balance cannot be spent twice.
+    db.session.execute(sql_text('SELECT id FROM "user" WHERE id = :uid FOR UPDATE'),
+                       {'uid': current_user.id})
+    if wallet_balance_iqd(current_user.id) < amount_iqd:
+        db.session.rollback()
+        flash('رصيدك ما يكفي. اشحن المحفظة وبعدها جرّب الشراء مرة ثانية.', 'error')
+        return redirect(url_for('service_detail', service_id=item.id))
+
+    attachment_filename = ''
+    if account_recovery_service:
+        attachment_filename = save_service_request_image(request.files.get('deactivation_screenshot')) or ''
+        if not attachment_filename:
+            db.session.rollback()
+            flash('ارفع صورة رسالة التعطيل أو الحظر قبل إرسال الطلب.', 'error')
+            return redirect(url_for('service_detail', service_id=item.id))
+
+    order = ServiceOrder(
+        user_id=current_user.id, service_id=item.id,
+        service_package_id=package.id if package else None,
+        package_label=package_label, amount=f'{amount_iqd:,} د.ع',
+        page_url=page_url, details=details, contact=contact,
+        refund_account='رصيد Rabbit', transaction_id='RABBIT WALLET',
+        request_attachment_filename=attachment_filename, status='pending'
+    )
+    db.session.add(order)
+    db.session.flush()
+    db.session.add(WalletTransaction(
+        user_id=current_user.id, transaction_type='purchase', amount_iqd=-amount_iqd,
+        reference_type='service_order', reference_id=order.id,
+        note=f'شراء خدمة من المحفظة: {item.title}'[:250]
+    ))
+    notify_user(current_user.id, 'تم استلام طلبك من المحفظة',
+                f'انخصم {amount_iqd:,} د.ع لطلب «{item.title}»، والطلب بانتظار التنفيذ.',
+                url_for('account'))
+    notify_admins('طلب خدمة مدفوع من المحفظة',
+                  f'{current_user.username}: {item.title} · {amount_iqd:,} د.ع',
+                  url_for('admin_service_orders'))
+    db.session.commit()
+    flash('تم الشراء من محفظة Rabbit. طلبك الآن بانتظار التنفيذ.', 'success')
+    return redirect(url_for('account'))
 
 @app.route('/store')
 def store():
