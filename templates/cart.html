@@ -35,7 +35,7 @@
 
 <div id="walletPanel" class="paypanel paybox">
 <div class="step"><b>2</b><span>بيانات الطلب</span></div>
-<form method="post" action="{{ url_for('cart_checkout_wallet') }}">
+<form method="post" action="/cart/checkout-wallet">
 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 <div class="formgrid">
 {% for entry in valid %}
