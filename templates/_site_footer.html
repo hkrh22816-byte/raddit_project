@@ -7,3 +7,142 @@
   </nav>
   <div>Rabbit — منصة للتعليم والخدمات الرقمية</div>
 </footer>
+
+<script>
+(function () {
+  'use strict';
+
+  function track(eventName, params) {
+    var attempts = 0;
+    function send() {
+      if (typeof window.fbq === 'function') {
+        window.fbq('track', eventName, params || {});
+        return;
+      }
+      attempts += 1;
+      if (attempts < 25) window.setTimeout(send, 200);
+    }
+    send();
+  }
+
+  function parseIQD(text) {
+    if (!text) return 0;
+    var cleaned = String(text).replace(/[^0-9]/g, '');
+    return cleaned ? Number(cleaned) : 0;
+  }
+
+  function currentValue(form) {
+    var selectedPackage = document.querySelector('.package-card input:checked');
+    if (selectedPackage) {
+      var card = selectedPackage.closest('.package-card');
+      var packagePrice = card && card.querySelector('.package-price');
+      var packageValue = parseIQD(packagePrice && packagePrice.textContent);
+      if (packageValue) return packageValue;
+    }
+
+    if (form) {
+      var quantityInput = form.querySelector('input[name="quantity"]');
+      var quantity = quantityInput ? Math.max(1, Number(quantityInput.value || 1)) : 1;
+      var pagePrice = document.querySelector('.hero .price, .price');
+      var unitValue = parseIQD(pagePrice && pagePrice.textContent);
+      if (unitValue) return unitValue * quantity;
+    }
+
+    var total = document.querySelector('.total .price');
+    var totalValue = parseIQD(total && total.textContent);
+    if (totalValue) return totalValue;
+
+    var fallback = document.querySelector('.hero .price, .price');
+    return parseIQD(fallback && fallback.textContent);
+  }
+
+  function contentName() {
+    var h1 = document.querySelector('h1');
+    return h1 ? h1.textContent.trim() : document.title.replace(/\s*\|\s*RABBIT.*$/i, '').trim();
+  }
+
+  function commonParams(form) {
+    var value = currentValue(form);
+    var params = {
+      content_name: contentName(),
+      content_ids: [window.location.pathname],
+      content_type: 'product',
+      currency: 'IQD'
+    };
+    if (value > 0) params.value = value;
+    return params;
+  }
+
+  function isServiceOrStoreDetail(path) {
+    return /^\/services\/\d+\/?$/.test(path) || /^\/store\/\d+\/?$/.test(path);
+  }
+
+  function markPendingPurchase(form) {
+    try {
+      var payload = commonParams(form);
+      payload.started_at = Date.now();
+      window.sessionStorage.setItem('rabbit_meta_pending_purchase', JSON.stringify(payload));
+    } catch (e) {}
+  }
+
+  function finishPendingPurchase() {
+    var raw;
+    try { raw = window.sessionStorage.getItem('rabbit_meta_pending_purchase'); } catch (e) { return; }
+    if (!raw) return;
+
+    var payload;
+    try { payload = JSON.parse(raw); } catch (e) { return; }
+    var bodyText = (document.body && document.body.innerText) || '';
+    var success = bodyText.indexOf('تم الشراء من محفظة Rabbit') !== -1 ||
+                  bodyText.indexOf('تم شراء الكورس وتفعيله') !== -1;
+    var failed = bodyText.indexOf('رصيدك ما يكفي') !== -1 ||
+                 bodyText.indexOf('تحتاج سعراً محدداً') !== -1;
+
+    if (success) {
+      delete payload.started_at;
+      track('Purchase', payload);
+      try { window.sessionStorage.removeItem('rabbit_meta_pending_purchase'); } catch (e) {}
+    } else if (failed || (payload.started_at && Date.now() - payload.started_at > 30 * 60 * 1000)) {
+      try { window.sessionStorage.removeItem('rabbit_meta_pending_purchase'); } catch (e) {}
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    var path = window.location.pathname;
+
+    if (isServiceOrStoreDetail(path)) {
+      track('ViewContent', commonParams(null));
+    }
+
+    finishPendingPurchase();
+
+    document.addEventListener('submit', function (event) {
+      var form = event.target;
+      if (!form || !form.action) return;
+      var action;
+      try { action = new URL(form.action, window.location.origin).pathname; }
+      catch (e) { return; }
+
+      if (/^\/cart\/add\/(service|store)\/\d+\/?$/.test(action)) {
+        track('AddToCart', commonParams(form));
+        return;
+      }
+
+      var manualCheckout = action === '/cart/checkout' ||
+        /^\/services\/\d+\/buy\/?$/.test(action) ||
+        /^\/store\/\d+\/buy\/?$/.test(action);
+
+      var walletCheckout = /^\/services\/\d+\/buy-wallet\/?$/.test(action) ||
+        /^\/course\/\d+\/buy-wallet\/?$/.test(action);
+
+      if (manualCheckout || walletCheckout) {
+        track('InitiateCheckout', commonParams(form));
+      }
+
+      if (walletCheckout) {
+        markPendingPurchase(form);
+      }
+    }, true);
+  });
+})();
+</script>
