@@ -4338,7 +4338,7 @@ with app.app_context():
             label = (package.label or '').strip()
             amount = f'{package.price_iqd:,}'
             price_match = re.search(
-                rf'(?<!\\d){re.escape(amount)}\\s*(?:د\\.?\\s*ع|دينار(?:\\s+عراقي)?)',
+                rf'(?<!\d){re.escape(amount)}\s*(?:د\.?\s*ع|دينار(?:\s+عراقي)?)',
                 label
             ) if amount else None
             if price_match:
