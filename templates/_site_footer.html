@@ -116,7 +116,8 @@
     var walletSuccessPage = path === '/account' || path === '/learning-hub';
     var bodyText = (document.body && document.body.innerText) || '';
     var failed = bodyText.indexOf('رصيدك ما يكفي') !== -1 ||
-                 bodyText.indexOf('تحتاج سعراً محدداً') !== -1;
+                 bodyText.indexOf('تحتاج سعراً محدداً') !== -1 ||
+                 bodyText.indexOf('رصيدك غير كافٍ') !== -1;
 
     if (walletSuccessPage) {
       delete payload.started_at;
@@ -153,7 +154,9 @@
         /^\/services\/\d+\/buy\/?$/.test(action) ||
         /^\/store\/\d+\/buy\/?$/.test(action);
 
-      var walletCheckout = /^\/services\/\d+\/buy-wallet\/?$/.test(action) ||
+      var walletCheckout = action === '/cart/checkout-wallet' ||
+        /^\/services\/\d+\/buy-wallet\/?$/.test(action) ||
+        /^\/store\/\d+\/wallet-buy-v2\/?$/.test(action) ||
         /^\/course\/\d+\/buy-wallet\/?$/.test(action);
 
       if (manualCheckout || walletCheckout) {
