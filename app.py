@@ -1196,16 +1196,46 @@ STORE_SEED = [
 
 
 def seed_services_and_store():
-    # Remove the existing catalog once; retain it only if old orders unexpectedly exist.
-    cleanup_key = 'delete_service_catalog_v1'
+    # Clear trial records once, retaining the configured admin and site content.
+    cleanup_key = 'fresh_site_reset_v2'
     if db.session.get(CatalogMigration, cleanup_key) is None:
-        if ServiceOrder.query.count() == 0:
+        admin_username = os.environ.get('ADMIN_USERNAME')
+        admin_user = User.query.filter_by(username=admin_username).first() if admin_username else None
+        if admin_user is None:
+            admin_user = User.query.filter_by(is_admin=True).order_by(User.id.asc()).first()
+        if admin_user is not None:
+            admin_user.is_admin = True
+            proof_files = []
+            for model in (WalletTopUp, StoreOrder, ServiceOrder, CoursePayment):
+                proof_files.extend(
+                    row[0] for row in db.session.query(model.proof_filename)
+                    .filter(model.proof_filename != '')
+                    .all() if row[0]
+                )
+
+            ServiceRequest.query.delete(synchronize_session=False)
+            CoursePayment.query.delete(synchronize_session=False)
+            Enrollment.query.delete(synchronize_session=False)
+            LessonProgress.query.delete(synchronize_session=False)
+            ServiceOrder.query.delete(synchronize_session=False)
+            StoreOrder.query.delete(synchronize_session=False)
+            WalletTopUp.query.delete(synchronize_session=False)
+            WalletTransaction.query.delete(synchronize_session=False)
+            PasswordResetOTP.query.delete(synchronize_session=False)
             ServicePackage.query.delete(synchronize_session=False)
             Service.query.delete(synchronize_session=False)
-        else:
-            for service in Service.query.all():
-                service.is_active = False
-        db.session.add(CatalogMigration(key=cleanup_key))
+            User.query.filter(User.id != admin_user.id).delete(synchronize_session=False)
+            db.session.add(CatalogMigration(key=cleanup_key))
+            db.session.commit()
+
+            for filename in proof_files:
+                safe_name = os.path.basename(filename)
+                proof_path = os.path.join(app.config['PAYMENT_PROOF_FOLDER'], safe_name)
+                try:
+                    if os.path.isfile(proof_path):
+                        os.remove(proof_path)
+                except OSError:
+                    app.logger.warning('Could not remove old payment proof file %s', safe_name)
 
     if StoreItem.query.count() == 0:
         for i, item in enumerate(STORE_SEED, 1):
