@@ -4,66 +4,32 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{{ item.title }} | RABBIT</title>
 <style>
-*{box-sizing:border-box}body{margin:0;background:#030605;color:#effff6;font-family:Segoe UI,Tahoma,Arial}.wrap{width:min(900px,calc(100% - 24px));margin:auto;padding:25px 0 80px}a{text-decoration:none;color:inherit}.green{color:#00f58a}.hero{padding:55px 0 25px}.hero h1{font-size:clamp(34px,7vw,58px);margin:12px 0}.muted{color:#8ca095;line-height:1.8}.price{font-size:30px;color:#00f58a;font-weight:900;margin:18px 0}.box{border:1px solid #16402d;background:#07110c;border-radius:17px;padding:24px;margin-top:18px}.actions{display:grid;grid-template-columns:1fr 1fr;gap:12px}.btn{width:100%;padding:15px;border:0;border-radius:10px;background:#00f58a;color:#00170c;font-weight:900;font-size:16px;cursor:pointer;text-align:center}.btn.secondary{background:#10251a;color:#00f58a;border:1px solid #00f58a}.flash,.warning{padding:13px;border:1px solid #24513b;margin:12px 0;border-radius:10px}.buy-panel{display:none}.buy-panel.show{display:block}.paychoices{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:16px 0}.paychoice{border:1px solid #1b4a34;background:#06100b;color:#fff;border-radius:14px;padding:18px;text-align:right;cursor:pointer;font:inherit}.paychoice:hover,.paychoice.active{border-color:#00f58a}.paychoice strong{display:block;font-size:18px;margin-bottom:6px}.paychoice small{color:#8ca095}.paychoice.wallet strong{color:#00f58a}.payform{display:none;border-top:1px solid #16402d;padding-top:18px;margin-top:16px}.payform.show{display:block}label{display:block;margin:14px 0 7px;font-weight:700}input,textarea,select{width:100%;padding:13px;border-radius:9px;border:1px solid #1b4a34;background:#020705;color:#fff;font:inherit}textarea{min-height:90px}.method-details{display:none;padding:14px;border:1px solid #1b4a34;border-radius:9px;margin-top:10px;line-height:1.9}.method-details.show{display:block}.number{direction:ltr;text-align:right;font-size:19px;color:#00f58a;font-weight:bold}.balance-line{padding:12px;border:1px solid rgba(0,245,138,.22);border-radius:10px;background:#06150d;margin-bottom:12px}@media(max-width:650px){.actions,.paychoices{grid-template-columns:1fr}.hero{padding-top:38px}.box{padding:17px}}
+*{box-sizing:border-box}body{margin:0;background:#030605;color:#effff6;font-family:Segoe UI,Tahoma,Arial}.wrap{width:min(850px,calc(100% - 24px));margin:auto;padding:25px 0 70px}a{text-decoration:none;color:inherit}.top{display:flex;justify-content:space-between;border-bottom:1px solid #16402d;padding:15px 0}.brand,.green{color:#00f58a}.brand{font:900 25px Consolas}.hero{padding:55px 0 25px}.hero h1{font-size:clamp(34px,7vw,58px);margin:12px 0}.muted{color:#8ca095;line-height:1.8}.box{border:1px solid #16402d;background:#07110c;border-radius:16px;padding:24px;margin-top:18px}.price{font-size:28px;color:#00f58a;font-weight:900;margin:18px 0}label{display:block;margin:14px 0 7px}input,textarea,select{width:100%;padding:13px;border-radius:9px;border:1px solid #1b4a34;background:#020705;color:#fff;font:inherit}textarea{min-height:90px}.btn{width:100%;margin-top:16px;padding:14px;border:0;border-radius:9px;background:#00f58a;color:#00170c;font-weight:900;cursor:pointer}.flash{padding:12px;border:1px solid #24513b;margin:12px 0;border-radius:9px}.method-details{display:none;padding:14px;border:1px solid #1b4a34;border-radius:9px;margin-top:10px;line-height:1.9}.method-details.show{display:block}.number{direction:ltr;text-align:right;font-size:19px;color:#00f58a;font-weight:bold}.warning{padding:14px;border:1px solid #5b4523;border-radius:9px;color:#ffd98a}@media(max-width:600px){.hero{padding-top:38px}.box{padding:17px}}
 </style>
 </head>
 <body><div class="wrap">
 {% include '_site_header.html' %}
 {% with messages=get_flashed_messages(with_categories=true) %}{% for c,m in messages %}<div class="flash">{{ m }}</div>{% endfor %}{% endwith %}
 <section class="hero"><div class="green">{{ item.category }}</div><h1>{{ item.title }}</h1><p class="muted">{{ item.description or item.short_description }}</p><div class="price">{{ item.price }}{% if price_iqd %} · {{ '{:,}'.format(price_iqd) }} د.ع{% endif %}</div></section>
-
-{% if not price_iqd %}<div class="warning">السعر غير محدد بعد. تواصل ويانا قبل الشراء.</div>
-{% elif item.stock_status != 'available' %}<div class="warning">هذا المنتج غير متاح حالياً.</div>
+{% if current_user.is_authenticated and price_iqd and item.stock_status == 'available' %}<section class="box"><form method="post" action="{{ url_for('cart_add_store', item_id=item.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><label>الكمية للسلة</label><input type="number" name="quantity" min="1" max="99" value="1" required><button class="btn" type="submit">🛒 أضف للسلة وتابع التسوق</button></form></section>{% endif %}
+<section class="box"><h2>الشراء المباشر والتحويل اليدوي</h2>
+{% if swiftpay_test_enabled and price_iqd %}<div class="warning">اختبار داخلي فقط — خيار البطاقة ظاهر لحساب الإدارة ولا يستقبل أموالاً حقيقية.</div><form method="post" action="{{ url_for('store_pay_test', item_id=item.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><label>رقم الموبايل العراقي للاختبار</label><input name="contact" required inputmode="tel" maxlength="80" placeholder="07xxxxxxxxx"><label>ملاحظات الطلب</label><textarea name="details" maxlength="2000"></textarea><button class="btn" type="submit">تجربة الدفع بالبطاقة</button></form>{% endif %}
+{% if not price_iqd %}<div class="warning">السعر غير محدد بعد. تواصل ويانا قبل التحويل.</div>
+{% elif not payment_methods %}<div class="warning">خيارات الدفع قيد التجهيز حالياً.</div>
 {% elif current_user.is_authenticated %}
-<section class="box">
-<div class="actions">
-<form method="post" action="{{ url_for('cart_add_store', item_id=item.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="quantity" value="1"><button class="btn secondary" type="submit">🛒 أضف للسلة</button></form>
-<button class="btn" id="buyNowBtn" type="button">شراء الآن</button>
-</div>
-
-<div id="buyPanel" class="buy-panel">
-<h2 style="margin:24px 0 6px">اختار طريقة الدفع</h2><p class="muted">نظهر لك فقط البيانات المطلوبة للطريقة اللي تختارها.</p>
-<div class="paychoices">
-<button type="button" class="paychoice wallet" data-target="walletForm"><strong>💚 محفظة Rabbit</strong><small>خصم مباشر من رصيدك</small></button>
-<button type="button" class="paychoice" data-target="manualForm"><strong>💳 دفع يدوي</strong><small>كي كارد أو زين كاش</small></button>
-</div>
-
-<div id="walletForm" class="payform">
-<div class="balance-line">رصيدك الحالي: <strong class="green">{{ header_wallet_balance }}</strong></div>
-<form method="post" action="{{ url_for('store_buy_wallet_v2', item_id=item.id) }}">
-<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-<label>الكمية</label><input type="number" name="quantity" min="1" max="99" value="1" required>
-<label>رقم التواصل</label><input name="contact" required maxlength="80" placeholder="07xxxxxxxxx">
-<label>ملاحظات الطلب (اختياري)</label><textarea name="details" maxlength="2000"></textarea>
-<button class="btn" type="submit">الدفع من المحفظة</button>
-</form>
-</div>
-
-<div id="manualForm" class="payform">
-{% if payment_methods %}
 <form method="post" action="{{ url_for('store_buy', item_id=item.id) }}" enctype="multipart/form-data">
 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-<label>الكمية</label><input type="number" name="quantity" min="1" max="99" value="1" required>
-<label for="payment-method">طريقة الدفع</label><select id="payment-method" name="payment_method_id" required><option value="">اختر الطريقة</option>{% for method in payment_methods %}<option value="{{ method.id }}">{{ method.name }}</option>{% endfor %}</select>
+<label>الكمية</label><input type="number" name="quantity" min="1" max="99" value="1" required><label for="payment-method">طريقة الدفع</label><select id="payment-method" name="payment_method_id" required><option value="">اختر كي كارد أو زين كاش</option>{% for method in payment_methods %}<option value="{{ method.id }}">{{ method.name }}</option>{% endfor %}</select>
 {% for method in payment_methods %}<div class="method-details" data-method="{{ method.id }}"><strong>{{ method.name }}</strong>{% if method.account_name %}<div>الاسم: {{ method.account_name }}</div>{% endif %}{% if method.account_number %}<div class="number">{{ method.account_number }}</div>{% endif %}{% if method.instructions %}<div>{{ method.instructions }}</div>{% endif %}</div>{% endfor %}
-<label>رقم التواصل</label><input name="contact" required maxlength="80" placeholder="07xxxxxxxxx">
+<p class="muted">حوّل قيمة الطلب إلى الحساب الظاهر، ثم ارفع إثبات التحويل ورقم العملية. يبقى الطلب قيد المراجعة لحين التأكد من الدفع.</p>
+<label>رقم التواصل</label><input name="contact" required maxlength="80" placeholder="رقم الهاتف أو وسيلة التواصل">
 <label>رقم العملية / التحويل</label><input name="transaction_id" required maxlength="250">
-<label>حساب استرجاع المبلغ</label><input name="refund_account" required maxlength="250">
+<label>رقم أو حساب استرجاع المبلغ</label><input name="refund_account" required maxlength="250">
 <label>إثبات الدفع</label><input name="payment_proof" type="file" accept=".jpg,.jpeg,.png,.webp,.pdf" required>
-<label>ملاحظات الطلب (اختياري)</label><textarea name="details" maxlength="2000"></textarea>
-<button class="btn" type="submit">إرسال الطلب ومراجعة الدفع</button>
-</form>
-{% else %}<div class="warning">الدفع اليدوي غير متاح حالياً.</div>{% endif %}
-</div>
-</div>
-</section>
-{% else %}
-<a class="btn" href="{{ url_for('auth_page') }}">سجل الدخول حتى تشتري</a>
-{% endif %}
-</div>
+<label>ملاحظات الطلب</label><textarea name="details" maxlength="2000"></textarea>
+<button class="btn" type="submit">إرسال الطلب وإثبات الدفع</button></form>
+{% else %}<a class="btn" href="{{ url_for('auth_page') }}">سجل الدخول للشراء</a>{% endif %}
+</section></div>
 <script>
-const buyBtn=document.getElementById('buyNowBtn'),buyPanel=document.getElementById('buyPanel');if(buyBtn){buyBtn.addEventListener('click',()=>{buyPanel.classList.add('show');buyPanel.scrollIntoView({behavior:'smooth',block:'start'});});}
-const choices=[...document.querySelectorAll('.paychoice')];choices.forEach(btn=>btn.addEventListener('click',()=>{choices.forEach(x=>x.classList.toggle('active',x===btn));document.querySelectorAll('.payform').forEach(f=>f.classList.toggle('show',f.id===btn.dataset.target));}));
 const picker=document.getElementById('payment-method');if(picker){picker.addEventListener('change',()=>document.querySelectorAll('.method-details').forEach(x=>x.classList.toggle('show',x.dataset.method===picker.value)));}
-</script>
-{% include '_site_footer.html' %}</body></html>
+</script>{% include '_site_footer.html' %}</body></html>
