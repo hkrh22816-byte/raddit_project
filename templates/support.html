@@ -5,6 +5,7 @@
   <title>الدعم السريع | Rabbit</title>
   <style>
     *{box-sizing:border-box}body{margin:0;background:#030706;color:#f2fff8;font-family:"Segoe UI",Tahoma,Arial,sans-serif}a{color:inherit;text-decoration:none}.support-wrap{width:min(1080px,calc(100% - 28px));margin:auto}.support-hero{padding:54px 0 30px}.eyebrow{color:#00f58a;letter-spacing:1px;font-size:12px}.support-hero h1{font-size:clamp(34px,6vw,54px);margin:12px 0}.support-hero p,.muted{color:#91a399;line-height:1.9}.support-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}.support-card{border:1px solid rgba(0,245,138,.2);background:#07100b;border-radius:16px;padding:22px}.support-card h2{font-size:20px;margin:0 0 8px}.support-card p{color:#91a399;line-height:1.8;margin:0 0 15px}.support-link{display:inline-flex;align-items:center;justify-content:center;padding:11px 15px;border-radius:9px;background:#00f58a;color:#00170c;font-weight:800}.support-link.secondary{background:#102017;border:1px solid #1d5136;color:#dbede2}.faq{margin:24px 0 54px}.faq h2{font-size:22px}.faq details{border-bottom:1px solid rgba(255,255,255,.09);padding:15px 2px}.faq summary{font-weight:700;cursor:pointer}.faq details p{color:#91a399;line-height:1.8;margin-bottom:0}@media(max-width:650px){.support-hero{padding:38px 0 22px}.support-grid{grid-template-columns:1fr}.support-card{padding:18px}}
+    .ticket-form{display:grid;gap:11px;margin-top:14px}.ticket-form input,.ticket-form select,.ticket-form textarea{width:100%;background:#030906;color:#effff5;border:1px solid #214b34;border-radius:10px;padding:12px;font:inherit}.ticket-form textarea{min-height:110px;resize:vertical}.ticket-list{display:grid;gap:9px;margin-top:12px}.ticket-row{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px;border:1px solid #1d3929;border-radius:10px}.ticket-state{font-size:12px;color:#00f58a}
   </style>
 </head>
 <body>
@@ -14,6 +15,19 @@
     <section class="support-grid" aria-label="خيارات الدعم">
       <article class="support-card"><h2>عندي طلب أو دفعة</h2><p>راجع حالة طلبات الخدمات والمتجر، أو طلبات شحن الرصيد وملاحظات الإدارة من حسابك.</p><a class="support-link" href="{{ url_for('account') if current_user.is_authenticated else url_for('auth_page') }}">افتح حسابي</a></article>
       <article class="support-card"><h2>استفسار سريع</h2><p>راسل فريق Rabbit مباشرة. أرسل رقم الطلب أو رابط الخدمة حتى نساعدك أسرع.</p><a class="support-link secondary" href="https://wa.me/9647763417728?text=%D9%85%D8%B1%D8%AD%D8%A8%D8%A7%D8%8C%20%D8%A3%D8%AD%D8%AA%D8%A7%D8%AC%20%D9%85%D8%B3%D8%A7%D8%B9%D8%AF%D8%A9%20%D9%85%D9%86%20Rabbit" target="_blank" rel="noopener noreferrer">محادثة واتساب مباشرة ↗</a></article>
+    </section>
+    <section class="support-card" style="margin-top:18px" id="open-ticket">
+      <h2>راسلنا من داخل الموقع</h2><p>افتح تذكرة واكتب مشكلتك أو استفسارك، وردّنا يبقى محفوظاً بحسابك وتوصلك إشعارات عند الرد.</p>
+      {% if current_user.is_authenticated %}
+      <form class="ticket-form" method="post" action="{{ url_for('support_ticket_create') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input name="subject" maxlength="160" placeholder="عنوان مختصر للرسالة" required>
+        <select name="category"><option>استفسار عام</option><option>طلب خدمة</option><option>طلب متجر</option><option>الدفع أو الرصيد</option><option>مشكلة تقنية</option></select>
+        <textarea name="message" maxlength="5000" placeholder="اكتب رسالتك هنا…" required></textarea>
+        <button class="support-link" type="submit" style="border:0;cursor:pointer;font:inherit;font-weight:800">إرسال للدعم</button>
+      </form>
+      {% else %}<p><a class="support-link" href="{{ url_for('auth_page') }}">سجّل الدخول لفتح تذكرة</a></p>{% endif %}
+      {% if tickets %}<h3 style="margin:22px 0 8px">تذاكري السابقة</h3><div class="ticket-list">{% for ticket in tickets %}<a class="ticket-row" href="{{ url_for('support_ticket_detail',ticket_id=ticket.id) }}"><span>#{{ ticket.id }} · {{ ticket.subject }}</span><span class="ticket-state">{{ 'مغلقة' if ticket.status == 'closed' else 'مفتوحة' }} ←</span></a>{% endfor %}</div>{% endif %}
     </section>
     <section class="faq"><h2>إجابات سريعة</h2>
       <details><summary>وين أتابع طلبي؟</summary><p>سجّل الدخول، ثم افتح «حسابي» حتى تشوف حالة طلبك وملاحظات فريق المراجعة.</p></details>

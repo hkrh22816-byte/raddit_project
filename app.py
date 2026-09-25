@@ -269,6 +269,41 @@ class User(UserMixin, db.Model):
     )
 
 
+class Notification(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    audience = db.Column(db.String(16), nullable=False, index=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True, index=True)
+    title = db.Column(db.String(160), nullable=False)
+    body = db.Column(db.String(500), default='', nullable=False)
+    link = db.Column(db.String(500), default='/notifications', nullable=False)
+    is_read = db.Column(db.Boolean, default=False, nullable=False, index=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False, index=True)
+    user = db.relationship('User', backref='notifications')
+
+
+class SupportTicket(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
+    subject = db.Column(db.String(160), nullable=False)
+    category = db.Column(db.String(50), default='استفسار عام', nullable=False)
+    status = db.Column(db.String(20), default='open', nullable=False, index=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False, index=True)
+    user = db.relationship('User', backref='support_tickets')
+    messages = db.relationship('SupportMessage', backref='ticket', lazy=True,
+                               cascade='all, delete-orphan', order_by='SupportMessage.created_at')
+
+
+class SupportMessage(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    ticket_id = db.Column(db.Integer, db.ForeignKey('support_ticket.id'), nullable=False, index=True)
+    sender_user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    sender_is_admin = db.Column(db.Boolean, default=False, nullable=False)
+    body = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    sender = db.relationship('User')
+
+
 class WalletTopUp(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
@@ -1303,11 +1338,26 @@ def seed_services_and_store():
 @app.context_processor
 def inject_wallet_balance():
     if current_user.is_authenticated:
+        if current_user.is_admin:
+            unread_count = Notification.query.filter_by(audience='admin', is_read=False).count()
+        else:
+            unread_count = Notification.query.filter_by(audience='user', user_id=current_user.id, is_read=False).count()
         return {
             'header_wallet_balance': f'{wallet_balance_iqd(current_user.id):,} د.ع',
-            'header_cart_count': CartItem.query.filter_by(user_id=current_user.id).count()
+            'header_cart_count': CartItem.query.filter_by(user_id=current_user.id).count(),
+            'header_notifications_unread': unread_count
         }
-    return {'header_wallet_balance': None, 'header_cart_count': 0}
+    return {'header_wallet_balance': None, 'header_cart_count': 0, 'header_notifications_unread': 0}
+
+
+def notify_user(user_id, title, body='', link='/notifications'):
+    db.session.add(Notification(audience='user', user_id=user_id, title=title[:160],
+                                body=body[:500], link=link[:500]))
+
+
+def notify_admins(title, body='', link='/admin'):
+    db.session.add(Notification(audience='admin', title=title[:160],
+                                body=body[:500], link=link[:500]))
 
 
 FOLLOWER_PLATFORMS = {
@@ -1465,7 +1515,139 @@ def home():
 
 @app.route('/support')
 def support():
-    return render_template('support.html')
+    tickets = SupportTicket.query.filter_by(user_id=current_user.id).order_by(
+        SupportTicket.updated_at.desc()).limit(20).all() if current_user.is_authenticated else []
+    return render_template('support.html', tickets=tickets)
+
+
+@app.route('/notifications')
+@login_required
+def notifications():
+    audience = 'admin' if current_user.is_admin else 'user'
+    query = Notification.query.filter_by(audience=audience)
+    if audience == 'user':
+        query = query.filter_by(user_id=current_user.id)
+    rows = query.order_by(Notification.created_at.desc()).limit(100).all()
+    return render_template('notifications.html', notifications=rows)
+
+
+@app.route('/notifications/read-all', methods=['POST'])
+@login_required
+def notifications_read_all():
+    audience = 'admin' if current_user.is_admin else 'user'
+    query = Notification.query.filter_by(audience=audience, is_read=False)
+    if audience == 'user':
+        query = query.filter_by(user_id=current_user.id)
+    query.update({'is_read': True}, synchronize_session=False)
+    db.session.commit()
+    return redirect(url_for('notifications'))
+
+
+@app.route('/notifications/<int:notification_id>/open')
+@login_required
+def notification_open(notification_id):
+    audience = 'admin' if current_user.is_admin else 'user'
+    query = Notification.query.filter_by(id=notification_id, audience=audience)
+    if audience == 'user':
+        query = query.filter_by(user_id=current_user.id)
+    row = query.first_or_404()
+    row.is_read = True
+    db.session.commit()
+    target = row.link if row.link.startswith('/') and not row.link.startswith('//') else url_for('notifications')
+    return redirect(target)
+
+
+@app.route('/support/tickets/new', methods=['POST'])
+@login_required
+@limiter.limit('10 per hour')
+def support_ticket_create():
+    subject = (request.form.get('subject') or '').strip()
+    category = (request.form.get('category') or 'استفسار عام').strip()[:50]
+    body = (request.form.get('message') or '').strip()
+    if not subject or len(subject) > 160 or not body or len(body) > 5000:
+        flash('اكتب عنواناً ورسالة واضحة (حتى 5,000 حرف).', 'error')
+        return redirect(url_for('support'))
+    ticket = SupportTicket(user_id=current_user.id, subject=subject, category=category)
+    db.session.add(ticket)
+    db.session.flush()
+    db.session.add(SupportMessage(ticket_id=ticket.id, sender_user_id=current_user.id,
+                                  sender_is_admin=False, body=body))
+    notify_admins('تذكرة دعم جديدة', f'{current_user.username}: {subject}',
+                  url_for('admin_support_ticket', ticket_id=ticket.id))
+    db.session.commit()
+    flash('وصلتنا رسالتك. تگدر تتابع الرد من صفحة التذكرة.', 'success')
+    return redirect(url_for('support_ticket_detail', ticket_id=ticket.id))
+
+
+@app.route('/support/tickets/<int:ticket_id>', methods=['GET', 'POST'])
+@login_required
+@limiter.limit('30 per hour', methods=['POST'])
+def support_ticket_detail(ticket_id):
+    ticket = db.session.get(SupportTicket, ticket_id) or abort(404)
+    if ticket.user_id != current_user.id:
+        abort(404)
+    if request.method == 'POST':
+        body = (request.form.get('message') or '').strip()
+        if not body or len(body) > 5000:
+            flash('اكتب رسالة حتى 5,000 حرف.', 'error')
+            return redirect(url_for('support_ticket_detail', ticket_id=ticket.id))
+        db.session.add(SupportMessage(ticket_id=ticket.id, sender_user_id=current_user.id,
+                                      sender_is_admin=False, body=body))
+        ticket.status = 'open'
+        ticket.updated_at = datetime.utcnow()
+        notify_admins('رد جديد على تذكرة دعم', f'{current_user.username}: {ticket.subject}',
+                      url_for('admin_support_ticket', ticket_id=ticket.id))
+        db.session.commit()
+        return redirect(url_for('support_ticket_detail', ticket_id=ticket.id))
+    Notification.query.filter_by(user_id=current_user.id, audience='user', is_read=False).filter(
+        Notification.link == url_for('support_ticket_detail', ticket_id=ticket.id)
+    ).update({'is_read': True}, synchronize_session=False)
+    db.session.commit()
+    return render_template('support_ticket.html', ticket=ticket)
+
+
+@app.route('/admin/support-tickets')
+@login_required
+def admin_support_tickets():
+    if not admin_only():
+        abort(403)
+    tickets = SupportTicket.query.order_by(SupportTicket.updated_at.desc()).all()
+    return render_template('admin_support_tickets.html', tickets=tickets)
+
+
+@app.route('/admin/support-ticket/<int:ticket_id>', methods=['GET', 'POST'])
+@login_required
+@limiter.limit('60 per hour', methods=['POST'])
+def admin_support_ticket(ticket_id):
+    if not admin_only():
+        abort(403)
+    ticket = db.session.get(SupportTicket, ticket_id) or abort(404)
+    if request.method == 'POST':
+        action = request.form.get('action', 'reply')
+        if action == 'close':
+            ticket.status = 'closed'
+            notify_user(ticket.user_id, 'تم إغلاق تذكرة الدعم', ticket.subject,
+                        url_for('support_ticket_detail', ticket_id=ticket.id))
+        elif action == 'reply':
+            body = (request.form.get('message') or '').strip()
+            if not body or len(body) > 5000:
+                flash('اكتب الرد حتى 5,000 حرف.', 'error')
+                return redirect(url_for('admin_support_ticket', ticket_id=ticket.id))
+            db.session.add(SupportMessage(ticket_id=ticket.id, sender_user_id=current_user.id,
+                                          sender_is_admin=True, body=body))
+            ticket.status = 'open'
+            notify_user(ticket.user_id, 'رد جديد من دعم Rabbit', ticket.subject,
+                        url_for('support_ticket_detail', ticket_id=ticket.id))
+        else:
+            abort(400)
+        ticket.updated_at = datetime.utcnow()
+        db.session.commit()
+        return redirect(url_for('admin_support_ticket', ticket_id=ticket.id))
+    Notification.query.filter_by(audience='admin', is_read=False,
+                                  link=url_for('admin_support_ticket', ticket_id=ticket.id)).update(
+        {'is_read': True}, synchronize_session=False)
+    db.session.commit()
+    return render_template('admin_support_ticket.html', ticket=ticket)
 
 
 
@@ -1716,6 +1898,8 @@ def service_buy(service_id):
         status='pending'
     )
     db.session.add(order)
+    notify_user(current_user.id, 'استلمنا طلب الخدمة', f'طلب {item.title} قيد مراجعة الإدارة.', url_for('account'))
+    notify_admins('طلب خدمة جديد', f'{current_user.username}: {item.title}', url_for('admin_service_orders'))
     db.session.commit()
     flash('تم استلام طلب الخدمة والدفع للمراجعة.', 'success')
     return redirect(url_for('account'))
@@ -1838,13 +2022,16 @@ def store_buy(item_id):
         return redirect(url_for('store_detail', item_id=item.id))
     if quantity > 1:
         details = f"الكمية: {quantity}\n{details}".strip()
-    db.session.add(StoreOrder(
+    order = StoreOrder(
         user_id=current_user.id, store_item_id=item.id,
         payment_method_id=method.id, amount_iqd=amount_iqd,
         status='pending', contact=contact, details=details,
         transaction_id=transaction_id, refund_account=refund_account,
         proof_filename=proof
-    ))
+    )
+    db.session.add(order)
+    notify_user(current_user.id, 'استلمنا طلب المتجر', f'طلب {item.title} قيد مراجعة الإدارة.', url_for('account'))
+    notify_admins('طلب متجر جديد', f'{current_user.username}: {item.title}', url_for('admin_store_orders'))
     db.session.commit()
     flash('وصل طلبك وإثبات الدفع. الطلب بانتظار مراجعة الإدارة.', 'success')
     return redirect(url_for('account'))
@@ -1886,6 +2073,8 @@ def swiftpay_webhook():
             order.status = 'approved'
             order.gateway_payment_id = str(data.get('paymentId') or '')[:120]
             order.transaction_id = str(data.get('gatewayTxnId') or data.get('paymentId') or '')[:250]
+            notify_user(order.user_id, 'تم تأكيد الدفع', f'تم قبول دفع طلب الخدمة رقم {order.id}.', url_for('account'))
+            notify_admins('دفع إلكتروني ناجح', f'طلب خدمة رقم {order.id}', url_for('admin_service_orders'))
             db.session.commit()
         return {'ok': True}
 
@@ -1899,6 +2088,8 @@ def swiftpay_webhook():
             order.status = 'approved'
             order.gateway_payment_id = str(data.get('paymentId') or '')[:120]
             order.transaction_id = str(data.get('gatewayTxnId') or data.get('paymentId') or '')[:250]
+            notify_user(order.user_id, 'تم تأكيد الدفع', f'تم قبول دفع طلب المتجر رقم {order.id}.', url_for('account'))
+            notify_admins('دفع إلكتروني ناجح', f'طلب متجر رقم {order.id}', url_for('admin_store_orders'))
             db.session.commit()
     return {'ok': True}
 
@@ -2079,6 +2270,11 @@ def cart_checkout():
                 refund_account=refund_account, proof_filename=proof
             ))
         db.session.delete(row)
+    notify_user(current_user.id, 'وصل طلبك من السلة',
+                f'وصلت {len(entries)} طلبات وإثبات الدفع بانتظار مراجعة الإدارة.', url_for('account'))
+    notify_admins('طلبات جديدة من السلة',
+                  f'{current_user.username}: {len(entries)} عناصر بانتظار المراجعة.',
+                  url_for('admin_service_orders'))
     db.session.commit()
     flash('وصلت طلباتك وإثبات الدفع، وهي الآن بانتظار مراجعة الإدارة.', 'success')
     return redirect(url_for('account'))
@@ -2133,6 +2329,8 @@ def admin_store_order_action(order_id, action):
                 note=f'استرجاع مبلغ طلب متجر #{order.id}'))
     order.status = next_status
     order.admin_note = note
+    notify_user(order.user_id, 'تحديث طلب المتجر',
+                f'حالة طلبك «{order.store_item.title}»: {next_status}. {note}'.strip(), url_for('account'))
     db.session.commit()
     flash('تم تحديث طلب المتجر.', 'success')
     return redirect(url_for('admin_store_orders'))
@@ -3502,6 +3700,8 @@ def course_payment(course_id):
             status='pending'
         )
         db.session.add(payment)
+        notify_user(current_user.id, 'استلمنا إثبات الدفع', f'دفعة كورس «{c.title}» بانتظار المراجعة.', url_for('course_payment', course_id=c.id))
+        notify_admins('إثبات دفع كورس جديد', f'{current_user.username}: {c.title}', url_for('admin_payments'))
         db.session.commit()
 
         flash('تم إرسال إثبات الدفع. الطلب الآن بانتظار مراجعة الإدارة.', 'success')
@@ -3570,6 +3770,8 @@ def admin_payment_approve(payment_id):
     payment.status = 'approved'
     payment.admin_note = (request.form.get('admin_note') or '').strip()
     enrollment.status = 'approved'
+    notify_user(payment.user_id, 'تم قبول الدفع وتفعيل الكورس',
+                f'صار بإمكانك مشاهدة كورس «{payment.course.title}».', url_for('course_detail', course_id=payment.course_id))
     db.session.commit()
 
     flash('تم قبول الدفعة وتفعيل الكورس للزبون.', 'success')
@@ -3592,6 +3794,9 @@ def admin_payment_reject(payment_id):
 
     payment.status = 'rejected'
     payment.admin_note = (request.form.get('admin_note') or '').strip()
+    notify_user(payment.user_id, 'تحديث دفعة الكورس',
+                f'لم تتم الموافقة على دفعة «{payment.course.title}». {payment.admin_note}'.strip(),
+                url_for('course_payment', course_id=payment.course_id))
     db.session.commit()
 
     flash('تم رفض الدفعة. يبقى الكورس مقفولاً ويمكن للزبون إعادة الإرسال.', 'success')
@@ -3667,6 +3872,8 @@ def admin_service_order_status(order_id, action):
 
     order.status = next_status
     order.admin_note = (request.form.get('admin_note') or '').strip()[:250]
+    notify_user(order.user_id, 'تحديث طلب الخدمة',
+                f'حالة طلبك «{order.service.title}»: {next_status}. {order.admin_note}'.strip(), url_for('account'))
     db.session.commit()
     flash('تم تحديث حالة طلب الخدمة.', 'success')
     return redirect(url_for('admin_service_orders'))
@@ -3699,7 +3906,10 @@ def wallet_top_up():
         if not proof:
             flash('ارفع إثبات الدفع.', 'error')
             return redirect(url_for('wallet_top_up'))
-        db.session.add(WalletTopUp(user_id=current_user.id, payment_method_id=method.id, amount_iqd=amount_iqd, transaction_id=transaction_id, proof_filename=proof, status='pending'))
+        topup = WalletTopUp(user_id=current_user.id, payment_method_id=method.id, amount_iqd=amount_iqd, transaction_id=transaction_id, proof_filename=proof, status='pending')
+        db.session.add(topup)
+        notify_user(current_user.id, 'استلمنا طلب شحن الرصيد', f'طلب شحن {amount_iqd:,} د.ع قيد المراجعة.', url_for('account'))
+        notify_admins('طلب شحن رصيد جديد', f'{current_user.username}: {amount_iqd:,} د.ع', url_for('admin_wallet_topups'))
         db.session.commit()
         flash('تم إرسال طلب شحن الرصيد للمراجعة.', 'success')
         return redirect(url_for('account'))
@@ -3736,6 +3946,8 @@ def admin_wallet_topup_action(topup_id, action):
         topup.reviewed_at = datetime.utcnow()
     else:
         abort(404)
+    notify_user(topup.user_id, 'تحديث طلب شحن الرصيد',
+                f'حالة طلب شحن {topup.amount_iqd:,} د.ع: {topup.status}. {note}'.strip(), url_for('account'))
     db.session.commit()
     flash('تم تحديث طلب شحن الرصيد.', 'success')
     return redirect(url_for('admin_wallet_topups'))
@@ -3836,6 +4048,7 @@ def place_order():
             phone=phone
         )
     )
+    notify_admins('طلب خدمة جديد', f'{current_user.username}: {service_type}', url_for('admin_panel'))
     db.session.commit()
 
     flash('تم إرسال طلبك بنجاح.', 'success')
@@ -3880,7 +4093,11 @@ def admin_panel():
 
         pending_payment_count=CoursePayment.query.filter_by(
             status='pending'
-        ).count()
+        ).count(),
+        unread_admin_notification_count=Notification.query.filter_by(
+            audience='admin', is_read=False
+        ).count(),
+        open_support_ticket_count=SupportTicket.query.filter_by(status='open').count()
     )
 
 
