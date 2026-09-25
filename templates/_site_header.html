@@ -14,6 +14,8 @@
 #rabbitSiteHeader .rabbit-action{display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:9px 12px;border:1px solid rgba(0,245,138,.2);border-radius:9px;color:#d9e8df;white-space:nowrap}
 #rabbitSiteHeader .rabbit-login{background:#00df7d;border-color:#00df7d;color:#00170c!important;font-weight:800;padding-inline:16px}
 #rabbitSiteHeader .rabbit-wallet{color:#00f58a}
+#rabbitSiteHeader .rabbit-admin{color:#58d7ff;border-color:rgba(88,215,255,.28)}
+#rabbitSiteHeader .rabbit-admin:hover{color:#8ee5ff;border-color:#58d7ff}
 #rabbitSiteHeader .rabbit-mobile-wallet{display:none}
 #rabbitSiteHeader .rabbit-notification-link{position:relative;min-width:42px}
 #rabbitSiteHeader .rabbit-notification-count{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 5px;border-radius:99px;background:#00f58a;color:#00170c;font-size:11px;font-weight:900}
@@ -28,7 +30,7 @@
 #rabbitHelpDock a{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:42px;padding:9px 13px;border-radius:22px;text-decoration:none;box-shadow:0 5px 20px rgba(0,0,0,.32)}
 #rabbitHelpDock .help-site{background:#101d15;border:1px solid rgba(0,245,138,.45);color:#eafff3}
 #rabbitHelpDock .help-whatsapp{background:#087d50;border:1px solid #16bd78;color:#fff}
-@media(max-width:850px){ #rabbitSiteHeader{grid-template-columns:1fr auto;gap:8px 12px;padding:10px 14px;min-height:auto;font-size:15px}#rabbitSiteHeader .rabbit-brand{font-size:22px;grid-column:1;grid-row:1}#rabbitSiteHeader .rabbit-main-links{grid-column:1/-1;grid-row:2;justify-content:flex-start;overflow-x:auto;gap:18px;padding:8px 1px 3px;scrollbar-width:none}#rabbitSiteHeader .rabbit-main-links::-webkit-scrollbar{display:none}#rabbitSiteHeader .rabbit-main-links a{font-size:15px}#rabbitSiteHeader .rabbit-user-links{grid-column:2;grid-row:1;gap:8px}#rabbitSiteHeader .rabbit-action{min-height:42px;padding:9px 10px;font-size:14px}#rabbitSiteHeader .rabbit-wallet{display:none!important}#rabbitSiteHeader .rabbit-mobile-wallet{display:inline-flex;color:#00f58a;font-size:14px}#rabbitTrustStrip{justify-content:flex-start;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;gap:14px;font-size:13px;padding:11px 14px}#rabbitTrustStrip::-webkit-scrollbar{display:none}#rabbitSocialFooter{padding-bottom:95px}}
+@media(max-width:850px){ #rabbitSiteHeader{grid-template-columns:1fr auto;gap:8px 12px;padding:10px 14px;min-height:auto;font-size:15px}#rabbitSiteHeader .rabbit-brand{font-size:22px;grid-column:1;grid-row:1}#rabbitSiteHeader .rabbit-main-links{grid-column:1/-1;grid-row:2;justify-content:flex-start;overflow-x:auto;gap:18px;padding:8px 1px 3px;scrollbar-width:none}#rabbitSiteHeader .rabbit-main-links::-webkit-scrollbar{display:none}#rabbitSiteHeader .rabbit-main-links a{font-size:15px}#rabbitSiteHeader .rabbit-user-links{grid-column:2;grid-row:1;gap:8px}#rabbitSiteHeader .rabbit-action{min-height:42px;padding:9px 10px;font-size:14px}#rabbitSiteHeader .rabbit-wallet{display:none!important}#rabbitSiteHeader .rabbit-mobile-wallet{display:inline-flex;color:#00f58a;font-size:14px}#rabbitSiteHeader .rabbit-admin-label{display:none}#rabbitTrustStrip{justify-content:flex-start;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;gap:14px;font-size:13px;padding:11px 14px}#rabbitTrustStrip::-webkit-scrollbar{display:none}#rabbitSocialFooter{padding-bottom:95px}}
 @media(max-width:430px){ #rabbitSiteHeader{padding:10px 11px;gap:8px 9px}#rabbitSiteHeader .rabbit-brand{font-size:20px;letter-spacing:3px}#rabbitSiteHeader .rabbit-main-links{gap:16px}#rabbitSiteHeader .rabbit-main-links a{font-size:14px}#rabbitSiteHeader .rabbit-user-links{gap:5px}#rabbitSiteHeader .rabbit-action{min-height:42px;padding:9px 8px;font-size:14px}#rabbitHelpDock{right:10px;left:10px;justify-content:center}#rabbitHelpDock a{flex:1;max-width:190px;font-size:14px}}
 </style>
 <header id="rabbitSiteHeader">
@@ -46,6 +48,9 @@
       <a class="rabbit-action rabbit-wallet" href="{{ url_for('account') }}">الرصيد {{ header_wallet_balance }}</a>
       <a class="rabbit-action" href="{{ url_for('cart') }}" aria-label="سلة التسوق">🛒 <span>السلة{% if header_cart_count %} ({{ header_cart_count }}){% endif %}</span></a>
       <a class="rabbit-action rabbit-notification-link" href="{{ url_for('notifications') }}" aria-label="الإشعارات">🔔{% if header_notifications_unread %} <span class="rabbit-notification-count">{{ header_notifications_unread if header_notifications_unread < 100 else '99+' }}</span>{% endif %}</a>
+      {% if current_user.is_admin %}
+        <a class="rabbit-action rabbit-admin" href="{{ url_for('admin_panel') }}" aria-label="لوحة الإدارة">⚙ <span class="rabbit-admin-label">الإدارة</span></a>
+      {% endif %}
       <a class="rabbit-action" href="{{ url_for('account') }}">👤 <span>حسابي</span></a>
     {% else %}
       <a class="rabbit-action rabbit-login" href="{{ url_for('auth_page') }}">تسجيل الدخول</a>
