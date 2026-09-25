@@ -1593,7 +1593,7 @@
 
 
             <a href="{{ url_for('account') }}" class="auth-btn" style="background:transparent;color:var(--green);">
-                الرصيد: {{ header_wallet_balance }}
+                الرصيد: {{ header_wallet_balance }}</a><a href="{{ url_for('cart') }}" aria-label="سلة التسوق">🛒 السلة{% if header_cart_count %} ({{ header_cart_count }}){% endif %}
             </a>
 
             <a

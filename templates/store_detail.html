@@ -8,17 +8,18 @@
 </style>
 </head>
 <body><div class="wrap">
-<div class="top"><a class="brand" href="{{ url_for('home') }}">RABBIT.</a><a href="{{ url_for('store') }}">رجوع للمتجر</a></div>
+<div class="top"><a class="brand" href="{{ url_for('home') }}">RABBIT.</a><div style="display:flex;gap:16px;align-items:center"><a href="{{ url_for('cart') if current_user.is_authenticated else url_for('auth_page') }}">🛒 السلة{% if current_user.is_authenticated and header_cart_count %} ({{ header_cart_count }}){% endif %}</a><a href="{{ url_for('store') }}">رجوع للمتجر</a></div></div>
 {% with messages=get_flashed_messages(with_categories=true) %}{% for c,m in messages %}<div class="flash">{{ m }}</div>{% endfor %}{% endwith %}
 <section class="hero"><div class="green">{{ item.category }}</div><h1>{{ item.title }}</h1><p class="muted">{{ item.description or item.short_description }}</p><div class="price">{{ item.price }}{% if price_iqd %} · {{ '{:,}'.format(price_iqd) }} د.ع{% endif %}</div></section>
-<section class="box"><h2>الشراء والتحويل اليدوي</h2>
+{% if current_user.is_authenticated and price_iqd and item.stock_status == 'available' %}<section class="box"><form method="post" action="{{ url_for('cart_add_store', item_id=item.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><label>الكمية للسلة</label><input type="number" name="quantity" min="1" max="99" value="1" required><button class="btn" type="submit">🛒 أضف للسلة وتابع التسوق</button></form></section>{% endif %}
+<section class="box"><h2>الشراء المباشر والتحويل اليدوي</h2>
 {% if swiftpay_test_enabled and price_iqd %}<div class="warning">اختبار داخلي فقط — خيار البطاقة ظاهر لحساب الإدارة ولا يستقبل أموالاً حقيقية.</div><form method="post" action="{{ url_for('store_pay_test', item_id=item.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><label>رقم الموبايل العراقي للاختبار</label><input name="contact" required inputmode="tel" maxlength="80" placeholder="07xxxxxxxxx"><label>ملاحظات الطلب</label><textarea name="details" maxlength="2000"></textarea><button class="btn" type="submit">تجربة الدفع بالبطاقة</button></form>{% endif %}
 {% if not price_iqd %}<div class="warning">السعر غير محدد بعد. تواصل ويانا قبل التحويل.</div>
 {% elif not payment_methods %}<div class="warning">خيارات الدفع قيد التجهيز حالياً.</div>
 {% elif current_user.is_authenticated %}
 <form method="post" action="{{ url_for('store_buy', item_id=item.id) }}" enctype="multipart/form-data">
 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-<label for="payment-method">طريقة الدفع</label><select id="payment-method" name="payment_method_id" required><option value="">اختر كي كارد أو زين كاش</option>{% for method in payment_methods %}<option value="{{ method.id }}">{{ method.name }}</option>{% endfor %}</select>
+<label>الكمية</label><input type="number" name="quantity" min="1" max="99" value="1" required><label for="payment-method">طريقة الدفع</label><select id="payment-method" name="payment_method_id" required><option value="">اختر كي كارد أو زين كاش</option>{% for method in payment_methods %}<option value="{{ method.id }}">{{ method.name }}</option>{% endfor %}</select>
 {% for method in payment_methods %}<div class="method-details" data-method="{{ method.id }}"><strong>{{ method.name }}</strong>{% if method.account_name %}<div>الاسم: {{ method.account_name }}</div>{% endif %}{% if method.account_number %}<div class="number">{{ method.account_number }}</div>{% endif %}{% if method.instructions %}<div>{{ method.instructions }}</div>{% endif %}</div>{% endfor %}
 <p class="muted">حوّل قيمة الطلب إلى الحساب الظاهر، ثم ارفع إثبات التحويل ورقم العملية. يبقى الطلب قيد المراجعة لحين التأكد من الدفع.</p>
 <label>رقم التواصل</label><input name="contact" required maxlength="80" placeholder="رقم الهاتف أو وسيلة التواصل">

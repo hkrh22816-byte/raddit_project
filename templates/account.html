@@ -39,6 +39,7 @@ nav{display:flex;justify-content:space-between;align-items:center;gap:15px;margi
 
     <a href="{{ url_for('services') }}">الخدمات</a>
     <a href="{{ url_for('store') }}">المتجر</a>
+    <a href="{{ url_for('cart') }}">🛒 السلة{% if header_cart_count %} ({{ header_cart_count }}){% endif %}</a>
     {% if current_user.is_admin %}<a href="{{ url_for('admin_panel') }}">الإدارة</a>{% endif %}
   </div>
 </nav>

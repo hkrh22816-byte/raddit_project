@@ -421,6 +421,21 @@ class StoreOrder(db.Model):
     payment_method = db.relationship('PaymentMethod', backref='store_orders')
 
 
+class CartItem(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
+    item_type = db.Column(db.String(20), nullable=False)
+    service_id = db.Column(db.Integer, db.ForeignKey('service.id'), nullable=True)
+    store_item_id = db.Column(db.Integer, db.ForeignKey('store_item.id'), nullable=True)
+    package_id = db.Column(db.Integer, db.ForeignKey('service_package.id'), nullable=True)
+    platform = db.Column(db.String(30), default='', nullable=False)
+    quantity = db.Column(db.Integer, default=1, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    service = db.relationship('Service')
+    store_item = db.relationship('StoreItem')
+    package = db.relationship('ServicePackage')
+
+
 class ServiceRequest(db.Model):
 
     id = db.Column(
@@ -667,6 +682,10 @@ def get_supported_manual_payment_methods():
     return [method for method in PaymentMethod.query.filter_by(is_active=True)
             .order_by(PaymentMethod.position.asc(), PaymentMethod.id.asc()).all()
             if is_supported_manual_payment(method)]
+
+
+def terms_accepted():
+    return request.form.get('accept_terms') == 'yes'
 
 
 def swiftpay_test_api_key():
@@ -1257,9 +1276,62 @@ def seed_services_and_store():
 def inject_wallet_balance():
     if current_user.is_authenticated:
         return {
-            'header_wallet_balance': f'{wallet_balance_iqd(current_user.id):,} د.ع'
+            'header_wallet_balance': f'{wallet_balance_iqd(current_user.id):,} د.ع',
+            'header_cart_count': CartItem.query.filter_by(user_id=current_user.id).count()
         }
-    return {'header_wallet_balance': None}
+    return {'header_wallet_balance': None, 'header_cart_count': 0}
+
+
+FOLLOWER_PLATFORMS = {
+    'instagram': 'إنستغرام',
+    'facebook': 'فيسبوك',
+    'tiktok': 'تيك توك',
+}
+
+
+def is_follower_service(service):
+    marker = f"{service.title or ''} {service.category or ''}".casefold()
+    return 'متابع' in marker or 'followers' in marker
+
+
+def cart_entry(item):
+    if item.item_type == 'service':
+        service = db.session.get(Service, item.service_id) if item.service_id else None
+        if not service or not service.is_active:
+            return None
+        active_packages = ServicePackage.query.filter_by(
+            service_id=service.id, is_active=True
+        ).all()
+        package = db.session.get(ServicePackage, item.package_id) if item.package_id else None
+        if active_packages and (not package or package.service_id != service.id or not package.is_active):
+            return None
+        price = package.price_iqd if package else (service.price_iqd or parse_iqd_price(service.price))
+        if not price or price < 1:
+            return None
+        follower = is_follower_service(service)
+        if follower and item.platform not in FOLLOWER_PLATFORMS:
+            return None
+        return {
+            'type': 'service', 'title': service.title, 'label': package.label if package else '',
+            'package_quantity': package.quantity if package else 0,
+            'platform': FOLLOWER_PLATFORMS.get(item.platform, ''),
+            'unit_price': price, 'quantity': 1, 'line_total': price,
+            'url': url_for('service_detail', service_id=service.id),
+        }
+    if item.item_type == 'store':
+        product = db.session.get(StoreItem, item.store_item_id) if item.store_item_id else None
+        if not product or not product.is_active or product.stock_status != 'available':
+            return None
+        price = product.price_iqd or parse_iqd_price(product.price)
+        quantity = min(99, max(1, item.quantity or 1))
+        if not price or price < 1:
+            return None
+        return {
+            'type': 'store', 'title': product.title, 'label': '', 'package_quantity': 0,
+            'platform': '', 'unit_price': price, 'quantity': quantity,
+            'line_total': price * quantity, 'url': url_for('store_detail', item_id=product.id),
+        }
+    return None
 
 
 # =========================
@@ -1308,7 +1380,9 @@ def service_detail(service_id):
     packages = ServicePackage.query.filter_by(service_id=item.id, is_active=True).order_by(ServicePackage.position.asc(), ServicePackage.id.asc()).all()
     return render_template(
         'service_detail.html', service=item, payment_methods=payment_methods,
-        packages=packages, swiftpay_test_enabled=swiftpay_test_enabled_for_admin()
+        packages=packages, follower_service=is_follower_service(item),
+        follower_platforms=FOLLOWER_PLATFORMS,
+        swiftpay_test_enabled=swiftpay_test_enabled_for_admin()
     )
 
 
@@ -1398,6 +1472,12 @@ def service_buy(service_id):
 
     page_url = (request.form.get('page_url') or '').strip()
     details = (request.form.get('details') or '').strip()
+    platform = (request.form.get('platform') or '').strip().lower()
+    if is_follower_service(item):
+        if platform not in FOLLOWER_PLATFORMS:
+            flash('اختر المنصة المطلوبة لزيادة المتابعين.', 'error')
+            return redirect(url_for('service_detail', service_id=item.id))
+        details = f"المنصة: {FOLLOWER_PLATFORMS[platform]}\n{details}".strip()
     contact = (request.form.get('contact') or '').strip()
     refund_account = (request.form.get('refund_account') or '').strip()
     transaction_id = (request.form.get('transaction_id') or '').strip()
@@ -1549,6 +1629,11 @@ def store_buy(item_id):
         flash('السعر غير محدد حالياً. تواصل ويانا لمعرفة السعر.', 'error')
         return redirect(url_for('store_detail', item_id=item.id))
     try:
+        quantity = min(99, max(1, int(request.form.get('quantity') or 1)))
+    except (TypeError, ValueError):
+        quantity = 1
+    amount_iqd *= quantity
+    try:
         method_id = int(request.form.get('payment_method_id') or 0)
     except ValueError:
         method_id = 0
@@ -1570,6 +1655,8 @@ def store_buy(item_id):
     if not proof:
         flash('ارفع إثبات الدفع بصيغة صورة أو PDF.', 'error')
         return redirect(url_for('store_detail', item_id=item.id))
+    if quantity > 1:
+        details = f"الكمية: {quantity}\n{details}".strip()
     db.session.add(StoreOrder(
         user_id=current_user.id, store_item_id=item.id,
         payment_method_id=method.id, amount_iqd=amount_iqd,
@@ -1641,6 +1728,168 @@ def store_buy_wallet(item_id):
     item = db.session.get(StoreItem, item_id) or abort(404)
     flash('الدفع متاح حالياً يدوياً عبر كي كارد أو زين كاش.', 'error')
     return redirect(url_for('store_detail', item_id=item.id))
+
+@app.route('/cart')
+@login_required
+def cart():
+    rows = CartItem.query.filter_by(user_id=current_user.id).order_by(CartItem.created_at.asc(), CartItem.id.asc()).all()
+    entries = [{'data': cart_entry(row), 'row': row} for row in rows]
+    total_iqd = sum(entry['data']['line_total'] for entry in entries if entry['data'])
+    payment_methods = get_supported_manual_payment_methods()
+    return render_template('cart.html', entries=entries, total_iqd=total_iqd,
+                           payment_methods=payment_methods)
+
+
+@app.route('/cart/add/service/<int:service_id>', methods=['POST'])
+@login_required
+@limiter.limit('30 per hour')
+def cart_add_service(service_id):
+    item = db.session.get(Service, service_id) or abort(404)
+    if not item.is_active:
+        abort(404)
+    packages = ServicePackage.query.filter_by(service_id=item.id, is_active=True).filter(ServicePackage.price_iqd > 0).all()
+    package = None
+    if packages:
+        try:
+            package = db.session.get(ServicePackage, int(request.form.get('package_id') or 0))
+        except (TypeError, ValueError):
+            package = None
+        if not package or package.service_id != item.id or not package.is_active:
+            flash('اختار الباقة قبل إضافتها للسلة.', 'error')
+            return redirect(url_for('service_detail', service_id=item.id))
+    elif not (item.price_iqd or parse_iqd_price(item.price)):
+        flash('هذه الخدمة تحتاج تسعيراً حسب تفاصيل المشروع، لذلك ما تنضاف للسلة حالياً.', 'error')
+        return redirect(url_for('service_detail', service_id=item.id))
+
+    platform = (request.form.get('platform') or '').strip().lower()
+    if is_follower_service(item) and platform not in FOLLOWER_PLATFORMS:
+        flash('اختار منصة التواصل قبل إضافة الخدمة للسلة.', 'error')
+        return redirect(url_for('service_detail', service_id=item.id))
+    existing = CartItem.query.filter_by(
+        user_id=current_user.id, item_type='service', service_id=item.id,
+        package_id=package.id if package else None, platform=platform
+    ).first()
+    if not existing:
+        db.session.add(CartItem(user_id=current_user.id, item_type='service',
+                                service_id=item.id, package_id=package.id if package else None,
+                                platform=platform, quantity=1))
+    db.session.commit()
+    flash('انضافت الخدمة للسلة. تگدر تكمل التسوق أو تشتريها من السلة.', 'success')
+    return redirect(url_for('service_detail', service_id=item.id))
+
+
+@app.route('/cart/add/store/<int:item_id>', methods=['POST'])
+@login_required
+@limiter.limit('30 per hour')
+def cart_add_store(item_id):
+    item = db.session.get(StoreItem, item_id) or abort(404)
+    if not item.is_active or item.stock_status != 'available':
+        abort(404)
+    if not (item.price_iqd or parse_iqd_price(item.price)):
+        flash('المنتج ما عنده سعر محدد حالياً.', 'error')
+        return redirect(url_for('store_detail', item_id=item.id))
+    try:
+        quantity = min(99, max(1, int(request.form.get('quantity') or 1)))
+    except (TypeError, ValueError):
+        quantity = 1
+    existing = CartItem.query.filter_by(user_id=current_user.id, item_type='store', store_item_id=item.id).first()
+    if existing:
+        existing.quantity = min(99, existing.quantity + quantity)
+    else:
+        db.session.add(CartItem(user_id=current_user.id, item_type='store', store_item_id=item.id, quantity=quantity))
+    db.session.commit()
+    flash('انضاف المنتج للسلة.', 'success')
+    return redirect(url_for('store_detail', item_id=item.id))
+
+
+@app.route('/cart/remove/<int:cart_item_id>', methods=['POST'])
+@login_required
+def cart_remove(cart_item_id):
+    row = CartItem.query.filter_by(id=cart_item_id, user_id=current_user.id).first_or_404()
+    db.session.delete(row)
+    db.session.commit()
+    flash('انحذف العنصر من السلة.', 'success')
+    return redirect(url_for('cart'))
+
+
+@app.route('/cart/checkout', methods=['POST'])
+@login_required
+@limiter.limit('10 per hour')
+def cart_checkout():
+    rows = CartItem.query.filter_by(user_id=current_user.id).order_by(CartItem.id.asc()).all()
+    entries = [(row, cart_entry(row)) for row in rows]
+    if not entries or any(data is None for _, data in entries):
+        flash('أحد العناصر لم يعد متاحاً أو تغير سعره. راجع السلة وحدّثها.', 'error')
+        return redirect(url_for('cart'))
+    if not terms_accepted():
+        flash('وافق على الشروط وسياسة الطلب قبل إتمام الشراء.', 'error')
+        return redirect(url_for('cart'))
+    try:
+        method_id = int(request.form.get('payment_method_id') or 0)
+    except (TypeError, ValueError):
+        method_id = 0
+    method = db.session.get(PaymentMethod, method_id)
+    if not is_supported_manual_payment(method):
+        flash('اختر كي كارد أو زين كاش كطريقة دفع.', 'error')
+        return redirect(url_for('cart'))
+    contact = (request.form.get('contact') or '').strip()
+    transaction_id = (request.form.get('transaction_id') or '').strip()
+    refund_account = (request.form.get('refund_account') or '').strip()
+    if not contact or not transaction_id or not refund_account:
+        flash('أكمل رقم التواصل ورقم التحويل وحساب الاسترجاع.', 'error')
+        return redirect(url_for('cart'))
+    if len(contact) > 80 or len(transaction_id) > 250 or len(refund_account) > 250:
+        flash('بعض البيانات أطول من الحد المسموح.', 'error')
+        return redirect(url_for('cart'))
+    for row, data in entries:
+        line_details = (request.form.get(f'details_{row.id}') or '').strip()
+        if len(line_details) > 2000:
+            flash('ملاحظات أحد العناصر أطول من الحد المسموح.', 'error')
+            return redirect(url_for('cart'))
+        if data['type'] == 'service':
+            line_url = (request.form.get(f'page_url_{row.id}') or '').strip()
+            if not line_url or len(line_url) > 1000:
+                flash('أضف رابط الحساب أو تفاصيل المشروع لكل خدمة.', 'error')
+                return redirect(url_for('cart'))
+    proof = save_payment_proof(request.files.get('payment_proof'))
+    if not proof:
+        flash('ارفع إثبات الدفع بصيغة صورة أو PDF.', 'error')
+        return redirect(url_for('cart'))
+
+    for row, data in entries:
+        details = (request.form.get(f'details_{row.id}') or '').strip()
+        if len(details) > 2000:
+            flash('ملاحظات أحد العناصر أطول من الحد المسموح.', 'error')
+            return redirect(url_for('cart'))
+        if data['type'] == 'service':
+            page_url = (request.form.get(f'page_url_{row.id}') or '').strip()
+            if not page_url or len(page_url) > 1000:
+                flash('أضف رابط الحساب أو تفاصيل المشروع لكل خدمة.', 'error')
+                return redirect(url_for('cart'))
+            if data['platform']:
+                details = f"المنصة: {data['platform']}\nالمطلوب: {data['package_quantity']:,} متابع\n{details}".strip()
+            db.session.add(ServiceOrder(
+                user_id=current_user.id, service_id=row.service_id,
+                payment_method_id=method.id, service_package_id=row.package_id,
+                package_label=data['label'], amount=f"{data['line_total']:,} د.ع",
+                page_url=page_url, details=details, contact=contact,
+                refund_account=refund_account, transaction_id=transaction_id,
+                proof_filename=proof, status='pending'
+            ))
+        else:
+            quantity_note = f"الكمية: {data['quantity']}\n" if data['quantity'] > 1 else ''
+            db.session.add(StoreOrder(
+                user_id=current_user.id, store_item_id=row.store_item_id,
+                payment_method_id=method.id, amount_iqd=data['line_total'],
+                status='pending', contact=contact,
+                details=(quantity_note + details).strip(), transaction_id=transaction_id,
+                refund_account=refund_account, proof_filename=proof
+            ))
+        db.session.delete(row)
+    db.session.commit()
+    flash('وصلت طلباتك وإثبات الدفع، وهي الآن بانتظار مراجعة الإدارة.', 'success')
+    return redirect(url_for('account'))
+
 
 @app.route('/admin/store-orders')
 @login_required
