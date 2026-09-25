@@ -12,6 +12,7 @@
 #rabbitSiteHeader .rabbit-soon{font-size:10px;color:#b9c7be;border:1px solid #456052;border-radius:20px;padding:2px 6px;margin-inline-start:4px;vertical-align:2px}
 #rabbitSiteHeader .rabbit-user-links{justify-content:flex-end}
 #rabbitSiteHeader .rabbit-action{display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:9px 12px;border:1px solid rgba(0,245,138,.2);border-radius:9px;color:#d9e8df;white-space:nowrap}
+#rabbitSiteHeader .rabbit-login{background:#00df7d;border-color:#00df7d;color:#00170c!important;font-weight:800;padding-inline:16px}
 #rabbitSiteHeader .rabbit-wallet{color:#00f58a}
 #rabbitSiteHeader .rabbit-mobile-wallet{display:none}
 #rabbitSiteHeader .rabbit-notification-link{position:relative;min-width:42px}
@@ -41,10 +42,14 @@
     <a href="{{ url_for('support') }}">الدعم</a>
   </nav>
   <div class="rabbit-user-links">
-    {% if current_user.is_authenticated %}<a class="rabbit-action rabbit-wallet" href="{{ url_for('account') }}">الرصيد {{ header_wallet_balance }}</a>{% endif %}
-    <a class="rabbit-action" href="{{ url_for('cart') if current_user.is_authenticated else url_for('auth_page') }}" aria-label="سلة التسوق">🛒 <span>السلة{% if current_user.is_authenticated and header_cart_count %} ({{ header_cart_count }}){% endif %}</span></a>
-    <a class="rabbit-action rabbit-notification-link" href="{{ url_for('notifications') if current_user.is_authenticated else url_for('auth_page') }}" aria-label="الإشعارات">🔔{% if current_user.is_authenticated and header_notifications_unread %} <span class="rabbit-notification-count">{{ header_notifications_unread if header_notifications_unread < 100 else '99+' }}</span>{% endif %}</a>
-    <a class="rabbit-action" href="{{ url_for('account') if current_user.is_authenticated else url_for('auth_page') }}">👤 <span>حسابي</span></a>
+    {% if current_user.is_authenticated %}
+      <a class="rabbit-action rabbit-wallet" href="{{ url_for('account') }}">الرصيد {{ header_wallet_balance }}</a>
+      <a class="rabbit-action" href="{{ url_for('cart') }}" aria-label="سلة التسوق">🛒 <span>السلة{% if header_cart_count %} ({{ header_cart_count }}){% endif %}</span></a>
+      <a class="rabbit-action rabbit-notification-link" href="{{ url_for('notifications') }}" aria-label="الإشعارات">🔔{% if header_notifications_unread %} <span class="rabbit-notification-count">{{ header_notifications_unread if header_notifications_unread < 100 else '99+' }}</span>{% endif %}</a>
+      <a class="rabbit-action" href="{{ url_for('account') }}">👤 <span>حسابي</span></a>
+    {% else %}
+      <a class="rabbit-action rabbit-login" href="{{ url_for('auth_page') }}">تسجيل الدخول</a>
+    {% endif %}
   </div>
 </header>
 <div id="rabbitTrustStrip" aria-label="اعتمادات ووثائق النشاط">
