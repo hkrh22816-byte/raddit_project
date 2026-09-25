@@ -1968,19 +1968,22 @@ def admin_service_new():
         return redirect(url_for('admin_services'))
 
     package_labels = request.form.getlist('package_label')
+    package_quantities = request.form.getlist('package_quantity')
     package_prices = request.form.getlist('package_price_iqd')
     package_descriptions = request.form.getlist('package_description')
     packages = []
-    for index in range(max(len(package_labels), len(package_prices), len(package_descriptions))):
+    package_rows = max(len(package_labels), len(package_quantities), len(package_prices), len(package_descriptions))
+    for index in range(package_rows):
         label = package_labels[index].strip() if index < len(package_labels) else ''
+        raw_quantity = package_quantities[index].strip().replace(',', '') if index < len(package_quantities) else ''
         raw_price = package_prices[index].strip().replace(',', '') if index < len(package_prices) else ''
         description = package_descriptions[index].strip() if index < len(package_descriptions) else ''
-        if not label and not raw_price and not description:
+        if not label and not raw_quantity and not raw_price and not description:
             continue
-        if not label or not raw_price.isdigit() or int(raw_price) < 1:
-            flash('أكمل اسم وسعر كل باقة، أو اترك حقولها فارغة.', 'error')
+        if not label or not raw_quantity.isdigit() or int(raw_quantity) < 1 or not raw_price.isdigit() or int(raw_price) < 1:
+            flash('أكمل اسم وكمية وسعر كل باقة، أو اترك حقولها فارغة.', 'error')
             return redirect(url_for('admin_services'))
-        packages.append((label[:120], int(raw_price), description[:2000]))
+        packages.append((label[:120], int(raw_quantity), int(raw_price), description[:2000]))
 
     service = Service(
         title=title[:160],
@@ -1994,11 +1997,11 @@ def admin_service_new():
     )
     db.session.add(service)
     db.session.flush()
-    for package_position, (label, price_iqd, description) in enumerate(packages, 1):
+    for package_position, (label, quantity, price_iqd, description) in enumerate(packages, 1):
         db.session.add(ServicePackage(
             service_id=service.id,
             label=label,
-            quantity=1,
+            quantity=quantity,
             price_iqd=price_iqd,
             description=description,
             position=package_position,
