@@ -4332,7 +4332,7 @@ with app.app_context():
                 )
 
     # Separate any package price and details that were pasted into its label.
-    package_label_migration = 'split_package_label_details_v1'
+    package_label_migration = 'split_package_label_details_v2'
     if db.session.get(CatalogMigration, package_label_migration) is None:
         for package in ServicePackage.query.all():
             label = (package.label or '').strip()
