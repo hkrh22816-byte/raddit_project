@@ -383,6 +383,7 @@ class ServicePackage(db.Model):
     position = db.Column(db.Integer, default=1, nullable=False)
     is_active = db.Column(db.Boolean, default=True, nullable=False)
     description = db.Column(db.Text, default='')
+    group_key = db.Column(db.String(60), default='', nullable=False)
     service = db.relationship('Service', backref=db.backref('packages', lazy=True, cascade='all, delete-orphan'))
 
 
@@ -1286,7 +1287,36 @@ FOLLOWER_PLATFORMS = {
     'instagram': 'إنستغرام',
     'facebook': 'فيسبوك',
     'tiktok': 'تيك توك',
+    'telegram': 'تليگرام',
 }
+
+SOCIAL_PACKAGE_GROUPS = {
+    'facebook_followers': {'platform': 'facebook', 'label': 'متابعين', 'unit': 'متابع'},
+    'telegram_members': {'platform': 'telegram', 'label': 'أعضاء', 'unit': 'عضو'},
+    'tiktok_followers_fast': {'platform': 'tiktok', 'label': 'متابعين — سرعة عالية', 'unit': 'متابع'},
+    'tiktok_followers_slow': {'platform': 'tiktok', 'label': 'متابعين — سرعة بطيئة', 'unit': 'متابع'},
+    'tiktok_likes': {'platform': 'tiktok', 'label': 'لايكات فيديو — ثابتة مع ضمان', 'unit': 'لايك'},
+    'tiktok_views': {'platform': 'tiktok', 'label': 'مشاهدات فيديو', 'unit': 'مشاهدة'},
+    'instagram_followers': {'platform': 'instagram', 'label': 'متابعين — ضمان شهر', 'unit': 'متابع'},
+    'instagram_likes': {'platform': 'instagram', 'label': 'لايكات', 'unit': 'لايك'},
+    'instagram_reel_views': {'platform': 'instagram', 'label': 'مشاهدات ريلز — ثابتة وسريعة', 'unit': 'مشاهدة'},
+}
+
+SOCIAL_PACKAGE_GROUP_CHOICES = [
+    ('facebook_followers', 'فيسبوك — متابعين'),
+    ('instagram_followers', 'إنستغرام — متابعين (ضمان شهر)'),
+    ('instagram_likes', 'إنستغرام — لايكات'),
+    ('instagram_reel_views', 'إنستغرام — مشاهدات ريلز'),
+    ('tiktok_followers_fast', 'تيك توك — متابعين (سرعة عالية)'),
+    ('tiktok_followers_slow', 'تيك توك — متابعين (سرعة بطيئة)'),
+    ('tiktok_likes', 'تيك توك — لايكات (ضمان)'),
+    ('tiktok_views', 'تيك توك — مشاهدات'),
+    ('telegram_members', 'تليگرام — أعضاء'),
+]
+
+
+def social_package_group(package):
+    return SOCIAL_PACKAGE_GROUPS.get(package.group_key or '')
 
 
 def is_follower_service(service):
@@ -1311,9 +1341,16 @@ def cart_entry(item):
         follower = is_follower_service(service)
         if follower and item.platform not in FOLLOWER_PLATFORMS:
             return None
+        package_group = social_package_group(package) if package else None
+        if package_group and package_group['platform'] != item.platform:
+            return None
+        group_label = package_group['label'] if package_group else ''
         return {
-            'type': 'service', 'title': service.title, 'label': package.label if package else '',
+            'type': 'service', 'title': service.title,
+            'label': f'{group_label} — {package.label}' if package_group else (package.label if package else ''),
             'package_quantity': package.quantity if package else 0,
+            'package_unit': package_group['unit'] if package_group else 'متابع',
+            'package_group': group_label,
             'platform': FOLLOWER_PLATFORMS.get(item.platform, ''),
             'unit_price': price, 'quantity': 1, 'line_total': price,
             'url': url_for('service_detail', service_id=service.id),
@@ -1378,10 +1415,29 @@ def service_detail(service_id):
         abort(404)
     payment_methods = get_supported_manual_payment_methods()
     packages = ServicePackage.query.filter_by(service_id=item.id, is_active=True).order_by(ServicePackage.position.asc(), ServicePackage.id.asc()).all()
+    grouped_packages = []
+    for group_key, group_info in SOCIAL_PACKAGE_GROUPS.items():
+        group_items = [package for package in packages if package.group_key == group_key]
+        if group_items:
+            grouped_packages.append({
+                'key': group_key,
+                'platform': group_info['platform'],
+                'label': group_info['label'],
+                'unit': group_info['unit'],
+                'packages': group_items,
+            })
+    grouped_package_service = bool(packages and len(grouped_packages) and all(package.group_key in SOCIAL_PACKAGE_GROUPS for package in packages))
+    package_platforms = []
+    for group in grouped_packages:
+        if group['platform'] not in [platform['key'] for platform in package_platforms]:
+            package_platforms.append({'key': group['platform'], 'name': FOLLOWER_PLATFORMS[group['platform']]})
     return render_template(
         'service_detail.html', service=item, payment_methods=payment_methods,
         packages=packages, follower_service=is_follower_service(item),
         follower_platforms=FOLLOWER_PLATFORMS,
+        grouped_packages=grouped_packages,
+        grouped_package_service=grouped_package_service,
+        package_platforms=package_platforms,
         swiftpay_test_enabled=swiftpay_test_enabled_for_admin()
     )
 
@@ -1402,6 +1458,7 @@ def service_pay_test(service_id):
     contact = normalize_iraqi_mobile(request.form.get('contact'))
     page_url = (request.form.get('page_url') or '').strip()
     details = (request.form.get('details') or '').strip()
+    platform = (request.form.get('platform') or '').strip().lower()
     if not contact:
         flash('اكتب رقم موبايل عراقي صحيح حتى تُنشأ فاتورة الاختبار.', 'error')
         return redirect(url_for('service_detail', service_id=item.id))
@@ -1425,6 +1482,13 @@ def service_pay_test(service_id):
             return redirect(url_for('service_detail', service_id=item.id))
         amount_iqd = package.price_iqd
         package_label = package.label
+        group = social_package_group(package)
+        if group:
+            if platform != group['platform']:
+                flash('اختار المنصة ونوع الخدمة المطابقين للباقة.', 'error')
+                return redirect(url_for('service_detail', service_id=item.id))
+            package_label = f"{group['label']} — {package.label}"
+            details = f"المنصة: {FOLLOWER_PLATFORMS[platform]}\nنوع الخدمة: {group['label']}\nالمطلوب: {package.quantity:,} {group['unit']}\n{details}".strip()
     else:
         amount_iqd = item.price_iqd or parse_iqd_price(item.price)
         package_label = ''
@@ -1495,6 +1559,13 @@ def service_buy(service_id):
             return redirect(url_for('service_detail', service_id=service_id))
         package_label = package.label
         amount = f"{package.price_iqd:,} د.ع"
+        group = social_package_group(package)
+        if group and group['platform'] != platform:
+            flash('اختار المنصة ونوع الخدمة المطابقين للباقة.', 'error')
+            return redirect(url_for('service_detail', service_id=service_id))
+        if group:
+            package_label = f"{group['label']} — {package.label}"
+            details = f"نوع الخدمة: {group['label']}\nالمطلوب: {package.quantity:,} {group['unit']}\n{details}".strip()
 
     try:
         payment_method_id = int(request.form.get('payment_method_id') or 0)
@@ -1765,6 +1836,10 @@ def cart_add_service(service_id):
     if is_follower_service(item) and platform not in FOLLOWER_PLATFORMS:
         flash('اختار منصة التواصل قبل إضافة الخدمة للسلة.', 'error')
         return redirect(url_for('service_detail', service_id=item.id))
+    group = social_package_group(package) if package else None
+    if group and group['platform'] != platform:
+        flash('اختار المنصة ونوع الخدمة المطابقين للباقة.', 'error')
+        return redirect(url_for('service_detail', service_id=item.id))
     existing = CartItem.query.filter_by(
         user_id=current_user.id, item_type='service', service_id=item.id,
         package_id=package.id if package else None, platform=platform
@@ -1867,7 +1942,9 @@ def cart_checkout():
                 flash('أضف رابط الحساب أو تفاصيل المشروع لكل خدمة.', 'error')
                 return redirect(url_for('cart'))
             if data['platform']:
-                details = f"المنصة: {data['platform']}\nالمطلوب: {data['package_quantity']:,} متابع\n{details}".strip()
+                quantity_line = f"المطلوب: {data['package_quantity']:,} {data['package_unit']}\n" if data['package_quantity'] else ''
+                group_line = f"نوع الخدمة: {data['package_group']}\n" if data['package_group'] else ''
+                details = f"المنصة: {data['platform']}\n{group_line}{quantity_line}{details}".strip()
             db.session.add(ServiceOrder(
                 user_id=current_user.id, service_id=row.service_id,
                 payment_method_id=method.id, service_package_id=row.package_id,
@@ -1950,7 +2027,9 @@ def admin_store_order_action(order_id, action):
 def admin_services():
     if not admin_only():
         abort(403)
-    return render_template('admin_services.html', services=Service.query.order_by(Service.position.asc(), Service.id.asc()).all())
+    return render_template('admin_services.html',
+                           services=Service.query.order_by(Service.position.asc(), Service.id.asc()).all(),
+                           social_package_group_choices=SOCIAL_PACKAGE_GROUP_CHOICES)
 
 
 @app.route('/admin/service/new', methods=['POST'])
@@ -1971,19 +2050,24 @@ def admin_service_new():
     package_quantities = request.form.getlist('package_quantity')
     package_prices = request.form.getlist('package_price_iqd')
     package_descriptions = request.form.getlist('package_description')
+    package_group_keys = request.form.getlist('package_group_key')
     packages = []
-    package_rows = max(len(package_labels), len(package_quantities), len(package_prices), len(package_descriptions))
+    package_rows = max(len(package_labels), len(package_quantities), len(package_prices), len(package_descriptions), len(package_group_keys))
     for index in range(package_rows):
         label = package_labels[index].strip() if index < len(package_labels) else ''
         raw_quantity = package_quantities[index].strip().replace(',', '') if index < len(package_quantities) else ''
         raw_price = package_prices[index].strip().replace(',', '') if index < len(package_prices) else ''
         description = package_descriptions[index].strip() if index < len(package_descriptions) else ''
+        group_key = package_group_keys[index].strip() if index < len(package_group_keys) else ''
         if not label and not raw_quantity and not raw_price and not description:
             continue
         if not label or not raw_quantity.isdigit() or int(raw_quantity) < 1 or not raw_price.isdigit() or int(raw_price) < 1:
             flash('أكمل اسم وكمية وسعر كل باقة، أو اترك حقولها فارغة.', 'error')
             return redirect(url_for('admin_services'))
-        packages.append((label[:120], int(raw_quantity), int(raw_price), description[:2000]))
+        if group_key and group_key not in SOCIAL_PACKAGE_GROUPS:
+            flash('مجموعة الباقة غير صحيحة.', 'error')
+            return redirect(url_for('admin_services'))
+        packages.append((label[:120], int(raw_quantity), int(raw_price), description[:2000], group_key))
 
     service = Service(
         title=title[:160],
@@ -1997,13 +2081,14 @@ def admin_service_new():
     )
     db.session.add(service)
     db.session.flush()
-    for package_position, (label, quantity, price_iqd, description) in enumerate(packages, 1):
+    for package_position, (label, quantity, price_iqd, description, group_key) in enumerate(packages, 1):
         db.session.add(ServicePackage(
             service_id=service.id,
             label=label,
             quantity=quantity,
             price_iqd=price_iqd,
             description=description,
+            group_key=group_key,
             position=package_position,
             is_active=True
         ))
@@ -2041,7 +2126,8 @@ def admin_service_edit(item_id):
         flash('تم تحديث الخدمة.', 'success')
         return redirect(url_for('admin_services'))
 
-    return render_template('admin_service_edit.html', service=item)
+    return render_template('admin_service_edit.html', service=item,
+                           social_package_group_choices=SOCIAL_PACKAGE_GROUP_CHOICES)
 
 
 @app.route('/admin/service/<int:item_id>/package/new', methods=['POST'])
@@ -2060,7 +2146,11 @@ def admin_service_package_new(item_id):
         return redirect(url_for('admin_service_edit', item_id=item.id))
     if not label:
         label = f'{quantity:,} متابع'
-    db.session.add(ServicePackage(service_id=item.id, label=label[:120], quantity=quantity, price_iqd=price_iqd, position=position, is_active=True))
+    group_key = (request.form.get('group_key') or '').strip()
+    if group_key and group_key not in SOCIAL_PACKAGE_GROUPS:
+        flash('مجموعة الباقة غير صحيحة.', 'error')
+        return redirect(url_for('admin_service_edit', item_id=item.id))
+    db.session.add(ServicePackage(service_id=item.id, label=label[:120], quantity=quantity, price_iqd=price_iqd, position=position, is_active=True, group_key=group_key))
     db.session.commit()
     flash('تمت إضافة الباقة.', 'success')
     return redirect(url_for('admin_service_edit', item_id=item.id))
@@ -2081,6 +2171,11 @@ def admin_service_package_edit(package_id):
         return redirect(url_for('admin_service_edit', item_id=package.service_id))
     package.label = ((request.form.get('label') or f'{quantity:,} متابع').strip())[:120]
     package.description = (request.form.get('description') or '').strip()[:2000]
+    group_key = (request.form.get('group_key') or '').strip()
+    if group_key and group_key not in SOCIAL_PACKAGE_GROUPS:
+        flash('مجموعة الباقة غير صحيحة.', 'error')
+        return redirect(url_for('admin_service_edit', item_id=package.service_id))
+    package.group_key = group_key
     package.quantity = quantity
     package.price_iqd = price_iqd
     package.position = position
@@ -4581,6 +4676,11 @@ with app.app_context():
             with db.engine.begin() as connection:
                 connection.execute(
                     sql_text("ALTER TABLE service_package ADD COLUMN description TEXT NOT NULL DEFAULT ''")
+                )
+        if 'group_key' not in package_columns:
+            with db.engine.begin() as connection:
+                connection.execute(
+                    sql_text("ALTER TABLE service_package ADD COLUMN group_key VARCHAR(60) NOT NULL DEFAULT ''")
                 )
 
     # Separate any package price and details that were pasted into its label.
