@@ -1,3 +1,25 @@
+<script>
+(function(){
+  try{
+    if(localStorage.getItem('rabbit_lang')==='en'){
+      document.documentElement.lang='en';
+      document.documentElement.dir='ltr';
+      document.documentElement.classList.add('rabbit-i18n-preload');
+      var st=document.createElement('style');
+      st.id='rabbitI18nPreloadStyle';
+      st.textContent='html.rabbit-i18n-preload body{visibility:hidden!important}';
+      document.head.appendChild(st);
+      var reveal=function(){
+        document.documentElement.classList.remove('rabbit-i18n-preload');
+        var x=document.getElementById('rabbitI18nPreloadStyle');
+        if(x)x.remove();
+      };
+      window.addEventListener('load',function(){requestAnimationFrame(function(){requestAnimationFrame(reveal);});},{once:true});
+      setTimeout(reveal,1600);
+    }
+  }catch(e){}
+})();
+</script>
 <style>
 #rabbitSiteHeader,#rabbitSiteHeader *{box-sizing:border-box}
 #rabbitSiteHeader{position:sticky;top:0;z-index:10000;min-height:76px;width:100%;padding:10px clamp(14px,4vw,56px);display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:22px;background:rgba(4,10,7,.96);border-bottom:1px solid rgba(0,245,138,.18);backdrop-filter:blur(16px);color:#f2fff8;font:500 14px "Segoe UI",Tahoma,Arial,sans-serif}
