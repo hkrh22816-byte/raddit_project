@@ -35,14 +35,15 @@ html,body{max-width:100%;overflow-x:hidden}
 #rabbitSiteHeader .rabbit-main-links a{white-space:nowrap}
 #rabbitSiteHeader .rabbit-soon{font-size:10px;color:#b9c7be;border:1px solid #456052;border-radius:20px;padding:2px 6px;margin-inline-start:4px;vertical-align:2px}
 #rabbitSiteHeader .rabbit-user-links{justify-content:flex-end}
-#rabbitSiteHeader .rabbit-action,#rabbitSiteHeader .rabbit-lang{display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:9px 12px;border:1px solid rgba(0,245,138,.2);border-radius:9px;color:#d9e8df;white-space:nowrap}
+#rabbitSiteHeader .rabbit-action,#rabbitSiteHeader .rabbit-lang,#rabbitSiteHeader .rabbit-menu{position:relative;display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:9px 12px;border:1px solid rgba(0,245,138,.2);border-radius:9px;color:#d9e8df;white-space:nowrap;background:transparent}
 #rabbitSiteHeader .rabbit-lang{min-width:44px;background:#07110c;color:#00f58a;border-color:rgba(0,245,138,.36);font:900 12px "Segoe UI",Tahoma,Arial,sans-serif;cursor:pointer}
 #rabbitSiteHeader .rabbit-lang:hover{border-color:#00f58a;box-shadow:0 0 16px rgba(0,245,138,.12)}
+#rabbitSiteHeader .rabbit-menu{display:none;cursor:pointer;color:#e9fff4;background:#07110c;border-color:rgba(0,245,138,.28);font-size:19px;line-height:1}
 #rabbitSiteHeader .rabbit-login{background:#00df7d;border-color:#00df7d;color:#00170c!important;font-weight:800;padding-inline:16px}
 #rabbitSiteHeader .rabbit-wallet{color:#00f58a}
 #rabbitSiteHeader .rabbit-admin{color:#58d7ff;border-color:rgba(88,215,255,.28)}
 #rabbitSiteHeader .rabbit-admin:hover{color:#8ee5ff;border-color:#58d7ff}
-#rabbitSiteHeader .rabbit-mobile-wallet{display:none}
+#rabbitSiteHeader .rabbit-mobile-wallet,#rabbitSiteHeader .rabbit-mobile-admin{display:none}
 #rabbitSiteHeader .rabbit-notification-link{position:relative;min-width:42px}
 #rabbitSiteHeader .rabbit-notification-count{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 5px;border-radius:99px;background:#00f58a;color:#00170c;font-size:11px;font-weight:900}
 #rabbitTrustStrip{display:flex;justify-content:center;gap:8px 18px;flex-wrap:wrap;padding:9px 14px;background:#07100b;border-bottom:1px solid rgba(0,245,138,.1);color:#9cad9f;font:12px "Segoe UI",Tahoma,Arial,sans-serif;max-width:100%;overflow:hidden}
@@ -59,19 +60,25 @@ html,body{max-width:100%;overflow-x:hidden}
 html[dir="ltr"] #rabbitSiteHeader{direction:ltr}html[dir="ltr"] #rabbitTrustStrip{direction:ltr}
 
 @media(max-width:850px){
-  #rabbitSiteHeader{grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"brand user" "nav nav";gap:8px 8px;padding:8px 10px 0;min-height:auto;overflow:hidden;font-size:14px}
-  #rabbitSiteHeader .rabbit-brand{grid-area:brand;min-width:0;font-size:18px;letter-spacing:2.5px;gap:7px;overflow:hidden}
+  #rabbitSiteHeader{grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"brand user" "nav nav";gap:0 8px;padding:8px 10px;min-height:58px;overflow:visible;font-size:14px}
+  #rabbitSiteHeader .rabbit-brand{grid-area:brand;min-width:0;font-size:17px;letter-spacing:2.2px;gap:7px;overflow:hidden}
   #rabbitSiteHeader .rabbit-brand-logo{width:38px;height:38px}
   #rabbitSiteHeader .rabbit-brand-name{overflow:hidden;text-overflow:ellipsis}
   #rabbitSiteHeader .rabbit-user-links{grid-area:user;gap:5px;min-width:0;justify-self:end}
-  #rabbitSiteHeader .rabbit-user-links .rabbit-action,#rabbitSiteHeader .rabbit-lang{width:40px;min-width:40px;height:40px;padding:0;border-radius:9px;font-size:14px}
-  #rabbitSiteHeader .rabbit-login{width:auto!important;min-width:auto!important;padding:0 12px!important;font-size:12px!important}
+  #rabbitSiteHeader .rabbit-user-links .rabbit-action,#rabbitSiteHeader .rabbit-lang,#rabbitSiteHeader .rabbit-menu{width:38px;min-width:38px;height:38px;padding:0;border-radius:10px;font-size:14px;flex:0 0 38px}
+  #rabbitSiteHeader .rabbit-lang{font-size:11px}
+  #rabbitSiteHeader .rabbit-menu{display:inline-flex}
+  #rabbitSiteHeader .rabbit-login{width:auto!important;min-width:auto!important;padding:0 12px!important;font-size:12px!important;flex:auto!important}
   #rabbitSiteHeader .rabbit-action-label,#rabbitSiteHeader .rabbit-admin-label{display:none!important}
-  #rabbitSiteHeader .rabbit-wallet{display:none!important}
-  #rabbitSiteHeader .rabbit-main-links{grid-area:nav;width:calc(100% + 20px);max-width:none;margin:0 -10px;padding:9px 10px 10px;justify-content:flex-start;overflow-x:auto;overflow-y:hidden;gap:18px;border-top:1px solid rgba(0,245,138,.1);scrollbar-width:none}
-  #rabbitSiteHeader .rabbit-main-links::-webkit-scrollbar{display:none}
-  #rabbitSiteHeader .rabbit-main-links a{font-size:13px;flex:0 0 auto}
-  #rabbitSiteHeader .rabbit-mobile-wallet{display:inline-flex;color:#00f58a;font-size:13px}
+  #rabbitSiteHeader .rabbit-wallet,#rabbitSiteHeader .rabbit-admin{display:none!important}
+  #rabbitSiteHeader .rabbit-notification-count{position:absolute;top:-5px;right:-5px;min-width:17px;height:17px;padding:0 4px;font-size:10px;border:2px solid #040a07}
+  #rabbitSiteHeader .rabbit-main-links{grid-area:nav;display:none;width:100%;margin:8px 0 2px;padding:10px;background:#07110c;border:1px solid rgba(0,245,138,.16);border-radius:12px;box-shadow:0 16px 40px rgba(0,0,0,.32);overflow:visible;gap:7px;grid-template-columns:repeat(2,minmax(0,1fr))}
+  #rabbitSiteHeader.mobile-open .rabbit-main-links{display:grid}
+  #rabbitSiteHeader .rabbit-main-links a{display:flex;align-items:center;justify-content:center;min-height:42px;padding:9px 10px;border:1px solid rgba(0,245,138,.09);border-radius:9px;background:rgba(255,255,255,.015);font-size:13px;white-space:normal;text-align:center}
+  #rabbitSiteHeader .rabbit-main-links a:hover{background:rgba(0,245,138,.06);border-color:rgba(0,245,138,.28)}
+  #rabbitSiteHeader .rabbit-mobile-wallet{display:flex!important;grid-column:1/-1;color:#00f58a!important;background:rgba(0,245,138,.045)!important;font-weight:800}
+  #rabbitSiteHeader .rabbit-mobile-admin{display:flex!important;color:#58d7ff!important}
+  #rabbitSiteHeader .rabbit-soon{font-size:9px}
   #rabbitTrustStrip{display:none}
   #rabbitSocialFooter{padding-bottom:95px}
   #rabbitHelpDock{right:10px;left:10px;justify-content:center;gap:8px}
@@ -79,19 +86,18 @@ html[dir="ltr"] #rabbitSiteHeader{direction:ltr}html[dir="ltr"] #rabbitTrustStri
 }
 
 @media(max-width:430px){
-  #rabbitSiteHeader{padding-left:8px;padding-right:8px;gap:6px}
-  #rabbitSiteHeader .rabbit-brand{font-size:16px;letter-spacing:1.8px;gap:6px}
-  #rabbitSiteHeader .rabbit-brand-logo{width:36px;height:36px}
+  #rabbitSiteHeader{padding-left:8px;padding-right:8px;gap:0 6px}
+  #rabbitSiteHeader .rabbit-brand{font-size:15px;letter-spacing:1.5px;gap:6px}
+  #rabbitSiteHeader .rabbit-brand-logo{width:35px;height:35px}
   #rabbitSiteHeader .rabbit-user-links{gap:4px}
-  #rabbitSiteHeader .rabbit-user-links .rabbit-action,#rabbitSiteHeader .rabbit-lang{width:36px;min-width:36px;height:38px;font-size:13px}
-  #rabbitSiteHeader .rabbit-main-links{width:calc(100% + 16px);margin-left:-8px;margin-right:-8px;padding-left:8px;padding-right:8px;gap:16px}
-  #rabbitSiteHeader .rabbit-main-links a{font-size:13px}
+  #rabbitSiteHeader .rabbit-user-links .rabbit-action,#rabbitSiteHeader .rabbit-lang,#rabbitSiteHeader .rabbit-menu{width:35px;min-width:35px;height:36px;flex-basis:35px;font-size:13px}
+  #rabbitSiteHeader .rabbit-main-links{grid-template-columns:1fr 1fr;margin-top:7px}
   #rabbitHelpDock{right:8px;left:8px}
 }
 
 @media(max-width:360px){
   #rabbitSiteHeader .rabbit-brand-name{display:none}
-  #rabbitSiteHeader .rabbit-user-links .rabbit-action,#rabbitSiteHeader .rabbit-lang{width:34px;min-width:34px;height:36px}
+  #rabbitSiteHeader .rabbit-user-links .rabbit-action,#rabbitSiteHeader .rabbit-lang,#rabbitSiteHeader .rabbit-menu{width:34px;min-width:34px;height:35px;flex-basis:34px}
 }
 </style>
 <script src="{{ url_for('static', filename='rabbit_i18n.js') }}" defer></script>
@@ -100,27 +106,29 @@ html[dir="ltr"] #rabbitSiteHeader{direction:ltr}html[dir="ltr"] #rabbitTrustStri
     <img class="rabbit-brand-logo" src="{{ url_for('static', filename='rabbit-logo.svg') }}" alt="RABBIT logo">
     <span class="rabbit-brand-name">RABBIT</span>
   </a>
-  <nav class="rabbit-main-links" aria-label="التنقل الرئيسي">
+  <nav class="rabbit-main-links" id="rabbitMobileNav" aria-label="التنقل الرئيسي">
     {% if current_user.is_authenticated %}<a class="rabbit-mobile-wallet" href="{{ url_for('account') }}">الرصيد: {{ header_wallet_balance }}</a>{% endif %}
     <a href="{{ url_for('home') }}">الرئيسية</a>
     <a href="{{ url_for('services') }}">الخدمات</a>
     <a href="{{ url_for('store') }}">المتجر</a>
     <a href="{{ url_for('courses') }}">الكورسات <span class="rabbit-soon">قريباً</span></a>
     <a href="{{ url_for('support') }}">الدعم</a>
+    {% if current_user.is_authenticated and current_user.is_admin %}<a class="rabbit-mobile-admin" href="{{ url_for('admin_panel') }}">الإدارة</a>{% endif %}
   </nav>
   <div class="rabbit-user-links">
     <button id="rabbitLangToggle" class="rabbit-lang" type="button" aria-label="التبديل إلى الإنجليزية" title="English">EN</button>
     {% if current_user.is_authenticated %}
       <a class="rabbit-action rabbit-wallet" href="{{ url_for('account') }}">الرصيد {{ header_wallet_balance }}</a>
-      <a class="rabbit-action" href="{{ url_for('cart') }}" aria-label="سلة التسوق">🛒 <span class="rabbit-action-label">السلة{% if header_cart_count %} ({{ header_cart_count }}){% endif %}</span>{% if header_cart_count %}<span class="rabbit-notification-count">{{ header_cart_count if header_cart_count < 100 else '99+' }}</span>{% endif %}</a>
-      <a class="rabbit-action rabbit-notification-link" href="{{ url_for('notifications') }}" aria-label="الإشعارات">🔔{% if header_notifications_unread %}<span class="rabbit-notification-count">{{ header_notifications_unread if header_notifications_unread < 100 else '99+' }}</span>{% endif %}</a>
+      <a class="rabbit-action" href="{{ url_for('cart') }}" aria-label="سلة التسوق" title="السلة">🛒 <span class="rabbit-action-label">السلة{% if header_cart_count %} ({{ header_cart_count }}){% endif %}</span>{% if header_cart_count %}<span class="rabbit-notification-count">{{ header_cart_count if header_cart_count < 100 else '99+' }}</span>{% endif %}</a>
+      <a class="rabbit-action rabbit-notification-link" href="{{ url_for('notifications') }}" aria-label="الإشعارات" title="الإشعارات">🔔{% if header_notifications_unread %}<span class="rabbit-notification-count">{{ header_notifications_unread if header_notifications_unread < 100 else '99+' }}</span>{% endif %}</a>
       {% if current_user.is_admin %}
         <a class="rabbit-action rabbit-admin" href="{{ url_for('admin_panel') }}" aria-label="لوحة الإدارة">⚙ <span class="rabbit-admin-label">الإدارة</span></a>
       {% endif %}
-      <a class="rabbit-action" href="{{ url_for('account') }}" aria-label="حسابي">👤 <span class="rabbit-action-label">حسابي</span></a>
+      <a class="rabbit-action" href="{{ url_for('account') }}" aria-label="حسابي" title="حسابي">👤 <span class="rabbit-action-label">حسابي</span></a>
     {% else %}
       <a class="rabbit-action rabbit-login" href="{{ url_for('auth_page') }}">تسجيل الدخول</a>
     {% endif %}
+    <button id="rabbitMenuToggle" class="rabbit-menu" type="button" aria-label="فتح القائمة" aria-expanded="false" aria-controls="rabbitMobileNav">☰</button>
   </div>
 </header>
 <div id="rabbitTrustStrip" aria-label="اعتمادات ووثائق النشاط">
@@ -131,3 +139,25 @@ html[dir="ltr"] #rabbitSiteHeader{direction:ltr}html[dir="ltr"] #rabbitTrustStri
   <a class="help-site" href="{{ url_for('support') }}">✦ الدعم السريع</a>
   <a class="help-whatsapp" href="https://wa.me/9647763417728" target="_blank" rel="noopener noreferrer">WhatsApp ↗</a>
 </div>
+<script>
+(function(){
+  var header=document.getElementById('rabbitSiteHeader');
+  var btn=document.getElementById('rabbitMenuToggle');
+  var nav=document.getElementById('rabbitMobileNav');
+  if(!header||!btn||!nav)return;
+  function closeMenu(){
+    header.classList.remove('mobile-open');
+    btn.setAttribute('aria-expanded','false');
+    btn.textContent='☰';
+  }
+  btn.addEventListener('click',function(e){
+    e.stopPropagation();
+    var open=header.classList.toggle('mobile-open');
+    btn.setAttribute('aria-expanded',open?'true':'false');
+    btn.textContent=open?'×':'☰';
+  });
+  nav.addEventListener('click',function(e){if(e.target.closest('a'))closeMenu();});
+  document.addEventListener('click',function(e){if(!header.contains(e.target))closeMenu();});
+  window.addEventListener('resize',function(){if(window.innerWidth>850)closeMenu();});
+})();
+</script>
