@@ -12,6 +12,7 @@
     'موافقة هيئة الإعلام والاتصالات':'Media & Communications Commission approval','✦ الدعم السريع':'✦ Quick support',
 
     'أهلاً':'Welcome','تصفح الخدمات':'Browse services','تصفح المتجر':'Browse store',
+    'حسابك متصل الآن بمنصة RABBIT. تصفح خدماتنا الرقمية واختر ما يناسب مشروعك، أو استكشف المنتجات المتاحة في المتجر.':'Your account is connected to RABBIT. Browse our digital services and choose what fits your project, or explore available products in the store.',
     'اختار':'Choose','نوع الخدمة':'service category',
     'رتبنا الخدمات على شكل أقسام. تدخل للقسم المطلوب، تختار الخدمة المناسبة، تشوف السعر والتفاصيل وتكمل الطلب.':'Services are organized into clear categories. Open the category you need, choose a service, review the price and details, then complete your order.',
     'عرض خدمات القسم':'View category services','الخدمات قيد التجهيز':'Services are being prepared',
@@ -38,7 +39,7 @@
     'إتمام الشراء':'Checkout','بيانات الطلب':'Order details','بيانات الطلب والتحويل':'Order & transfer details',
     'رابط الحساب أو المشروع':'Account or project link','ملاحظات (اختياري)':'Notes (optional)','ملاحظات المنتج':'Product notes',
     'أوافق على شروط الشراء وسياسة الطلب والاسترجاع':'I agree to the purchase terms, order policy and refund policy',
-    'إرسال الطلب ومراجعة الدفع':'Submit order for payment review','المجموع':'Total','حذف':'Remove','حذف العنصر':'Remove item',
+    'المجموع':'Total','حذف':'Remove','حذف العنصر':'Remove item',
     'سلتك فارغة':'Your cart is empty','أضف خدمة أو منتج وبعدها ارجع كمل الشراء.':'Add a service or product, then return here to complete your purchase.',
 
     'شحن المحفظة':'Top up wallet','شحن رصيد المحفظة':'Top up wallet balance','الرصيد الحالي':'Current balance','الطلبات':'Orders','طلباتي':'My Orders',
@@ -72,6 +73,8 @@
     'حسابي | RABBIT':'My Account | RABBIT','الدعم | RABBIT':'Support | RABBIT','الإشعارات | RABBIT':'Notifications | RABBIT'
   };
 
+  function clean(text){return (text||'').trim().replace(/\s+/g,' ');}
+
   function translateDynamic(text){
     var m;
     if((m=text.match(/^(\d+)\s+خدمة متاحة$/))) return m[1]+' services available';
@@ -87,9 +90,9 @@
   function translateTextNode(node){
     if(!node || !node.nodeValue) return;
     var raw=node.nodeValue;
-    var trimmed=raw.trim();
-    if(!trimmed) return;
-    var translated=exact[trimmed] || translateDynamic(trimmed);
+    var normalized=clean(raw);
+    if(!normalized) return;
+    var translated=exact[normalized] || translateDynamic(normalized);
     if(!translated) return;
     var lead=raw.match(/^\s*/)[0], tail=raw.match(/\s*$/)[0];
     node.nodeValue=lead+translated+tail;
@@ -102,7 +105,7 @@
     ['placeholder','title','aria-label','value'].forEach(function(attr){
       if(!el.hasAttribute(attr)) return;
       if(attr==='value' && !/^(BUTTON|SUBMIT|RESET)$/.test((el.getAttribute('type')||'').toUpperCase())) return;
-      var v=el.getAttribute(attr);
+      var v=clean(el.getAttribute(attr));
       if(exact[v]) el.setAttribute(attr,exact[v]);
       else { var d=translateDynamic(v); if(d) el.setAttribute(attr,d); }
     });
@@ -146,11 +149,7 @@
 
   window.RabbitI18n={
     get:function(){return lang;},
-    set:function(next){
-      next=next==='en'?'en':'ar';
-      localStorage.setItem(STORAGE_KEY,next);
-      location.reload();
-    },
+    set:function(next){next=next==='en'?'en':'ar';localStorage.setItem(STORAGE_KEY,next);location.reload();},
     toggle:function(){this.set(lang==='en'?'ar':'en');}
   };
 
@@ -161,12 +160,7 @@
     apply();
     if(lang==='en'){
       var observer=new MutationObserver(function(list){
-        list.forEach(function(m){
-          m.addedNodes.forEach(function(n){
-            if(n.nodeType===Node.TEXT_NODE) translateTextNode(n);
-            else if(n.nodeType===1) walk(n);
-          });
-        });
+        list.forEach(function(m){m.addedNodes.forEach(function(n){if(n.nodeType===Node.TEXT_NODE) translateTextNode(n);else if(n.nodeType===1) walk(n);});});
       });
       observer.observe(document.body,{childList:true,subtree:true});
     }
