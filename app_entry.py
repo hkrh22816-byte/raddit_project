@@ -7,3 +7,6 @@ import checkout_patch  # noqa: F401,E402
 # Keep the public endpoint already used by templates, but execute the
 # real wallet implementation from checkout_patch.
 app.view_functions['store_buy_wallet'] = checkout_patch.store_buy_wallet_v2
+
+# Load the isolated admin-only SwiftPayIQ LIVE pilot routes.
+import swiftpay_live_pilot  # noqa: F401,E402
