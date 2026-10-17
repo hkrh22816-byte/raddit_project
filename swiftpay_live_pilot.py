@@ -128,3 +128,7 @@ def store_pay_live_pilot(item_id):
     order.gateway_invoice_id = invoice_id
     db.session.commit()
     return redirect(pay_url, code=303)
+
+@app.context_processor
+def swiftpay_live_pilot_context():
+    return {"swiftpay_live_pilot_enabled": bool(admin_only() and pilot_ready())}
