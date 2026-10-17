@@ -46,6 +46,19 @@
 </form>
 </div>
 
+{% if swiftpay_live_pilot_enabled %}
+<div class="payform" style="display:block">
+<h3>🔒 تجربة الدفع الحقيقي — للمدير فقط</h3>
+<p class="muted">هذا دفع حقيقي وقد يتم خصم المبلغ المحدد للمنتج من بطاقتك. تأكد من السعر قبل المتابعة.</p>
+<form method="post" action="{{ url_for('store_pay_live_pilot', item_id=item.id) }}">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<div class="grid">
+<div><label>رقم الموبايل العراقي</label><input name="contact" required maxlength="80" placeholder="07xxxxxxxxx"></div>
+<div class="full"><label>ملاحظات (اختياري)</label><textarea name="details" maxlength="2000"></textarea></div>
+<div class="full"><button type="submit" class="btn">جرّب الدفع الحقيقي — {{ "{:,}".format(price_iqd|int) }} د.ع</button></div>
+</div></form></div>
+{% endif %}
+
 <div id="manualForm" class="payform">
 {% if payment_methods %}
 <form method="post" action="{{ url_for('store_buy', item_id=item.id) }}" enctype="multipart/form-data">
