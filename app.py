@@ -872,7 +872,7 @@ def create_swiftpay_invoice(order_type, order_id, customer_name,
             'unitPrice': str(amount_iqd),
         }],
         'taxAmount': '0',
-        'notes': f'Rabbit {order_type} order #{order_id} ({swiftpay_mode()})',
+        'notes': f'RABBIT {order_type} order #{order_id} ({swiftpay_mode()})',
     }
     api_request = UrlRequest(
         'https://api.swiftpayiq.com/api/v1/invoices',

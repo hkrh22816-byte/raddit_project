@@ -58,7 +58,7 @@
 
 {% if swiftpay_enabled %}
 <div id="swiftpayForm" class="payform">
-<form data-needs-package method="post" {% if account_recovery_service %}enctype="multipart/form-data"{% endif %} action="{{ url_for('service_pay_test', service_id=service.id) }}">
+<form data-needs-package method="post" {% if account_recovery_service %}enctype="multipart/form-data"{% endif %} action="/services/{{ service.id }}/pay-card">
 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 {% if packages %}<input class="package-hidden" type="hidden" name="package_id" value="">{% endif %}
 {% if follower_service or grouped_package_service or account_recovery_service %}<input type="hidden" class="platform-hidden" name="platform" value="">{% endif %}
