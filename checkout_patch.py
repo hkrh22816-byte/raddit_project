@@ -153,7 +153,7 @@ def cart_checkout_wallet():
                 service_id=row.service_id,
                 payment_method_id=None,
                 service_package_id=row.package_id,
-                package_label=data['label'],
+                package_label=data['label'][:120],
                 amount=f"{data['line_total']:,} د.ع",
                 page_url=page_url,
                 details=details,

@@ -1935,7 +1935,7 @@ def service_pay_test(service_id):
         user_id=current_user.id,
         service_id=item.id,
         service_package_id=package.id if package else None,
-        package_label=package_label,
+        package_label=package_label[:120],
         amount=f'{amount_iqd:,} د.ع',
         page_url=page_url,
         details=details,
@@ -2061,7 +2061,7 @@ def service_buy(service_id):
         service_id=item.id,
         payment_method_id=method.id,
         service_package_id=package.id if package else None,
-        package_label=package_label,
+        package_label=package_label[:120],
         amount=amount,
         page_url=page_url,
         details=details,
@@ -2160,7 +2160,7 @@ def service_buy_wallet(service_id):
     order = ServiceOrder(
         user_id=current_user.id, service_id=item.id,
         service_package_id=package.id if package else None,
-        package_label=package_label, amount=f'{amount_iqd:,} د.ع',
+        package_label=package_label[:120], amount=f'{amount_iqd:,} د.ع',
         page_url=page_url, details=details, contact=contact,
         refund_account='رصيد Rabbit', transaction_id='RABBIT WALLET',
         request_attachment_filename=attachment_filename, status='pending'
@@ -2541,7 +2541,7 @@ def cart_checkout():
             db.session.add(ServiceOrder(
                 user_id=current_user.id, service_id=row.service_id,
                 payment_method_id=method.id, service_package_id=row.package_id,
-                package_label=data['label'], amount=f"{data['line_total']:,} د.ع",
+                package_label=data['label'][:120], amount=f"{data['line_total']:,} د.ع",
                 page_url=page_url, details=details, contact=contact,
                 refund_account=refund_account, transaction_id=transaction_id,
                 proof_filename=proof, status='pending'
