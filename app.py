@@ -2229,6 +2229,7 @@ def store_buy(item_id):
 
 
 @app.route('/payments/swiftpay/webhook', methods=['POST'])
+@app.route('/payments/swiftpay/live/webhook', methods=['POST'])
 @app.route('/payments/swiftpay/test/webhook', methods=['POST'])
 @csrf.exempt
 def swiftpay_webhook():
@@ -2243,7 +2244,9 @@ def swiftpay_webhook():
 
     event = payload.get('event') if isinstance(payload, dict) else None
     data = payload.get('data') if isinstance(payload, dict) else None
-    if event != 'invoice.paid' or not isinstance(data, dict):
+    # SwiftPayIQ emits both events for invoice payments. Only accept an
+    # authenticated success carrying a known invoice ID and matching amount.
+    if event not in {'invoice.paid', 'payment.succeeded'} or not isinstance(data, dict):
         return {'ok': True}
     if (data.get('isLive') is not (swiftpay_mode() == 'live') or data.get('status') != 'SUCCEEDED'
             or not data.get('invoiceId')):
