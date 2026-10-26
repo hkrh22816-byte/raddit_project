@@ -366,6 +366,21 @@ class WalletTransaction(db.Model):
     user = db.relationship('User', backref='wallet_transactions')
 
 
+class CardCheckout(db.Model):
+    """Single invoice per online course purchase or wallet top-up."""
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
+    order_type = db.Column(db.String(15), nullable=False)  # course or wallet
+    reference_id = db.Column(db.Integer, nullable=True)
+    amount_iqd = db.Column(db.Integer, nullable=False)
+    gateway_expected_amount_iqd = db.Column(db.Integer, nullable=True)
+    gateway_invoice_id = db.Column(db.String(120), unique=True, nullable=True)
+    payment_provider = db.Column(db.String(30), default='', nullable=False)
+    status = db.Column(db.String(20), default='pending', nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    confirmed_at = db.Column(db.DateTime, nullable=True)
+
+
 def wallet_balance_iqd(user_id):
     credited = db.session.query(db.func.coalesce(db.func.sum(WalletTransaction.amount_iqd), 0)).filter(
         WalletTransaction.user_id == user_id
@@ -1891,6 +1906,10 @@ def swiftpay_checkout_order_from_session():
         order = db.session.get(ServiceOrder, order_id)
     elif kind == 'store':
         order = db.session.get(StoreOrder, order_id)
+    elif kind in {'course', 'wallet'}:
+        order = db.session.get(CardCheckout, order_id)
+        if order and order.order_type != kind:
+            return None
     else:
         return None
     if (not order or order.user_id != current_user.id
@@ -1901,7 +1920,7 @@ def swiftpay_checkout_order_from_session():
 
 
 def swiftpay_checkout_state(order):
-    if order.status in {'approved', 'completed'}:
+    if order.status in {'approved', 'completed', 'paid'}:
         return 'paid'
     if order.status in {'rejected', 'refunded'}:
         return 'attention'
@@ -1961,6 +1980,10 @@ def swiftpay_continue_checkout():
         order = db.session.get(ServiceOrder, payload.get('order_id'))
     elif kind == 'store':
         order = db.session.get(StoreOrder, payload.get('order_id'))
+    elif kind in {'course', 'wallet'}:
+        order = db.session.get(CardCheckout, payload.get('order_id'))
+        if order and order.order_type != kind:
+            abort(404)
     else:
         abort(404)
     if (not order or order.user_id != current_user.id or
@@ -2482,6 +2505,53 @@ def swiftpay_webhook():
             notify_user(order.user_id, 'تم تأكيد الدفع', f'تم قبول دفع طلب المتجر رقم {order.id}.', url_for('account'))
             notify_admins('دفع إلكتروني ناجح', f'طلب متجر رقم {order.id}', url_for('admin_store_orders'))
             db.session.commit()
+    # Lock the recorded checkout so a payment.succeeded/invoice.paid pair
+    # cannot activate access or credit the wallet twice.
+    checkout = CardCheckout.query.filter_by(
+        gateway_invoice_id=invoice_id,
+        payment_provider=f'swiftpay_{swiftpay_mode()}').with_for_update().first()
+    if checkout:
+        if (checkout.status != 'pending'
+                or paid_amount != checkout.gateway_expected_amount_iqd):
+            return {'ok': True}
+        checkout.status = 'paid'
+        checkout.confirmed_at = datetime.utcnow()
+        if checkout.order_type == 'course':
+            course = db.session.get(Course, checkout.reference_id)
+            if not course:
+                db.session.rollback()
+                return {'ok': True}
+            enrollment = Enrollment.query.filter_by(
+                user_id=checkout.user_id, course_id=course.id).first()
+            if not enrollment:
+                enrollment = Enrollment(user_id=checkout.user_id,
+                                        course_id=course.id, status='approved')
+                db.session.add(enrollment)
+            else:
+                enrollment.status = 'approved'
+            notify_user(checkout.user_id, 'تم تفعيل كورسك',
+                        f'تم تأكيد دفع «{course.title}» وإتاحة الدروس.',
+                        url_for('learning_hub'))
+            notify_admins('اشتراك كورسيك مدفوع',
+                          f'كورس #{course.id}، طلب #{checkout.id}', url_for('admin_courses'))
+        elif checkout.order_type == 'wallet':
+            # Credit ONLY the base wallet amount; processor fees do not
+            # become customer balance, and this row is processed once.
+            db.session.add(WalletTransaction(
+                user_id=checkout.user_id, transaction_type='topup',
+                amount_iqd=checkout.amount_iqd,
+                reference_type='swiftpay_card_topup', reference_id=checkout.id,
+                note=f'شحن محفظة RABBIT إلكترونياً #{checkout.id}'))
+            notify_user(checkout.user_id, 'تم شحن محفظتك',
+                        f'أضفنا {checkout.amount_iqd:,} د.ع إلى رصيدك.',
+                        url_for('account'))
+            notify_admins('شحن محفظة إلكتروني',
+                          f'شحن #{checkout.id}: {checkout.amount_iqd:,} د.ع',
+                          url_for('admin_panel'))
+        else:
+            db.session.rollback()
+            return {'ok': True}
+        db.session.commit()
     return {'ok': True}
 
 
@@ -3970,6 +4040,86 @@ def request_course_enrollment(course_id):
         db.session.commit()
 
     return redirect(url_for('course_payment', course_id=c.id))
+
+
+def begin_swiftpay_card_checkout(kind, reference_id, description, amount_iqd, phone):
+    if not swiftpay_available():
+        flash('الدفع الإلكتروني غير متاح حالياً.', 'error')
+        return None
+    if amount_iqd < 1000 or amount_iqd > 10000000:
+        flash('المبلغ غير مسموح للدفع الإلكتروني.', 'error')
+        return None
+    contact = normalize_iraqi_mobile(phone)
+    if not contact:
+        flash('أدخل رقم هاتف عراقي صحيح حتى ننشئ رابط الدفع.', 'error')
+        return None
+    checkout = CardCheckout(user_id=current_user.id, order_type=kind,
+                            reference_id=reference_id, amount_iqd=amount_iqd,
+                            payment_provider=f'swiftpay_{swiftpay_mode()}',
+                            status='pending')
+    db.session.add(checkout)
+    db.session.flush()
+    invoice = create_swiftpay_invoice(
+        kind, checkout.id, current_user.full_name or current_user.username,
+        contact, description, amount_iqd)
+    if not invoice:
+        db.session.rollback()
+        flash('تعذر إعداد رابط الدفع. لم يتم دفع أي مبلغ.', 'error')
+        return None
+    checkout.gateway_invoice_id = invoice[0]
+    checkout.gateway_expected_amount_iqd = invoice[2]
+    db.session.commit()
+    session['swiftpay_checkout'] = {
+        'url': invoice[1], 'order_type': kind, 'order_id': checkout.id,
+        'user_id': current_user.id, 'invoice_id': invoice[0],
+        'amount_iqd': invoice[2],
+    }
+    session.modified = True
+    return redirect(url_for('swiftpay_continue_checkout'), code=303)
+
+
+@app.route('/course/<int:course_id>/pay-card', methods=['POST'])
+@login_required
+@limiter.limit('8 per hour')
+def course_pay_card(course_id):
+    c = db.session.get(Course, course_id) or abort(404)
+    if not c.is_published or c.is_demo:
+        abort(404)
+    if not terms_accepted():
+        flash('يجب الموافقة على شروط الشراء.', 'error')
+        return redirect(url_for('course_detail', course_id=c.id))
+    price = c.price_iqd or parse_iqd_price(c.price)
+    if not price:
+        flash('السعر غير محدد. يرجى مراجعة الإدارة.', 'error')
+        return redirect(url_for('course_detail', course_id=c.id))
+    existing = Enrollment.query.filter_by(user_id=current_user.id, course_id=c.id).first()
+    if existing and existing.status == 'approved':
+        flash('الكورس مفعّل بالفعل ضمن حسابك.', 'success')
+        return redirect(url_for('learning_hub'))
+    result = begin_swiftpay_card_checkout('course', c.id,
+                   f'RABBIT | أكاديمية كورسيك | {c.title}', price,
+                   request.form.get('contact'))
+    return result or redirect(url_for('course_detail', course_id=c.id))
+
+
+@app.route('/wallet/top-up/card', methods=['POST'])
+@login_required
+@limiter.limit('8 per hour')
+def wallet_top_up_card():
+    if not terms_accepted():
+        flash('وافق على شروط شحن الرصيد.', 'error')
+        return redirect(url_for('wallet_top_up'))
+    try:
+        amount = int(request.form.get('amount_iqd') or 0)
+    except (TypeError, ValueError):
+        amount = 0
+    if amount < 1000 or amount > 1000000:
+        flash('مبلغ الشحن يجب أن يكون بين 1,000 و1,000,000 د.ع.', 'error')
+        return redirect(url_for('wallet_top_up'))
+    result = begin_swiftpay_card_checkout(
+        'wallet', None, f'RABBIT | شحن المحفظة {amount:,} د.ع',
+        amount, request.form.get('contact'))
+    return result or redirect(url_for('wallet_top_up'))
 
 
 @app.route('/course/<int:course_id>/buy-wallet', methods=['POST'])
