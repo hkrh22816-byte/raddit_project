@@ -1264,7 +1264,7 @@ footer{
 {% if current_user.is_authenticated and not has_course_access and not course.is_demo and course.price_iqd %}
 <section style="border:1px solid #195338;background:#07180f;border-radius:15px;padding:24px;margin:20px 0;">
   <h2 style="margin:0 0 9px;color:#00f58a">اشتراك أكاديمية كورسيك بالبطاقة</h2>
-  <p style="color:#b9d5c3;line-height:1.9">ادفع باستخدام بطاقتك المصرفية عبر بوابة الدفع المرخصة. نفعّل الكورس فقط بعد تأكيد الدفع. لا تدخل معلومات البطاقة داخل RABBIT.</p>
+  <p style="color:#b9d5c3;line-height:1.9">اشتراك لمدة {{ course.access_days }} يوم. ادفع بالبطاقة عبر بوابة دفع مرخّصة؛ بعد التأكيد تُفتح الدروس لهذه المدة، ويمكنك التجديد لاحقاً. لا تدخل بيانات البطاقة داخل RABBIT.</p>
   <form method="post" action="{{ url_for('course_pay_card', course_id=course.id) }}" style="display:grid;gap:13px;max-width:510px">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <label>رقم الهاتف العراقي لإصدار الفاتورة <input name="contact" type="tel" required maxlength="20" autocomplete="tel" placeholder="07xxxxxxxxx" style="display:block;width:100%;padding:13px;border:1px solid #1b5032;border-radius:9px;background:#030b06;color:white"></label>

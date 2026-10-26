@@ -1820,7 +1820,7 @@
                     </span>
 
                     <span class="price">
-                        {% if c.is_demo %}غير متاح للشراء{% elif c.price_iqd %}{{ '{:,}'.format(c.price_iqd) }} د.ع{% else %}{{ c.price }}{% endif %}
+                        {% if c.is_demo %}غير متاح للشراء{% elif c.price_iqd %}{{ '{:,}'.format(c.price_iqd) }} د.ع / {{ c.access_days }} يوم{% else %}{{ c.price }}{% endif %}
                     </span>
 
                 </div>
