@@ -11,7 +11,7 @@
 <body><div class="wrap">
 {% include '_site_header.html' %}
 {% with messages=get_flashed_messages(with_categories=true) %}{% for category,message in messages %}<div class="flash">{{ message }}</div>{% endfor %}{% endwith %}
-<section class="hero"><div class="kind">RABBIT / CART</div><h1>سلة التسوق 🛒</h1><div class="muted">راجع طلباتك، وبعدها اختار الدفع من محفظة Rabbit أو الدفع اليدوي.</div></section>
+<section class="hero"><div class="kind">RABBIT / CART</div><h1>سلة التسوق 🛒</h1><div class="muted">راجع طلباتك واختار الدفع بالبطاقة أو رصيد RABBIT أو التحويل اليدوي.</div></section>
 
 {% if entries %}
 <main class="items">

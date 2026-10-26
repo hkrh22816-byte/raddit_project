@@ -38,7 +38,7 @@
 <div class="paychoices">
 {% if wallet_purchase_available %}<button type="button" class="paychoice wallet" data-target="walletForm"><strong>💚 محفظة Rabbit</strong><small>خصم مباشر من رصيدك</small></button>{% endif %}
 {% if swiftpay_enabled %}
-<button type="button" class="paychoice" data-target="swiftpayForm"><strong>💳 فيزا / ماستركارد</strong><small>{% if swiftpay_test_mode %}دفع تجريبي عبر SwiftPayIQ{% else %}دفع إلكتروني آمن عبر SwiftPayIQ{% endif %}</small></button>
+<button type="button" class="paychoice" data-target="swiftpayForm"><strong>💳 فيزا / ماستركارد</strong><small>{% if swiftpay_test_mode %}دفع تجريبي على RABBIT{% else %}دفع آمن بالبطاقة لطلبات RABBIT{% endif %}</small></button>
 {% endif %}
 <button type="button" class="paychoice" data-target="manualForm"><strong>💳 دفع يدوي</strong><small>كي كارد أو زين كاش</small></button>
 </div>

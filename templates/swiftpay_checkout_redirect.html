@@ -17,7 +17,7 @@ a.pay{display:block;margin:22px 0 8px;padding:16px;border-radius:10px;background
 <body><main class="card">
 <div class="logo">RABBIT.</div>
 <h1>فاتورتك جاهزة للدفع</h1>
-<p>راح نحولك تلقائياً إلى صفحة SwiftPayIQ الآمنة.</p>
+<p>راح نحولك تلقائياً إلى صفحة الدفع المحمية لإكمال طلبك في RABBIT.</p>
 {% if amount_iqd %}<div class="amount">{{ '{:,}'.format(amount_iqd | int) }} د.ع</div>{% endif %}
 <a class="pay" href="{{ checkout_url }}" rel="noreferrer">اضغط هنا لفتح صفحة الدفع</a>
 <p class="small">إذا ما صار تحويل تلقائي، افتح الصفحة من الزر أعلاه. ما تم تأكيد دفع أي مبلغ بعد.</p>
