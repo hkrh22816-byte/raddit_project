@@ -5,7 +5,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <title>RABBIT | Courses</title>
+    <title>أكاديمية كورسيك | RABBIT</title>
+<meta name="description" content="أكاديمية كورسيك على RABBIT: تعلم مهارات التسويق الرقمي والتصميم والبرمجة وصناعة المحتوى بمسارات منظمة.">
 
     <style>
         :root {
@@ -1791,7 +1792,7 @@
 
 
                 <h3>
-                    {{ c.title }}
+                    {{ c.title }}{% if c.is_demo %}<span style="display:inline-block;color:#ffd78b;border:1px solid #8d702c;font-size:11px;padding:4px 9px;border-radius:20px;margin-right:9px">نموذج تجريبي — للعرض فقط</span>{% endif %}
                 </h3>
 
 
@@ -1819,7 +1820,7 @@
                     </span>
 
                     <span class="price">
-                        {{ c.price }}
+                        {% if c.is_demo %}غير متاح للشراء{% elif c.price_iqd %}{{ '{:,}'.format(c.price_iqd) }} د.ع{% else %}{{ c.price }}{% endif %}
                     </span>
 
                 </div>

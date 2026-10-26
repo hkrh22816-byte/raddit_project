@@ -115,7 +115,7 @@ html[dir="ltr"] #rabbitSiteHeader{direction:ltr}html[dir="ltr"] #rabbitTrustStri
     <a href="{{ url_for('home') }}">الرئيسية</a>
     <a href="{{ url_for('services') }}">الخدمات</a>
     <a href="{{ url_for('store') }}">المتجر</a>
-    <a href="{{ url_for('courses') }}">الكورسات <span class="rabbit-soon">قريباً</span></a>
+    <a href="{{ url_for('courses') }}">أكاديمية كورسيك</a>
     <a href="{{ url_for('support') }}">الدعم</a>
     {% if current_user.is_authenticated and current_user.is_admin %}<a class="rabbit-mobile-admin" href="{{ url_for('admin_panel') }}">الإدارة</a>{% endif %}
   </nav>

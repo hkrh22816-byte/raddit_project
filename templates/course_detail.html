@@ -5,7 +5,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<title>{{ course.title }} | RABBIT</title>
+<title>{{ course.title }} | أكاديمية كورسيك — RABBIT</title>
 
 <style>
 
@@ -1263,7 +1263,8 @@ footer{
     ========================= -->
 
 
-    {% if current_user.is_authenticated %}
+    {% if course.is_demo %}<section style="border:1px solid #2a7350;border-radius:12px;padding:18px;margin:20px 0;background:#08190f;color:#ccffe4"><strong>هذا كورس تجريبي للعرض فقط</strong><p style="margin-top:7px;line-height:1.9">المحاور التالية للتوضيح وليس بها فيديوهات تدريب مكتملة. لن يتم تحصيل أي مبلغ حتى نرفع الكورس الحقيقي ونفتح التسجيل.</p></section>{% endif %}
+{% if current_user.is_authenticated %}
 
 
         {% if has_course_access %}
@@ -1284,6 +1285,7 @@ footer{
             </section>
 
 
+        {% elif course.is_demo %}<section style="border:1px solid #2b6243;border-radius:12px;padding:19px;color:#bdedcf">نموذج تجريبي — الاشتراك غير متاح حالياً.</section>
         {% elif enrollment and enrollment.status == 'pending' %}
 
 
