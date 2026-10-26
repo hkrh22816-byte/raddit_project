@@ -603,6 +603,7 @@ class Course(db.Model):
         db.Boolean,
         default=True
     )
+    is_demo = db.Column(db.Boolean, default=False, nullable=False)
 
     lessons = db.relationship(
         'Lesson',
@@ -1378,6 +1379,43 @@ def seed_courses():
 
         db.session.commit()
 
+
+
+def seed_korsik_demo_courses():
+    """Add transparent, non-purchasable demonstrations once, with no videos."""
+    samples = [
+        ('إعلانات ميتا من الصفر إلى أول حملة', 'التسويق الرقمي', 'مبتدئ',
+         'من إعداد الصفحة والحساب الإعلاني إلى اختيار الجمهور وتحسين النتائج.',
+         ['إنشاء الحساب الإعلاني', 'تحديد الجمهور والميزانية', 'تحسين النتائج']),
+        ('تصميم محتوى السوشيال ميديا للمشاريع', 'التصميم', 'مبتدئ',
+         'أساسيات الهوية البصرية وتصميم المنشورات وتخطيط المحتوى.',
+         ['الهوية البصرية', 'تصميم المنشورات', 'خطة المحتوى']),
+        ('إنشاء موقع تجاري متكامل', 'البرمجة والمواقع', 'متوسط',
+         'تخطيط صفحات الموقع وتجربة المستخدم والنشر والأمان.',
+         ['هيكلة الموقع', 'النماذج وصفحات الخدمات', 'النشر والأمان']),
+        ('مونتاج ريلز احترافي', 'صناعة الفيديو', 'مبتدئ',
+         'كتابة فكرة الفيديو وتنظيم اللقطات والمونتاج والتصدير.',
+         ['هوك الفيديو', 'المونتاج والترجمة', 'التصدير للنشر']),
+    ]
+    added = False
+    for title, category, level, description, topics in samples:
+        full_title = 'نموذج تجريبي | ' + title
+        if Course.query.filter_by(title=full_title).first():
+            continue
+        c = Course(title=full_title, category=category, level=level,
+                   description=description + '\nهذا نموذج تعريفي غير متاح للشراء. الدروس الحقيقية ستضاف لاحقاً.',
+                   instructor='فريق أكاديمية كورسيك — نموذج',
+                   price='عرض تجريبي', price_iqd=None,
+                   is_demo=True, is_published=True)
+        db.session.add(c)
+        db.session.flush()
+        for index, topic in enumerate(topics, 1):
+            db.session.add(Lesson(course_id=c.id,
+                         title=f'المحور {index}: {topic}', position=index,
+                         video_url='', is_preview=True))
+        added = True
+    if added:
+        db.session.commit()
 
 
 SERVICE_SEED = []
@@ -3753,8 +3791,21 @@ def auth_page():
 
 @app.route('/courses')
 def courses():
-    # The public catalog stays visible as a coming-soon page until launch.
-    return render_template('courses_coming_soon.html')
+    search = (request.args.get('search') or '').strip()[:100]
+    category = (request.args.get('category') or '').strip()[:80]
+    query = Course.query.filter(Course.is_published.is_(True))
+    if search:
+        query = query.filter(db.or_(
+            Course.title.ilike(f'%{search}%'),
+            Course.description.ilike(f'%{search}%'),
+            Course.category.ilike(f'%{search}%')))
+    if category:
+        query = query.filter(Course.category == category)
+    categories = [v[0] for v in db.session.query(Course.category).filter(
+        Course.is_published.is_(True)).distinct().order_by(Course.category.asc()).all()]
+    return render_template('courses.html',
+        courses=query.order_by(Course.id.desc()).all(),
+        categories=categories, search_query=search, current_category=category)
 
 
 @app.route(
@@ -3896,6 +3947,9 @@ def lesson_progress_toggle(lesson_id):
 @login_required
 def request_course_enrollment(course_id):
     c = db.session.get(Course, course_id) or abort(404)
+    if c.is_demo or not c.is_published or not (c.price_iqd or parse_iqd_price(c.price)):
+        flash('هذه دورة تجريبية أو غير مسعّرة. الاشتراك سيتاح بعد رفع الدروس الحقيقية.', 'info')
+        return redirect(url_for('course_detail', course_id=c.id))
 
     enrollment = Enrollment.query.filter_by(
         user_id=current_user.id,
@@ -3923,6 +3977,9 @@ def request_course_enrollment(course_id):
 @limiter.limit("10 per hour")
 def course_buy_wallet(course_id):
     c = db.session.get(Course, course_id) or abort(404)
+    if c.is_demo:
+        flash('هذا نموذج تعريفي ولا يمكن شراؤه.', 'info')
+        return redirect(url_for('course_detail', course_id=c.id))
     if not c.is_published and not admin_only():
         abort(404)
     amount_iqd = c.price_iqd or parse_iqd_price(c.price)
@@ -3963,6 +4020,9 @@ def course_buy_wallet(course_id):
 @limiter.limit("10 per hour", methods=["POST"])
 def course_payment(course_id):
     c = db.session.get(Course, course_id) or abort(404)
+    if c.is_demo or not (c.price_iqd or parse_iqd_price(c.price)):
+        flash('لا يمكن شراء هذا الكورس قبل رفع محتواه الحقيقي وتحديد السعر.', 'info')
+        return redirect(url_for('course_detail', course_id=c.id))
 
     if not c.is_published and not admin_only():
         abort(404)
@@ -4994,7 +5054,8 @@ def admin_course_new():
                 request.form.get(
                     'is_published'
                 )
-            )
+            ),
+            is_demo=bool(request.form.get('is_demo'))
         )
 
         db.session.add(c)
@@ -5065,6 +5126,7 @@ def admin_course_edit(course_id):
                 'is_published'
             )
         )
+        c.is_demo = bool(request.form.get('is_demo'))
 
         db.session.commit()
 
@@ -5505,7 +5567,13 @@ with app.app_context():
             with db.engine.begin() as connection:
                 connection.execute(sql_text('ALTER TABLE course ADD COLUMN price_iqd INTEGER'))
 
+    course_columns = {col['name'] for col in inspect(db.engine).get_columns('course')}
+    if 'is_demo' not in course_columns:
+        with db.engine.begin() as connection:
+            connection.execute(sql_text(
+                'ALTER TABLE course ADD COLUMN is_demo BOOLEAN NOT NULL DEFAULT FALSE'))
     seed_courses()
+    seed_korsik_demo_courses()
     seed_services_and_store()
     seed_account_recovery_service()
 
