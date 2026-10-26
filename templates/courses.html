@@ -1526,6 +1526,7 @@
         }
 
     </style>
+    <script src="{{ url_for('static', filename='rabbit_i18n.js') }}" defer></script>
 </head>
 
 
@@ -1577,6 +1578,7 @@
 
 
     <div class="account">
+        <button id="rabbitLangToggle" type="button" title="English" aria-label="التبديل إلى الإنجليزية" style="cursor:pointer;min-width:43px;height:41px;border-radius:9px;border:1px solid rgba(0,245,138,.3);background:#07110c;color:#00f58a;font-weight:850;margin-inline-end:9px">EN</button>
 
         {% if current_user.is_authenticated %}
 
