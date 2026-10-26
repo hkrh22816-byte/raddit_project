@@ -29,7 +29,7 @@
 <section class="box">
 {% if current_user.is_authenticated %}
 <div class="actions">
-{% if not account_recovery_service %}<form data-needs-package method="post" action="{{ url_for('cart_add_service', service_id=service.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% if packages %}<input class="package-hidden" type="hidden" name="package_id" value="">{% endif %}{% if follower_service %}<input type="hidden" name="platform" class="platform-hidden" value="">{% endif %}<button class="btn secondary" type="submit">🛒 أضف للسلة</button></form>{% else %}<div></div>{% endif %}
+{% if not account_recovery_service %}<form data-needs-package method="post" action="{{ url_for('cart_add_service', service_id=service.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% if packages %}<input class="package-hidden" type="hidden" name="package_id" value="">{% endif %}{% if follower_service or grouped_package_service %}<input type="hidden" name="platform" class="platform-hidden" value="">{% endif %}<button class="btn secondary" type="submit">🛒 أضف للسلة</button></form>{% else %}<div></div>{% endif %}
 <button class="btn" id="buyNowBtn" type="button">شراء الآن</button>
 </div>
 
@@ -47,7 +47,7 @@
 <div id="walletForm" class="payform">
 <div class="balance-line">رصيدك الحالي: <strong style="color:#00f58a">{{ wallet_balance_display }}</strong></div>
 <form data-needs-package method="post" enctype="multipart/form-data" action="{{ url_for('service_buy_wallet', service_id=service.id) }}">
-<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% if packages %}<input class="package-hidden" type="hidden" name="package_id" value="">{% endif %}{% if follower_service or account_recovery_service %}<input type="hidden" name="platform" class="platform-hidden" value="">{% endif %}
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% if packages %}<input class="package-hidden" type="hidden" name="package_id" value="">{% endif %}{% if follower_service or grouped_package_service or account_recovery_service %}<input type="hidden" name="platform" class="platform-hidden" value="">{% endif %}
 <div class="grid">
 {% if account_recovery_service %}<div class="full"><label>اسم المستخدم للحساب</label><input name="account_username" maxlength="100" required placeholder="اسم المستخدم"></div><div class="full"><label>صورة رسالة التعطيل أو الحظر</label><input type="file" name="deactivation_screenshot" accept=".jpg,.jpeg,.png,.webp" required></div>{% else %}<div class="full"><label>رابط الحساب أو الصفحة أو المشروع</label><input name="page_url" type="url" maxlength="1000" required placeholder="https://..."></div><div class="full"><label>تفاصيل إضافية (اختياري)</label><textarea name="details" maxlength="3000"></textarea></div>{% endif %}
 <div class="full"><label>رقم التواصل</label><input name="contact" maxlength="80" required placeholder="07xxxxxxxxx"></div>
@@ -61,7 +61,7 @@
 <form data-needs-package method="post" action="{{ url_for('service_pay_test', service_id=service.id) }}">
 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 {% if packages %}<input class="package-hidden" type="hidden" name="package_id" value="">{% endif %}
-{% if follower_service %}<input type="hidden" class="platform-hidden" name="platform" value="">{% endif %}
+{% if follower_service or grouped_package_service %}<input type="hidden" class="platform-hidden" name="platform" value="">{% endif %}
 <div class="grid">
 <div class="full"><label>رابط الحساب أو المشروع</label><input name="page_url" type="url" maxlength="1000" required placeholder="https://..."></div>
 <div class="full"><label>تفاصيل إضافية (اختياري)</label><textarea name="details" maxlength="3000"></textarea></div>
@@ -75,7 +75,7 @@
 <div id="manualForm" class="payform">
 {% if payment_methods %}
 <form data-needs-package method="post" action="{{ url_for('service_buy', service_id=service.id) }}" enctype="multipart/form-data">
-<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% if packages %}<input class="package-hidden" type="hidden" name="package_id" value="">{% endif %}{% if follower_service or account_recovery_service %}<input type="hidden" name="platform" class="platform-hidden" value="">{% endif %}
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% if packages %}<input class="package-hidden" type="hidden" name="package_id" value="">{% endif %}{% if follower_service or grouped_package_service or account_recovery_service %}<input type="hidden" name="platform" class="platform-hidden" value="">{% endif %}
 <div class="grid">
 {% if account_recovery_service %}<div class="full"><label>اسم المستخدم للحساب</label><input name="account_username" type="text" required maxlength="100" placeholder="اسم المستخدم"></div><div class="full"><label>صورة رسالة التعطيل أو الحظر</label><input type="file" name="deactivation_screenshot" accept=".jpg,.jpeg,.png,.webp" required></div>{% else %}<div class="full"><label>رابط الحساب أو الصفحة أو المشروع</label><input name="page_url" type="url" required placeholder="https://..."></div><div class="full"><label>تفاصيل إضافية (اختياري)</label><textarea name="details" maxlength="3000"></textarea></div>{% endif %}
 <div><label>رقم التواصل</label><input name="contact" required placeholder="07xxxxxxxxx"></div>

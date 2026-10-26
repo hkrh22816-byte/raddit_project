@@ -1916,9 +1916,12 @@ def service_pay_test(service_id):
         package_label = package.label
         group = social_package_group(package)
         if group:
-            if platform != group['platform']:
+            # The selected package is authoritative. Older grouped forms did
+            # not always submit the hidden platform field.
+            if platform and platform != group['platform']:
                 flash('اختار المنصة ونوع الخدمة المطابقين للباقة.', 'error')
                 return redirect(url_for('service_detail', service_id=item.id))
+            platform = group['platform']
             package_label = f"{group['label']} — {package.label}"
             details = f"المنصة: {FOLLOWER_PLATFORMS[platform]}\nنوع الخدمة: {group['label']}\nالمطلوب: {package.quantity:,} {group['unit']}\n{details}".strip()
     else:
