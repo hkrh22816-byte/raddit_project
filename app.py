@@ -725,6 +725,13 @@ def new_course_expiration(course):
     return datetime.utcnow() + timedelta(days=max(1, min(365, course.access_days or 30)))
 
 
+def course_ready_for_sales(course):
+    """A real course must have at least one uploaded lesson video to accept money."""
+    return bool(course and not course.is_demo and any(
+        (lesson.video_url or '').strip() for lesson in course.lessons
+    ))
+
+
 class LessonProgress(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
@@ -4087,7 +4094,8 @@ def course_detail(course_id):
         course=c,
         has_course_access=has_course_access,
         enrollment=enrollment,
-        completed_lesson_ids=completed_lesson_ids
+        completed_lesson_ids=completed_lesson_ids,
+        course_ready=course_ready_for_sales(c)
     )
 
 
@@ -4172,7 +4180,7 @@ def lesson_progress_toggle(lesson_id):
 @login_required
 def request_course_enrollment(course_id):
     c = db.session.get(Course, course_id) or abort(404)
-    if c.is_demo or not c.is_published or not (c.price_iqd or parse_iqd_price(c.price)):
+    if not course_ready_for_sales(c) or not c.is_published or not (c.price_iqd or parse_iqd_price(c.price)):
         flash('هذه دورة تجريبية أو غير مسعّرة. الاشتراك سيتاح بعد رفع الدروس الحقيقية.', 'info')
         return redirect(url_for('course_detail', course_id=c.id))
 
@@ -4240,8 +4248,11 @@ def begin_swiftpay_card_checkout(kind, reference_id, description, amount_iqd, ph
 @limiter.limit('8 per hour')
 def course_pay_card(course_id):
     c = db.session.get(Course, course_id) or abort(404)
-    if not c.is_published or c.is_demo:
+    if not c.is_published:
         abort(404)
+    if not course_ready_for_sales(c):
+        flash('الكورس غير متاح للبيع حتى يرفع المدرب دروس الفيديو الحقيقية.', 'error')
+        return redirect(url_for('course_detail', course_id=c.id))
     if not terms_accepted():
         flash('يجب الموافقة على شروط الشراء.', 'error')
         return redirect(url_for('course_detail', course_id=c.id))
@@ -4284,8 +4295,8 @@ def wallet_top_up_card():
 @limiter.limit("10 per hour")
 def course_buy_wallet(course_id):
     c = db.session.get(Course, course_id) or abort(404)
-    if c.is_demo:
-        flash('هذا نموذج تعريفي ولا يمكن شراؤه.', 'info')
+    if not course_ready_for_sales(c):
+        flash('هذا الكورس غير متاح للشراء حتى تكتمل فيديوهات الدروس.', 'info')
         return redirect(url_for('course_detail', course_id=c.id))
     if not c.is_published and not admin_only():
         abort(404)
@@ -4328,8 +4339,8 @@ def course_buy_wallet(course_id):
 @limiter.limit("10 per hour", methods=["POST"])
 def course_payment(course_id):
     c = db.session.get(Course, course_id) or abort(404)
-    if c.is_demo or not (c.price_iqd or parse_iqd_price(c.price)):
-        flash('لا يمكن شراء هذا الكورس قبل رفع محتواه الحقيقي وتحديد السعر.', 'info')
+    if not course_ready_for_sales(c) or not (c.price_iqd or parse_iqd_price(c.price)):
+        flash('لا يمكن شراء هذا الكورس قبل رفع فيديوهاته الحقيقية وتحديد السعر.', 'info')
         return redirect(url_for('course_detail', course_id=c.id))
 
     if not c.is_published and not admin_only():

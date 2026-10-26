@@ -39,7 +39,7 @@ textarea{min-height:100px;resize:vertical}.btn{width:100%;margin-top:20px;border
   <h1>إتمام دفع الكورس</h1>
   <div class="muted">{{ course.title }}{% if course.price %} — {{ course.price }}{% endif %}</div>
 
-{% if course.price_iqd and not course.is_demo %}
+{% if course.price_iqd and not course.is_demo and (course.lessons|selectattr('video_url')|list|length) %}
 <div class="card" style="margin:18px 0"><div class="tag">SECURE CARD PAYMENT</div><h2>الدفع الإلكتروني بالفيزا أو الماستركارد</h2><p class="muted">يتم تفعيل الكورس عند تأكيد الدفع بنجاح.</p>
 <form method="post" action="{{ url_for('course_pay_card',course_id=course.id) }}" style="display:grid;gap:12px">
 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">

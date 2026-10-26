@@ -1261,7 +1261,7 @@ footer{
     <!-- =========================
          ENROLLMENT
     ========================= -->
-{% if current_user.is_authenticated and not has_course_access and not course.is_demo and course.price_iqd %}
+{% if current_user.is_authenticated and not has_course_access and course_ready and course.price_iqd %}
 <section style="border:1px solid #195338;background:#07180f;border-radius:15px;padding:24px;margin:20px 0;">
   <h2 style="margin:0 0 9px;color:#00f58a">اشتراك أكاديمية كورسيك بالبطاقة</h2>
   <p style="color:#b9d5c3;line-height:1.9">اشتراك لمدة {{ course.access_days }} يوم. ادفع بالبطاقة عبر بوابة دفع مرخّصة؛ بعد التأكيد تُفتح الدروس لهذه المدة، ويمكنك التجديد لاحقاً. لا تدخل بيانات البطاقة داخل RABBIT.</p>
@@ -1298,7 +1298,7 @@ footer{
             </section>
 
 
-        {% elif course.is_demo %}<section style="border:1px solid #2b6243;border-radius:12px;padding:19px;color:#bdedcf">نموذج تجريبي — الاشتراك غير متاح حالياً.</section>
+        {% elif course.is_demo or not course_ready %}<section style="border:1px solid #2b6243;border-radius:12px;padding:19px;color:#bdedcf">{% if course.is_demo %}نموذج تجريبي — الاشتراك غير متاح حالياً.{% else %}الكورس قيد التجهيز، وسيُفتح الاشتراك عند نشر دروس الفيديو الحقيقية.{% endif %}</section>
         {% elif enrollment and enrollment.status == 'pending' %}
 
 
