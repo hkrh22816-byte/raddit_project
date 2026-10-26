@@ -4656,6 +4656,15 @@ def admin_wallet_payment_proof(filename):
     return send_from_directory(app.config['PAYMENT_PROOF_FOLDER'], safe_name, conditional=True)
 
 
+@app.route('/admin/card-payments')
+@login_required
+def admin_card_payments():
+    if not admin_only():
+        abort(403)
+    checkouts = CardCheckout.query.order_by(CardCheckout.id.desc()).limit(200).all()
+    return render_template('admin_card_payments.html', checkouts=checkouts)
+
+
 # =========================
 # Customer Account
 # =========================
@@ -4702,6 +4711,7 @@ def account():
         store_orders=StoreOrder.query.filter_by(user_id=current_user.id).order_by(StoreOrder.id.desc()).all(),
         wallet_topups=WalletTopUp.query.filter_by(user_id=current_user.id).order_by(WalletTopUp.id.desc()).all(),
         wallet_transactions=WalletTransaction.query.filter_by(user_id=current_user.id).order_by(WalletTransaction.id.desc()).limit(20).all(),
+        card_checkouts=CardCheckout.query.filter_by(user_id=current_user.id).order_by(CardCheckout.id.desc()).limit(30).all(),
         balance=f'{wallet_balance_iqd(current_user.id):,} د.ع'
     )
 
