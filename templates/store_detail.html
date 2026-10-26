@@ -30,6 +30,9 @@
 <h2>اختار طريقة الدفع</h2><p class="muted">نفس ترتيب الخدمات: اختار طريقتك أولاً، وبعدها تظهر الحقول المطلوبة فقط.</p>
 <div class="paychoices">
 <button type="button" class="paychoice wallet" data-target="walletForm"><strong>💚 محفظة Rabbit</strong><small>خصم مباشر من رصيدك</small></button>
+{% if swiftpay_enabled %}
+<button type="button" class="paychoice" data-target="swiftpayForm"><strong>💳 فيزا / ماستركارد</strong><small>{% if swiftpay_test_mode %}دفع تجريبي عبر SwiftPayIQ{% else %}دفع إلكتروني آمن عبر SwiftPayIQ{% endif %}</small></button>
+{% endif %}
 <button type="button" class="paychoice" data-target="manualForm"><strong>💳 دفع يدوي</strong><small>كي كارد أو زين كاش</small></button>
 </div>
 
@@ -46,6 +49,17 @@
 </form>
 </div>
 
+{% if swiftpay_enabled %}
+<div id="swiftpayForm" class="payform">
+<form method="post" action="{{ url_for('store_pay_test', item_id=item.id) }}">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<div class="grid">
+<div class="full"><label>رقم الهاتف العراقي</label><input type="tel" name="contact" maxlength="20" required placeholder="07xxxxxxxxx"></div>
+<div class="full"><label>ملاحظات الطلب (اختياري)</label><textarea name="details" maxlength="2000"></textarea></div>
+<div class="full"><label><input type="checkbox" name="accept_terms" value="yes" style="width:auto" required> أوافق على شروط الشراء</label></div>
+<div class="full"><button class="btn" type="submit">الانتقال إلى الدفع الآمن</button></div>
+</div></form></div>
+{% endif %}
 <div id="manualForm" class="payform">
 {% if payment_methods %}
 <form method="post" action="{{ url_for('store_buy', item_id=item.id) }}" enctype="multipart/form-data">

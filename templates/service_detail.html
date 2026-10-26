@@ -37,6 +37,9 @@
 <h2>اختار طريقة الدفع</h2><p class="desc">بدل ما تشوف كل الحقول مرة وحدة، اختار طريقتك أولاً.</p>
 <div class="paychoices">
 {% if wallet_purchase_available %}<button type="button" class="paychoice wallet" data-target="walletForm"><strong>💚 محفظة Rabbit</strong><small>خصم مباشر من رصيدك</small></button>{% endif %}
+{% if swiftpay_enabled and not account_recovery_service %}
+<button type="button" class="paychoice" data-target="swiftpayForm"><strong>💳 فيزا / ماستركارد</strong><small>{% if swiftpay_test_mode %}دفع تجريبي عبر SwiftPayIQ{% else %}دفع إلكتروني آمن عبر SwiftPayIQ{% endif %}</small></button>
+{% endif %}
 <button type="button" class="paychoice" data-target="manualForm"><strong>💳 دفع يدوي</strong><small>كي كارد أو زين كاش</small></button>
 </div>
 
@@ -53,6 +56,22 @@
 </div>
 {% endif %}
 
+{% if swiftpay_enabled and not account_recovery_service %}
+<div id="swiftpayForm" class="payform">
+<form data-needs-package method="post" action="{{ url_for('service_pay_test', service_id=service.id) }}">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+{% if packages %}<input class="package-hidden" type="hidden" name="package_id" value="">{% endif %}
+{% if follower_service %}<input type="hidden" class="platform-hidden" name="platform" value="">{% endif %}
+<div class="grid">
+<div class="full"><label>رابط الحساب أو المشروع</label><input name="page_url" type="url" maxlength="1000" required placeholder="https://..."></div>
+<div class="full"><label>تفاصيل إضافية (اختياري)</label><textarea name="details" maxlength="3000"></textarea></div>
+<div class="full"><label>رقم الهاتف العراقي</label><input type="tel" name="contact" maxlength="20" required placeholder="07xxxxxxxxx"></div>
+<div class="full"><label><input type="checkbox" name="accept_terms" value="yes" style="width:auto" required> أوافق على شروط الشراء</label></div>
+<div class="full"><button class="btn" type="submit">الانتقال إلى الدفع الآمن</button></div>
+</div>
+</form>
+</div>
+{% endif %}
 <div id="manualForm" class="payform">
 {% if payment_methods %}
 <form data-needs-package method="post" action="{{ url_for('service_buy', service_id=service.id) }}" enctype="multipart/form-data">
