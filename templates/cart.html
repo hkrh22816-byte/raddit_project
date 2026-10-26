@@ -37,6 +37,7 @@
 <div class="step"><b>1</b><span>طريقة الدفع</span></div>
 <div class="paychoices">
 <button type="button" class="paychoice wallet" data-target="walletPanel"><strong>💚 محفظة Rabbit</strong><small>خصم مباشر من رصيد المحفظة</small></button>
+<button type="button" class="paychoice" data-target="cardPanel"><strong>💳 فيزا / ماستركارد</strong><small>إتمام السلة عبر الدفع الإلكتروني الآمن</small></button>
 <button type="button" class="paychoice" data-target="manualPanel"><strong>💳 دفع يدوي</strong><small>كي كارد أو زين كاش</small></button>
 </div>
 
@@ -55,6 +56,23 @@
 </div></form>
 </div>
 
+<div id="cardPanel" class="paypanel paybox">
+<div class="step"><b>2</b><span>إتمام السلة بالبطاقة</span></div>
+<p class="muted">سندزلك صفحة دفع آمنة لمبلغ السلة بالكامل. تتأكد الطلبات فقط بعد نجاح الدفع، ورسوم المعالجة إن وجدت تظهر عند الدفع.</p>
+<form method="post" action="{{ url_for('cart_checkout_card') }}">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<div class="formgrid">
+{% for entry in entries %}{% if entry.data %}
+{% if entry.data.type == 'service' %}
+<div class="field full"><label>رابط الحساب أو المشروع — {{ entry.data.title }}</label><input name="page_url_{{ entry.row.id }}" type="url" required placeholder="https://..."><label>تفاصيل إضافية (اختياري)</label><textarea name="details_{{ entry.row.id }}" maxlength="2000"></textarea></div>
+{% else %}
+<div class="field full"><label>ملاحظات المنتج — {{ entry.data.title }} (اختياري)</label><textarea name="details_{{ entry.row.id }}" maxlength="2000"></textarea></div>
+{% endif %}
+{% endif %}{% endfor %}
+<div class="field full"><label>رقم الهاتف العراقي</label><input name="contact" type="tel" maxlength="20" required placeholder="07xxxxxxxxx"></div>
+<div class="field full"><label><input type="checkbox" name="accept_terms" value="yes" required style="width:auto"> أوافق على شروط الشراء وسياسة الطلب والاسترجاع</label></div>
+<div class="field full"><button class="btn" type="submit">الانتقال إلى الدفع بالبطاقة</button></div>
+</div></form></div>
 <div id="manualPanel" class="paypanel paybox">
 <div class="step"><b>2</b><span>بيانات الطلب والتحويل</span></div>
 <form method="post" action="/cart/checkout" enctype="multipart/form-data">
