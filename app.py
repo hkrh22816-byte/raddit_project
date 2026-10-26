@@ -1838,6 +1838,73 @@ def service_detail(service_id):
     )
 
 
+def swiftpay_checkout_order_from_session():
+    """Look up only the invoice started by this logged-in customer."""
+    payload = session.get('swiftpay_checkout')
+    if (not isinstance(payload, dict) or not current_user.is_authenticated
+            or payload.get('user_id') != current_user.id):
+        return None
+
+    kind = payload.get('order_type')
+    order_id = payload.get('order_id')
+    if not isinstance(order_id, int):
+        return None
+    if kind == 'service':
+        order = db.session.get(ServiceOrder, order_id)
+    elif kind == 'store':
+        order = db.session.get(StoreOrder, order_id)
+    else:
+        return None
+    if (not order or order.user_id != current_user.id
+            or order.gateway_invoice_id != payload.get('invoice_id')
+            or order.payment_provider not in {'swiftpay_live', 'swiftpay_test'}):
+        return None
+    return order
+
+
+def swiftpay_checkout_state(order):
+    if order.status in {'approved', 'completed'}:
+        return 'paid'
+    if order.status in {'rejected', 'refunded'}:
+        return 'attention'
+    return 'pending'
+
+
+@app.route('/payments/swiftpay/return', methods=['GET'])
+@login_required
+def swiftpay_return():
+    # The browser redirect does not prove payment: only signed webhooks
+    # may change an order to approved/completed.
+    order = swiftpay_checkout_order_from_session()
+    if order is None:
+        flash('يمكنك مراجعة حالة طلبك من حسابك في RABBIT.', 'info')
+        return redirect(url_for('account'))
+    state = swiftpay_checkout_state(order)
+    response = app.make_response(render_template(
+        'swiftpay_return.html',
+        state=state,
+        cancelled=request.args.get('result') == 'cancel',
+        order_id=order.id,
+        status_url=url_for('swiftpay_return_status'),
+        account_url=url_for('account'),
+    ))
+    response.headers['Cache-Control'] = 'no-store, private'
+    response.headers['Referrer-Policy'] = 'no-referrer'
+    return response
+
+
+@app.route('/payments/swiftpay/return/status', methods=['GET'])
+@login_required
+@limiter.limit('30 per minute')
+def swiftpay_return_status():
+    order = swiftpay_checkout_order_from_session()
+    if order is None:
+        return {'state': 'unknown'}, 404
+    response = app.json.response({'state': swiftpay_checkout_state(order)})
+    response.headers['Cache-Control'] = 'no-store, private'
+    return response
+
+
 @app.route('/payments/swiftpay/continue', methods=['GET'])
 @login_required
 def swiftpay_continue_checkout():

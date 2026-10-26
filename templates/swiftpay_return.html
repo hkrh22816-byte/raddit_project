@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>حالة الدفع | RABBIT</title>
+<style>
+*{box-sizing:border-box}body{min-height:100vh;margin:0;background:#020605;color:#effff6;font-family:Tahoma,Arial,sans-serif;display:grid;place-items:center}
+.card{width:min(530px,92vw);background:#06130b;border:1px solid #155437;border-radius:18px;padding:35px 25px;text-align:center}
+.logo{font:900 30px Consolas,monospace;color:#00f58a}
+h1{font-size:25px;line-height:1.6;margin:25px 0 12px}
+p{line-height:1.9;color:#acc0b2}
+a{display:block;text-decoration:none;border-radius:10px;padding:15px;margin:20px 0 0;background:#00f58a;color:#00170c;font-weight:800}
+.small{color:#9ab2a2;font-size:13px}.indicator{height:12px;width:12px;border-radius:50%;display:inline-block;background:#facf5c;margin-inline-end:5px}
+.indicator.paid{background:#00f58a}.indicator.attention{background:#fd8491}
+</style>
+</head>
+<body>
+<main class="card">
+<div class="logo">RABBIT.</div>
+<p class="small">طلب رقم {{ order_id }}</p>
+<h1 id="payment-title">{% if state == 'paid' %}تم تأكيد الدفع بنجاح{% elif state == 'attention' %}يرجى مراجعة حالة طلبك{% elif cancelled %}رجعت من صفحة الدفع{% else %}رجعت إلى RABBIT{% endif %}</h1>
+<p id="payment-description">{% if state == 'paid' %}وصل تأكيد الدفع الآمن وتم تسجيل طلبك. راح نفتح حسابك تلقائياً.{% elif state == 'attention' %}حالة الطلب تحتاج مراجعة. افتح حسابك للاطلاع عليها.{% elif cancelled %}ما عدنا تأكيد دفع لهذا الطلب حالياً. إذا تم الخصم فعلاً راح تتحدث حالته بعد وصول إشعار الدفع.{% else %}نتحقق من حالة الدفع عبر إشعار SwiftPayIQ الآمن. لا تحتاج تعيد الدفع.{% endif %}</p>
+<p class="small"><span id="payment-indicator" class="indicator {{ state }}"></span><span id="payment-status">{% if state == 'paid' %}الدفع مؤكد{% elif state == 'attention' %}يتطلب متابعة{% else %}بانتظار التأكيد{% endif %}</span></p>
+<a href="{{ account_url }}">الذهاب إلى حسابي ومتابعة الطلب</a>
+<p class="small">تأكيد الدفع يعتمد على التحقق من SwiftPayIQ، مو على رابط الرجوع.</p>
+</main>
+<script>
+(function(){
+  const initialState = {{ state | tojson }};
+  const statusUrl = {{ status_url | tojson }};
+  const accountUrl = {{ account_url | tojson }};
+  const title = document.getElementById('payment-title');
+  const desc = document.getElementById('payment-description');
+  const indicator = document.getElementById('payment-indicator');
+  const status = document.getElementById('payment-status');
+  let finished = false;
+  let checks = 0;
+  function paid(){
+    if(finished)return;
+    finished=true;
+    title.textContent='تم تأكيد الدفع بنجاح';
+    desc.textContent='وصل تأكيد الدفع الآمن وتم تسجيل طلبك. راح نفتح حسابك تلقائياً.';
+    indicator.className='indicator paid';
+    status.textContent='الدفع مؤكد';
+    setTimeout(()=>window.location.assign(accountUrl),2200);
+  }
+  if(initialState==='paid'){paid();return;}
+  async function verify(){
+    if(finished || checks++>=20)return;
+    try{
+      const response=await fetch(statusUrl,{credentials:'same-origin',cache:'no-store'});
+      if(!response.ok)return;
+      const data=await response.json();
+      if(data.state==='paid')paid();
+      else if(data.state==='attention'){
+        finished=true;
+        title.textContent='يرجى مراجعة حالة طلبك';
+        desc.textContent='حالة الطلب تحتاج متابعة. افتح حسابك للاطلاع عليها.';
+        indicator.className='indicator attention';
+        status.textContent='يتطلب متابعة';
+      }
+    }catch(err){}
+    if(!finished && checks<20)setTimeout(verify,3000);
+  }
+  verify();
+})();
+</script>
+</body>
+</html>
