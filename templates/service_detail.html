@@ -108,5 +108,10 @@ function updateGroupedOptions(){if(!groupPicker||!platformPicker)return;groupPic
 function updateGroupCards(){if(!groupPicker)return;packageCards.forEach(card=>{card.hidden=card.dataset.platform!==platformPicker.value||card.dataset.group!==groupPicker.value;const radio=card.querySelector('input');if(card.hidden)radio.checked=false;});syncPackage();syncPlatform();}
 if(platformPicker){platformPicker.addEventListener('change',()=>{if(groupPicker)updateGroupedOptions();else syncPlatform();});if(groupPicker)groupPicker.addEventListener('change',updateGroupCards);syncPlatform();}
 document.querySelectorAll('form[data-needs-package]').forEach(form=>form.addEventListener('submit',event=>{syncPackage();syncPlatform();if(packageChoices.length&&!packageChoices.some(input=>input.checked)){event.preventDefault();if(packageMessage){packageMessage.textContent='اختار الباقة أولاً.';packageMessage.scrollIntoView({behavior:'smooth',block:'center'});}}else if(platformPicker&&!platformPicker.value){event.preventDefault();platformPicker.focus();platformPicker.scrollIntoView({behavior:'smooth',block:'center'});}}));
+document.querySelectorAll('#swiftpayForm form').forEach(form=>form.addEventListener('submit',event=>{
+  if(event.defaultPrevented)return;
+  const btn=form.querySelector('button[type="submit"]');
+  if(btn){btn.disabled=true;btn.textContent='جارٍ فتح صفحة الدفع...';}
+}));
 </script>
 {% include '_site_footer.html' %}</body></html>

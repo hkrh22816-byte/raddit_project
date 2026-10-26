@@ -505,6 +505,7 @@ class StoreOrder(db.Model):
     payment_provider = db.Column(db.String(30), default='', nullable=False)
     gateway_invoice_id = db.Column(db.String(120), default='', nullable=False)
     gateway_payment_id = db.Column(db.String(120), default='', nullable=False)
+    gateway_expected_amount_iqd = db.Column(db.Integer, nullable=True)
     admin_note = db.Column(db.Text, default='')
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     user = db.relationship('User', backref='store_orders')
@@ -864,16 +865,49 @@ def create_swiftpay_invoice(order_type, order_id, customer_name,
         app.logger.warning('SwiftPay invoice request failed')
         return None
 
+    if not isinstance(result, dict):
+        app.logger.warning('SwiftPay invoice response is not JSON object')
+        return None
     invoice = result.get('invoice') or {}
     pay_page = result.get('payPage') or {}
+    if not isinstance(invoice, dict) or not isinstance(pay_page, dict):
+        app.logger.warning('SwiftPay invoice response missing invoice or payPage')
+        return None
+
     invoice_id = str(invoice.get('id') or '')
+    if not invoice_id or len(invoice_id) > 120:
+        app.logger.warning('SwiftPay invoice response missing valid invoice id')
+        return None
+
+    # Capture the total the customer is actually required to pay, including
+    # any customer-borne processing fee. Compare webhooks against this snapshot.
+    try:
+        invoice_subtotal = int(invoice['subtotal'])
+        invoice_total = int(invoice['total'])
+    except (KeyError, TypeError, ValueError):
+        app.logger.warning('SwiftPay invoice response missing subtotal/total')
+        return None
+    if (invoice_subtotal != amount_iqd or invoice_total < amount_iqd
+            or invoice.get('isLive') is not (swiftpay_mode() == 'live')):
+        app.logger.warning('SwiftPay invoice amount/mode mismatch')
+        return None
+
+    # Prefer the URL returned by SwiftPayIQ. When their API returns no pay-page
+    # URL, reconstruct only the documented checkout path from the invoice slug.
     pay_url = str(pay_page.get('url') or '')
     parsed = urlparse(pay_url)
-    if (not invoice_id or len(invoice_id) > 120 or parsed.scheme != 'https'
-            or parsed.hostname != 'swiftpayiq.com'):
-        app.logger.warning('SwiftPay invoice response was incomplete or invalid')
-        return None
-    return invoice_id, pay_url
+    if (parsed.scheme != 'https' or parsed.hostname not in
+            {'swiftpayiq.com', 'www.swiftpayiq.com'}
+            or parsed.username or parsed.password or parsed.port not in {None, 443}
+            or parsed.path != '/pay'):
+        slug = str(invoice.get('slug') or '')
+        if not re.fullmatch(r'[A-Za-z0-9_-]{6,80}', slug):
+            app.logger.warning('SwiftPay invoice created but has no trusted checkout URL or slug')
+            return None
+        pay_url = f'https://swiftpayiq.com/pay?slug={slug}'
+        app.logger.info('SwiftPay checkout URL reconstructed from invoice slug')
+
+    return invoice_id, pay_url, invoice_total
 
 
 def verify_swiftpay_webhook(raw_body, signature_header):
@@ -918,6 +952,7 @@ class ServiceOrder(db.Model):
     payment_provider = db.Column(db.String(30), default='', nullable=False)
     gateway_invoice_id = db.Column(db.String(120), default='', nullable=False)
     gateway_payment_id = db.Column(db.String(120), default='', nullable=False)
+    gateway_expected_amount_iqd = db.Column(db.Integer, nullable=True)
     status = db.Column(db.String(30), default='pending', nullable=False)
     admin_note = db.Column(db.Text, default='')
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
@@ -1812,8 +1847,6 @@ def service_pay_test(service_id):
         abort(404)
     if not swiftpay_available():
         abort(404)
-        flash('الدفع التجريبي غير مضبوط حالياً.', 'error')
-        return redirect(url_for('service_detail', service_id=item.id))
 
     contact = normalize_iraqi_mobile(request.form.get('contact'))
     page_url = (request.form.get('page_url') or '').strip()
@@ -1882,9 +1915,10 @@ def service_pay_test(service_id):
     )
     if not invoice:
         db.session.rollback()
-        flash('تعذر إنشاء فاتورة الدفع. تأكد من إعداد مفتاح SwiftPay.', 'error')
+        flash('تعذر إكمال إنشاء رابط الدفع. لم يتم سحب أي مبلغ من هذه المحاولة.', 'error')
         return redirect(url_for('service_detail', service_id=item.id))
     order.gateway_invoice_id = invoice[0]
+    order.gateway_expected_amount_iqd = invoice[2]
     db.session.commit()
     return redirect(invoice[1], code=303)
 
@@ -2127,8 +2161,6 @@ def store_pay_test(item_id):
         abort(404)
     if not swiftpay_available():
         abort(404)
-        flash('الدفع التجريبي غير مضبوط حالياً.', 'error')
-        return redirect(url_for('store_detail', item_id=item.id))
 
     amount_iqd = item.price_iqd or parse_iqd_price(item.price)
     contact = normalize_iraqi_mobile(request.form.get('contact'))
@@ -2166,9 +2198,10 @@ def store_pay_test(item_id):
     )
     if not invoice:
         db.session.rollback()
-        flash('تعذر إنشاء فاتورة الدفع. تأكد من إعداد مفتاح SwiftPay.', 'error')
+        flash('تعذر إكمال إنشاء رابط الدفع. لم يتم سحب أي مبلغ من هذه المحاولة.', 'error')
         return redirect(url_for('store_detail', item_id=item.id))
     order.gateway_invoice_id = invoice[0]
+    order.gateway_expected_amount_iqd = invoice[2]
     db.session.commit()
     return redirect(invoice[1], code=303)
 
@@ -2261,7 +2294,7 @@ def swiftpay_webhook():
         gateway_invoice_id=invoice_id, payment_provider=f'swiftpay_{swiftpay_mode()}'
     ).first()
     if order:
-        expected_amount = parse_iqd_price(order.amount)
+        expected_amount = order.gateway_expected_amount_iqd or parse_iqd_price(order.amount)
         if order.status in {'rejected', 'refunded'} or paid_amount != expected_amount:
             return {'ok': True}
         if order.status not in {'approved', 'completed'}:
@@ -2277,7 +2310,8 @@ def swiftpay_webhook():
         gateway_invoice_id=invoice_id, payment_provider=f'swiftpay_{swiftpay_mode()}'
     ).first()
     if order:
-        if order.status in {'rejected', 'refunded'} or paid_amount != order.amount_iqd:
+        expected_amount = order.gateway_expected_amount_iqd or order.amount_iqd
+        if order.status in {'rejected', 'refunded'} or paid_amount != expected_amount:
             return {'ok': True}
         if order.status not in {'approved', 'completed'}:
             order.status = 'approved'
@@ -5291,6 +5325,7 @@ with app.app_context():
             'payment_provider': "VARCHAR(30) DEFAULT ''",
             'gateway_invoice_id': "VARCHAR(120) DEFAULT ''",
             'gateway_payment_id': "VARCHAR(120) DEFAULT ''",
+            'gateway_expected_amount_iqd': 'INTEGER',
         }
         with db.engine.begin() as connection:
             for column_name, column_type in service_order_additions.items():
@@ -5315,6 +5350,7 @@ with app.app_context():
             'payment_provider': "VARCHAR(30) DEFAULT ''",
             'gateway_invoice_id': "VARCHAR(120) DEFAULT ''",
             'gateway_payment_id': "VARCHAR(120) DEFAULT ''",
+            'gateway_expected_amount_iqd': 'INTEGER',
         }
         with db.engine.begin() as connection:
             for column_name, column_type in store_order_additions.items():
