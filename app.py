@@ -2022,8 +2022,10 @@ def service_pay_test(service_id):
     if not swiftpay_available():
         abort(404)
 
+    is_recovery = is_account_recovery_service(item)
     contact = normalize_iraqi_mobile(request.form.get('contact'))
-    page_url = (request.form.get('page_url') or '').strip()
+    page_url = ((request.form.get('account_username') if is_recovery
+                 else request.form.get('page_url')) or '').strip()
     details = (request.form.get('details') or '').strip()
     platform = (request.form.get('platform') or '').strip().lower()
     if not contact:
@@ -2032,13 +2034,19 @@ def service_pay_test(service_id):
     if swiftpay_mode() == 'live' and not terms_accepted():
         flash('وافق على شروط الشراء أولاً.', 'error')
         return redirect(url_for('service_detail', service_id=item.id))
-    if not page_url or len(page_url) > 1000 or len(details) > 3000:
-        flash('أكمل رابط الحساب أو المشروع وتأكد من طول التفاصيل.', 'error')
+    if not page_url or len(page_url) > (100 if is_recovery else 1000) or len(details) > 3000:
+        flash('أكمل معلومات الطلب المطلوبة.', 'error')
         return redirect(url_for('service_detail', service_id=item.id))
-    parsed_page_url = urlparse(page_url)
-    if parsed_page_url.scheme not in {'http', 'https'} or not parsed_page_url.netloc:
-        flash('رابط الحساب أو المشروع غير صحيح.', 'error')
-        return redirect(url_for('service_detail', service_id=item.id))
+    if is_recovery:
+        if platform not in ACCOUNT_RECOVERY_PLATFORMS:
+            flash('اختر فيسبوك أو إنستغرام.', 'error')
+            return redirect(url_for('service_detail', service_id=item.id))
+        details = f"المنصة: {ACCOUNT_RECOVERY_PLATFORMS[platform]}\n{details}".strip()
+    else:
+        parsed_page_url = urlparse(page_url)
+        if parsed_page_url.scheme not in {'http', 'https'} or not parsed_page_url.netloc:
+            flash('رابط الحساب أو المشروع غير صحيح.', 'error')
+            return redirect(url_for('service_detail', service_id=item.id))
 
     package = None
     if item.packages:
@@ -2069,6 +2077,14 @@ def service_pay_test(service_id):
         flash('حدد سعر الخدمة بالدينار قبل تجربة الدفع.', 'error')
         return redirect(url_for('service_detail', service_id=item.id))
 
+    attachment_filename = ''
+    if is_recovery:
+        attachment_filename = save_service_request_image(
+            request.files.get('deactivation_screenshot')) or ''
+        if not attachment_filename:
+            flash('أرفق صورة رسالة التعطيل أو الحظر (JPG أو PNG أو WEBP، لغاية 2MB).', 'error')
+            return redirect(url_for('service_detail', service_id=item.id))
+
     order = ServiceOrder(
         user_id=current_user.id,
         service_id=item.id,
@@ -2080,6 +2096,7 @@ def service_pay_test(service_id):
         contact=contact,
         status='pending',
         payment_provider=f'swiftpay_{swiftpay_mode()}',
+        request_attachment_filename=attachment_filename,
     )
     db.session.add(order)
     db.session.flush()
@@ -2092,6 +2109,11 @@ def service_pay_test(service_id):
     )
     if not invoice:
         db.session.rollback()
+        if attachment_filename:
+            try:
+                os.remove(os.path.join(app.config['PAYMENT_PROOF_FOLDER'], attachment_filename))
+            except OSError:
+                pass
         flash('تعذر إكمال إنشاء رابط الدفع. لم يتم سحب أي مبلغ من هذه المحاولة.', 'error')
         return redirect(url_for('service_detail', service_id=item.id))
     order.gateway_invoice_id = invoice[0]
