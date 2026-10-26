@@ -888,7 +888,8 @@ def create_swiftpay_invoice(order_type, order_id, customer_name,
         app.logger.warning('SwiftPay invoice response missing subtotal/total')
         return None
     if (invoice_subtotal != amount_iqd or invoice_total < amount_iqd
-            or invoice.get('isLive') is not (swiftpay_mode() == 'live')):
+            or (invoice.get('isLive') is not None
+                and invoice.get('isLive') is not (swiftpay_mode() == 'live'))):
         app.logger.warning('SwiftPay invoice amount/mode mismatch')
         return None
 
@@ -1837,6 +1838,41 @@ def service_detail(service_id):
     )
 
 
+@app.route('/payments/swiftpay/continue', methods=['GET'])
+@login_required
+def swiftpay_continue_checkout():
+    payload = session.get('swiftpay_checkout')
+    if not isinstance(payload, dict) or payload.get('user_id') != current_user.id:
+        abort(404)
+    checkout_url = payload.get('url') or ''
+    parsed = urlparse(checkout_url)
+    if (parsed.scheme != 'https' or parsed.hostname not in
+            {'swiftpayiq.com', 'www.swiftpayiq.com'} or parsed.path != '/pay'
+            or parsed.username or parsed.password):
+        abort(404)
+
+    kind = payload.get('order_type')
+    if kind == 'service':
+        order = db.session.get(ServiceOrder, payload.get('order_id'))
+    elif kind == 'store':
+        order = db.session.get(StoreOrder, payload.get('order_id'))
+    else:
+        abort(404)
+    if (not order or order.user_id != current_user.id or
+            order.gateway_invoice_id != payload.get('invoice_id') or
+            order.payment_provider != f'swiftpay_{swiftpay_mode()}' or
+            order.status != 'pending'):
+        abort(404)
+    response = app.make_response(render_template(
+        'swiftpay_checkout_redirect.html',
+        checkout_url=checkout_url,
+        amount_iqd=order.gateway_expected_amount_iqd or payload.get('amount_iqd'),
+    ))
+    response.headers['Cache-Control'] = 'no-store'
+    response.headers['Referrer-Policy'] = 'no-referrer'
+    return response
+
+
 @app.route('/services/<int:service_id>/pay-card', methods=['POST'])
 @app.route('/services/<int:service_id>/pay-test', methods=['POST'])
 @login_required
@@ -1920,7 +1956,16 @@ def service_pay_test(service_id):
     order.gateway_invoice_id = invoice[0]
     order.gateway_expected_amount_iqd = invoice[2]
     db.session.commit()
-    return redirect(invoice[1], code=303)
+    session['swiftpay_checkout'] = {
+        'url': invoice[1],
+        'order_type': 'service',
+        'order_id': order.id,
+        'user_id': current_user.id,
+        'invoice_id': invoice[0],
+        'amount_iqd': invoice[2],
+    }
+    session.modified = True
+    return redirect(url_for('swiftpay_continue_checkout'), code=303)
 
 
 @app.route('/services/<int:service_id>/buy', methods=['POST'])
@@ -2203,7 +2248,16 @@ def store_pay_test(item_id):
     order.gateway_invoice_id = invoice[0]
     order.gateway_expected_amount_iqd = invoice[2]
     db.session.commit()
-    return redirect(invoice[1], code=303)
+    session['swiftpay_checkout'] = {
+        'url': invoice[1],
+        'order_type': 'store',
+        'order_id': order.id,
+        'user_id': current_user.id,
+        'invoice_id': invoice[0],
+        'amount_iqd': invoice[2],
+    }
+    session.modified = True
+    return redirect(url_for('swiftpay_continue_checkout'), code=303)
 
 
 @app.route('/store/<int:item_id>/buy', methods=['POST'])

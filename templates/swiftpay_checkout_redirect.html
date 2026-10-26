@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta http-equiv="refresh" content="3;url={{ checkout_url }}">
+<title>إكمال الدفع | RABBIT</title>
+<style>
+*{box-sizing:border-box}body{margin:0;min-height:100vh;background:#020605;color:#effff6;font-family:Tahoma,Arial,sans-serif;display:grid;place-items:center}
+.card{width:min(520px,92vw);padding:34px 24px;border:1px solid #14583a;background:#05130b;border-radius:18px;text-align:center}
+.logo{font-size:29px;color:#00f58a;font-weight:900;letter-spacing:1px}h1{font-size:23px;margin:25px 0 10px}p{line-height:1.9;color:#a5baae}
+a.pay{display:block;margin:22px 0 8px;padding:16px;border-radius:10px;background:#00f58a;color:#00170c;font-weight:bold;text-decoration:none}
+.small{font-size:13px}.amount{color:#00f58a;font-size:20px;font-weight:900}
+</style>
+</head>
+<body><main class="card">
+<div class="logo">RABBIT.</div>
+<h1>فاتورتك جاهزة للدفع</h1>
+<p>راح نحولك تلقائياً إلى صفحة SwiftPayIQ الآمنة.</p>
+{% if amount_iqd %}<div class="amount">{{ '{:,}'.format(amount_iqd | int) }} د.ع</div>{% endif %}
+<a class="pay" href="{{ checkout_url }}" rel="noreferrer">اضغط هنا لفتح صفحة الدفع</a>
+<p class="small">إذا ما صار تحويل تلقائي، افتح الصفحة من الزر أعلاه. ما تم تأكيد دفع أي مبلغ بعد.</p>
+</main>
+<script>window.location.replace({{ checkout_url | tojson }});</script>
+</body></html>
