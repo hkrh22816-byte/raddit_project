@@ -104,6 +104,23 @@
     </a>
 
     <h1>{{ course.title }}</h1>
+    <div class="box" style="border-color:#206b45;background:linear-gradient(120deg,#071e12,#07110b)">
+        <div style="font-size:11px;color:#00f58a;letter-spacing:1.5px">KORSIK / VIDEO STUDIO</div>
+        <h2 style="margin:10px 0">رفع فيديوهات الكورس</h2>
+        <p style="color:#b1cfbb;line-height:1.9;margin-bottom:10px">
+            ابدأ من درس موجود بالأسفل واضغط «رفع الفيديو»، أو أضف درساً جديداً من النموذج.
+            احفظ الفيديو بصيغة MP4 (H.264) لضمان أفضل تشغيل على الموبايل واللابتوب.
+        </p>
+        <p style="color:#ebc989;line-height:1.9;margin:8px 0">
+            الحد الآمن الحالي: 150MB لكل فيديو بسبب مساحة Railway المحدودة (500MB).
+            الملفات تُحفظ في وحدة التخزين الدائمة. احتفظ بنسخة أصلية على جهازك.
+        </p>
+        <p style="color:#a5baa9;line-height:1.8">فيديوهات مرفوعة:
+            <strong style="color:#00f58a">{{ course.lessons|selectattr('video_url')|list|length }}</strong>
+            من {{ course.lessons|length }} درس.
+            {% if course.is_demo %}<span style="color:#f5ca86">الكورس ما زال تجريبياً، ولا ينفتح للبيع حتى تلغي علامة «تجريبي» من تعديل الكورس.</span>{% endif %}
+        </p>
+    </div>
 
     <div class="box">
 
@@ -142,7 +159,7 @@
             <div class="video-upload">
 
                 <label>
-                    أو ارفع الفيديو من الكمبيوتر
+                    اختر فيديو من جهازك (MP4 / WEBM / MOV / M4V — بحد 150MB)
                 </label>
 
                 <input
@@ -190,16 +207,15 @@
                 <div style="color:#91a396">
 
                     {{ l.duration }}
-
-                    {% if l.is_preview %}
-                        · تجريبي
-                    {% endif %}
+                    {% if l.video_url %}· <span style="color:#00f58a">الفيديو مرفوع</span>
+                    {% else %}· <span style="color:#f5c47c">بانتظار رفع الفيديو</span>{% endif %}
+                    {% if l.is_preview %}· معاينة مجانية{% endif %}
 
                 </div>
 
             </div>
 
-            <div style="display:flex;gap:8px"><a class="btn" style="text-decoration:none;color:#00170c" href="{{ url_for('admin_lesson_edit', lesson_id=l.id) }}">تعديل</a><form
+            <div style="display:flex;gap:8px;flex-wrap:wrap"><a class="btn" style="text-decoration:none;color:#00170c" href="{{ url_for('admin_lesson_edit', lesson_id=l.id) }}">{% if l.video_url %}تعديل الفيديو{% else %}رفع الفيديو{% endif %}</a><form
                 method="post"
                 action="{{ url_for('admin_lesson_delete', lesson_id=l.id) }}"
                 onsubmit="return confirm('حذف الدرس؟')"

@@ -11,6 +11,7 @@ from flask_wtf.csrf import CSRFProtect
 import os
 import uuid
 import mimetypes
+import shutil
 import re
 import secrets
 import resend
@@ -89,8 +90,11 @@ os.makedirs(
 
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
-# الحد الأقصى للفيديو 1GB
-app.config['MAX_CONTENT_LENGTH'] = 1024 * 1024 * 1024
+# Flask request limit is separate from the course-video storage quota.
+# Railway's attached volume is 500MB; keep uploads reasonably small.
+MAX_COURSE_VIDEO_BYTES = 150 * 1024 * 1024
+MIN_VIDEO_FREE_SPACE_BYTES = 32 * 1024 * 1024
+app.config['MAX_CONTENT_LENGTH'] = 200 * 1024 * 1024
 app.config['MAX_FORM_MEMORY_SIZE'] = 2 * 1024 * 1024
 app.config['MAX_FORM_PARTS'] = 100
 
@@ -1156,7 +1160,33 @@ def save_video(video_file):
         unique_name
     )
 
-    video_file.save(save_path)
+    # Reject oversized/empty files before writing to persistent storage.
+    # Werkzeug's uploaded streams are seekable temporary files.
+    try:
+        video_file.stream.seek(0, os.SEEK_END)
+        size = video_file.stream.tell()
+        video_file.stream.seek(0)
+    except (OSError, ValueError):
+        app.logger.warning('Unable to measure course video upload')
+        return None
+    if not 0 < size <= MAX_COURSE_VIDEO_BYTES:
+        app.logger.warning('Rejected course video upload outside 150MB limit')
+        return None
+    try:
+        if shutil.disk_usage(app.config['UPLOAD_FOLDER']).free < size + MIN_VIDEO_FREE_SPACE_BYTES:
+            app.logger.warning('Rejected course video: insufficient persistent storage')
+            return None
+        video_file.save(save_path)
+        if os.path.getsize(save_path) != size:
+            raise OSError('incomplete video upload')
+    except OSError:
+        if os.path.exists(save_path):
+            try:
+                os.remove(save_path)
+            except OSError:
+                pass
+        app.logger.exception('Course video upload failed')
+        return None
 
     return unique_name
 
@@ -1239,6 +1269,10 @@ def protected_video(lesson_id):
 
     elif lesson.is_preview:
         has_access = True
+
+    elif not current_user.is_authenticated:
+        # Anonymous visitors must not trigger a user-id lookup for paid lessons.
+        abort(403)
 
     else:
         enrollment = Enrollment.query.filter_by(
@@ -5545,6 +5579,9 @@ def admin_lessons(course_id):
             if uploaded_url:
 
                 video_url = uploaded_url
+            else:
+                flash('ما انرفع الفيديو. استخدم MP4/H.264 بحجم أقل من 150MB وتأكد من مساحة التخزين.', 'error')
+                return redirect(url_for('admin_lessons', course_id=c.id))
 
         if not video_url:
 
@@ -5632,6 +5669,9 @@ def admin_lesson_edit(lesson_id):
                 flash('صيغة الفيديو غير مدعومة.', 'error')
                 return redirect(url_for('admin_lesson_edit', lesson_id=lesson.id))
             uploaded_url = save_video(video_file)
+            if not uploaded_url:
+                flash('فشل رفع الفيديو. الحد 150MB لكل ملف، وتحتاج مساحة متاحة على Railway.', 'error')
+                return redirect(url_for('admin_lesson_edit', lesson_id=lesson.id))
             if uploaded_url:
                 if lesson.video_url and '://' not in lesson.video_url:
                     old_path = os.path.join(app.config['UPLOAD_FOLDER'], os.path.basename(lesson.video_url))
