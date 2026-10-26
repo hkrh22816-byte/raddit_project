@@ -1697,10 +1697,18 @@ def cart_entry(item):
 
 @app.route('/')
 def home():
-
-    return render_template(
-        'index.html'
-    )
+    # Real, published courses from the database; previews never masquerade as paid courses.
+    candidates = Course.query.filter(Course.is_published.is_(True)).order_by(
+        Course.id.desc()).limit(60).all()
+    ready = [c for c in candidates if course_ready_for_sales(c)]
+    demos = [c for c in candidates if c.is_demo]
+    upcoming = [c for c in candidates
+                if not c.is_demo and not course_ready_for_sales(c)]
+    featured_courses = [
+        {'course': c, 'ready': course_ready_for_sales(c)}
+        for c in (ready + demos + upcoming)[:4]
+    ]
+    return render_template('index.html', featured_courses=featured_courses)
 
 
 @app.route('/support')
