@@ -1895,9 +1895,13 @@ def service_detail(service_id):
                                 if current_user.is_authenticated else None),
         wallet_purchase_available=bool(
             any(package.price_iqd > 0 for package in packages)
-            or item.price_iqd or parse_iqd_price(item.price)
+            if packages else (item.price_iqd or parse_iqd_price(item.price))
         ),
-        swiftpay_enabled=swiftpay_available(), swiftpay_test_mode=swiftpay_mode() == 'test'
+        swiftpay_enabled=bool(swiftpay_available() and (
+            any(package.price_iqd > 0 for package in packages)
+            if packages else (item.price_iqd or parse_iqd_price(item.price))
+        )),
+        swiftpay_test_mode=swiftpay_mode() == 'test'
     )
 
 
@@ -2049,7 +2053,9 @@ def service_pay_test(service_id):
             return redirect(url_for('service_detail', service_id=item.id))
 
     package = None
-    if item.packages:
+    active_packages = ServicePackage.query.filter_by(
+        service_id=item.id, is_active=True).all()
+    if active_packages:
         try:
             package_id = int(request.form.get('package_id') or 0)
         except ValueError:
@@ -2162,7 +2168,9 @@ def service_buy(service_id):
     package = None
     package_label = ''
     amount = item.price
-    if item.packages:
+    active_packages = ServicePackage.query.filter_by(
+        service_id=item.id, is_active=True).all()
+    if active_packages:
         try:
             package_id = int(request.form.get('package_id') or 0)
         except ValueError:
@@ -2355,7 +2363,9 @@ def store_detail(item_id):
     return render_template('store_detail.html', item=item,
                            price_iqd=item.price_iqd or parse_iqd_price(item.price),
                            payment_methods=get_supported_manual_payment_methods(),
-                           swiftpay_enabled=swiftpay_available(),
+                           swiftpay_enabled=bool(swiftpay_available()
+                               and item.stock_status == 'available'
+                               and (item.price_iqd or parse_iqd_price(item.price))),
                            swiftpay_test_mode=swiftpay_mode() == 'test')
 
 
@@ -2717,7 +2727,8 @@ def cart():
     total_iqd = sum(entry['data']['line_total'] for entry in entries if entry['data'])
     payment_methods = get_supported_manual_payment_methods()
     return render_template('cart.html', entries=entries, total_iqd=total_iqd,
-                           payment_methods=payment_methods)
+                           payment_methods=payment_methods,
+                           swiftpay_enabled=swiftpay_available())
 
 
 @app.route('/cart/add/service/<int:service_id>', methods=['POST'])

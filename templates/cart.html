@@ -37,7 +37,7 @@
 <div class="step"><b>1</b><span>طريقة الدفع</span></div>
 <div class="paychoices">
 <button type="button" class="paychoice wallet" data-target="walletPanel"><strong>💚 محفظة Rabbit</strong><small>خصم مباشر من رصيد المحفظة</small></button>
-<button type="button" class="paychoice" data-target="cardPanel"><strong>💳 فيزا / ماستركارد</strong><small>إتمام السلة عبر الدفع الإلكتروني الآمن</small></button>
+{% if swiftpay_enabled %}<button type="button" class="paychoice" data-target="cardPanel"><strong>💳 فيزا / ماستركارد</strong><small>إتمام السلة عبر الدفع الإلكتروني الآمن</small></button>{% endif %}
 <button type="button" class="paychoice" data-target="manualPanel"><strong>💳 دفع يدوي</strong><small>كي كارد أو زين كاش</small></button>
 </div>
 
@@ -56,6 +56,7 @@
 </div></form>
 </div>
 
+{% if swiftpay_enabled %}
 <div id="cardPanel" class="paypanel paybox">
 <div class="step"><b>2</b><span>إتمام السلة بالبطاقة</span></div>
 <p class="muted">سندزلك صفحة دفع آمنة لمبلغ السلة بالكامل. تتأكد الطلبات فقط بعد نجاح الدفع، ورسوم المعالجة إن وجدت تظهر عند الدفع.</p>
@@ -73,6 +74,7 @@
 <div class="field full"><label><input type="checkbox" name="accept_terms" value="yes" required style="width:auto"> أوافق على شروط الشراء وسياسة الطلب والاسترجاع</label></div>
 <div class="field full"><button class="btn" type="submit">الانتقال إلى الدفع بالبطاقة</button></div>
 </div></form></div>
+{% endif %}
 <div id="manualPanel" class="paypanel paybox">
 <div class="step"><b>2</b><span>بيانات الطلب والتحويل</span></div>
 <form method="post" action="/cart/checkout" enctype="multipart/form-data">
