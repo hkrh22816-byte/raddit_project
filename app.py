@@ -619,6 +619,7 @@ class Course(db.Model):
         default=True
     )
     is_demo = db.Column(db.Boolean, default=False, nullable=False)
+    access_days = db.Column(db.Integer, default=30, nullable=False)
 
     lessons = db.relationship(
         'Lesson',
@@ -692,6 +693,7 @@ class Enrollment(db.Model):
         default='pending',
         nullable=False
     )
+    expires_at = db.Column(db.DateTime, nullable=True)
 
     user = db.relationship(
         'User',
@@ -710,6 +712,16 @@ class Enrollment(db.Model):
             name='unique_user_course'
         ),
     )
+
+
+def enrollment_has_access(enrollment):
+    return bool(enrollment and enrollment.status == 'approved'
+                and (enrollment.expires_at is None
+                     or enrollment.expires_at > datetime.utcnow()))
+
+
+def new_course_expiration(course):
+    return datetime.utcnow() + timedelta(days=max(1, min(365, course.access_days or 30)))
 
 
 class LessonProgress(db.Model):
@@ -1226,10 +1238,7 @@ def protected_video(lesson_id):
             course_id=lesson.course_id
         ).first()
 
-        has_access = (
-            enrollment is not None
-            and enrollment.status == 'approved'
-        )
+        has_access = enrollment_has_access(enrollment)
 
     if not has_access:
         abort(403)
@@ -2529,6 +2538,7 @@ def swiftpay_webhook():
                 db.session.add(enrollment)
             else:
                 enrollment.status = 'approved'
+            enrollment.expires_at = new_course_expiration(course)
             notify_user(checkout.user_id, 'تم تفعيل كورسك',
                         f'تم تأكيد دفع «{course.title}» وإتاحة الدروس.',
                         url_for('learning_hub'))
@@ -3913,10 +3923,7 @@ def course_detail(course_id):
                 course_id=c.id
             ).first()
 
-            if (
-                enrollment
-                and enrollment.status == 'approved'
-            ):
+            if enrollment_has_access(enrollment):
                 has_course_access = True
 
     completed_lesson_ids = set()
@@ -3939,9 +3946,9 @@ def course_detail(course_id):
 @app.route('/learn')
 @login_required
 def learning_hub():
-    enrollments = Enrollment.query.filter_by(
+    enrollments = [e for e in Enrollment.query.filter_by(
         user_id=current_user.id, status='approved'
-    ).order_by(Enrollment.id.desc()).all()
+    ).order_by(Enrollment.id.desc()).all() if enrollment_has_access(e)]
     cards = []
     for enrollment in enrollments:
         course = enrollment.course
@@ -3972,7 +3979,7 @@ def lesson_complete(lesson_id):
     enrollment = Enrollment.query.filter_by(
         user_id=current_user.id, course_id=lesson.course_id, status='approved'
     ).first()
-    if not enrollment and not current_user.is_admin:
+    if not current_user.is_admin and not enrollment_has_access(enrollment):
         abort(403)
     progress = LessonProgress.query.filter_by(user_id=current_user.id, lesson_id=lesson.id).first()
     if not progress:
@@ -3993,7 +4000,7 @@ def lesson_progress_toggle(lesson_id):
     enrollment = Enrollment.query.filter_by(
         user_id=current_user.id, course_id=lesson.course_id, status='approved'
     ).first()
-    if not enrollment and not current_user.is_admin:
+    if not current_user.is_admin and not enrollment_has_access(enrollment):
         abort(403)
     progress = LessonProgress.query.filter_by(user_id=current_user.id, lesson_id=lesson.id).first()
     if not progress:
@@ -4026,7 +4033,7 @@ def request_course_enrollment(course_id):
         course_id=c.id
     ).first()
 
-    if enrollment and enrollment.status == 'approved':
+    if enrollment_has_access(enrollment):
         flash('هذا الكورس مفعّل عندك بالفعل.', 'success')
         return redirect(url_for('course_detail', course_id=c.id))
 
@@ -4093,7 +4100,7 @@ def course_pay_card(course_id):
         flash('السعر غير محدد. يرجى مراجعة الإدارة.', 'error')
         return redirect(url_for('course_detail', course_id=c.id))
     existing = Enrollment.query.filter_by(user_id=current_user.id, course_id=c.id).first()
-    if existing and existing.status == 'approved':
+    if enrollment_has_access(existing):
         flash('الكورس مفعّل بالفعل ضمن حسابك.', 'success')
         return redirect(url_for('learning_hub'))
     result = begin_swiftpay_card_checkout('course', c.id,
@@ -4137,7 +4144,7 @@ def course_buy_wallet(course_id):
         flash('هذا الكورس لا يملك سعراً بالدينار للدفع من الرصيد حالياً.', 'error')
         return redirect(url_for('course_detail', course_id=c.id))
     enrollment = Enrollment.query.filter_by(user_id=current_user.id, course_id=c.id).first()
-    if enrollment and enrollment.status == 'approved':
+    if enrollment_has_access(enrollment):
         flash('هذا الكورس مفعّل عندك بالفعل.', 'success')
         return redirect(url_for('course_detail', course_id=c.id))
     db.session.execute(sql_text('SELECT id FROM "user" WHERE id = :uid FOR UPDATE'), {'uid': current_user.id})
@@ -4151,6 +4158,7 @@ def course_buy_wallet(course_id):
         db.session.flush()
     else:
         enrollment.status = 'approved'
+    enrollment.expires_at = new_course_expiration(c)
     db.session.add(WalletTransaction(user_id=current_user.id, transaction_type='purchase',
         amount_iqd=-amount_iqd, reference_type='course', reference_id=c.id,
         note=f'شراء كورس: {c.title}'[:250]))
@@ -4182,7 +4190,7 @@ def course_payment(course_id):
         course_id=c.id
     ).first()
 
-    if enrollment and enrollment.status == 'approved':
+    if enrollment_has_access(enrollment):
         flash('هذا الكورس مفعّل عندك بالفعل.', 'success')
         return redirect(url_for('course_detail', course_id=c.id))
 
@@ -4333,6 +4341,7 @@ def admin_payment_approve(payment_id):
     payment.status = 'approved'
     payment.admin_note = (request.form.get('admin_note') or '').strip()
     enrollment.status = 'approved'
+    enrollment.expires_at = new_course_expiration(payment.course)
     notify_user(payment.user_id, 'تم قبول الدفع وتفعيل الكورس',
                 f'صار بإمكانك مشاهدة كورس «{payment.course.title}».', url_for('course_detail', course_id=payment.course_id))
     db.session.commit()
@@ -5127,6 +5136,7 @@ def approve_enrollment(enrollment_id):
     ) or abort(404)
 
     enrollment.status = 'approved'
+    enrollment.expires_at = new_course_expiration(enrollment.course)
 
     db.session.commit()
 
@@ -5205,7 +5215,8 @@ def admin_course_new():
                     'is_published'
                 )
             ),
-            is_demo=bool(request.form.get('is_demo'))
+            is_demo=bool(request.form.get('is_demo')),
+            access_days=max(1, min(365, int(request.form.get('access_days') or 30)))
         )
 
         db.session.add(c)
@@ -5277,6 +5288,7 @@ def admin_course_edit(course_id):
             )
         )
         c.is_demo = bool(request.form.get('is_demo'))
+        c.access_days = max(1, min(365, int(request.form.get('access_days') or 30)))
 
         db.session.commit()
 
@@ -5722,6 +5734,14 @@ with app.app_context():
         with db.engine.begin() as connection:
             connection.execute(sql_text(
                 'ALTER TABLE course ADD COLUMN is_demo BOOLEAN NOT NULL DEFAULT FALSE'))
+    if 'access_days' not in course_columns:
+        with db.engine.begin() as connection:
+            connection.execute(sql_text(
+                'ALTER TABLE course ADD COLUMN access_days INTEGER NOT NULL DEFAULT 30'))
+    enrollment_columns = {col['name'] for col in inspect(db.engine).get_columns('enrollment')}
+    if 'expires_at' not in enrollment_columns:
+        with db.engine.begin() as connection:
+            connection.execute(sql_text('ALTER TABLE enrollment ADD COLUMN expires_at TIMESTAMP'))
     seed_courses()
     seed_korsik_demo_courses()
     seed_services_and_store()
