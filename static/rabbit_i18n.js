@@ -176,6 +176,77 @@
   };
   Object.keys(academyExact).forEach(function(key){exact[key]=academyExact[key];});
 
+  var courseContentEnglish={
+    "مبتدئ":"Beginner",
+    "متوسط":"Intermediate",
+    "متقدم":"Advanced",
+    "التسويق":"Marketing",
+    "التسويق الرقمي":"Digital Marketing",
+    "التصميم":"Design",
+    "السوشيال ميديا":"Social Media",
+    "البرمجة":"Programming",
+    "البرمجة والمواقع":"Programming & Websites",
+    "صناعة الفيديو":"Video Production",
+    "الذكاء الاصطناعي":"Artificial Intelligence",
+    "الأعمال":"Business",
+    "المهارات المكتبية":"Office Skills",
+    "اللغات":"Languages",
+    "فريق أكاديمية كورسيك — نموذج":"Korsik Academy Team — Demo",
+    "نموذج تجريبي | إعلانات ميتا من الصفر إلى أول حملة":"Demo | Meta Ads: From Zero to Your First Campaign",
+    "نموذج تجريبي | تصميم محتوى السوشيال ميديا للمشاريع":"Demo | Social Media Content Design for Businesses",
+    "نموذج تجريبي | إنشاء موقع تجاري متكامل":"Demo | Building a Complete Business Website",
+    "نموذج تجريبي | مونتاج ريلز احترافي":"Demo | Professional Reels Editing",
+    "من إعداد الصفحة والحساب الإعلاني إلى اختيار الجمهور وتحسين النتائج.":"From setting up your page and ad account to targeting audiences and improving campaign performance.",
+    "أساسيات الهوية البصرية وتصميم المنشورات وتخطيط المحتوى.":"Visual identity fundamentals, social media post design, and content planning.",
+    "تخطيط صفحات الموقع وتجربة المستخدم والنشر والأمان.":"Website structure, user experience, publishing, and security.",
+    "كتابة فكرة الفيديو وتنظيم اللقطات والمونتاج والتصدير.":"Developing the video concept, organizing clips, editing, and exporting.",
+    "هذا نموذج تعريفي غير متاح للشراء. الدروس الحقيقية ستضاف لاحقاً.":"This is a non-purchasable demo. Real lessons will be added later.",
+    "إنشاء الحساب الإعلاني":"Create an Ad Account",
+    "تحديد الجمهور والميزانية":"Choose Audiences and Budget",
+    "تحسين النتائج":"Optimize Results",
+    "الهوية البصرية":"Visual Identity",
+    "تصميم المنشورات":"Social Media Post Design",
+    "خطة المحتوى":"Content Plan",
+    "هيكلة الموقع":"Website Structure",
+    "النماذج وصفحات الخدمات":"Forms and Service Pages",
+    "النشر والأمان":"Publishing and Security",
+    "هوك الفيديو":"Video Hook",
+    "المونتاج والترجمة":"Editing and Captions",
+    "التصدير للنشر":"Export for Publishing",
+    "إعلانات TikTok والتسويق عبر تيك توك":"TikTok Ads and Marketing",
+    "إدارة صفحات السوشيال ميديا":"Social Media Page Management",
+    "صناعة المحتوى بالموبايل":"Mobile Content Creation",
+    "مونتاج CapCut من الصفر إلى الاحتراف":"CapCut Editing: Beginner to Advanced",
+    "التصميم باستخدام Canva":"Design with Canva",
+    "Photoshop من الصفر":"Photoshop Fundamentals",
+    "الذكاء الاصطناعي للعمل والدراسة":"AI for Work and Study",
+    "ChatGPT لصناعة المحتوى والتسويق":"ChatGPT for Content and Marketing",
+    "إنشاء متجر إلكتروني":"Building an Online Store",
+    "كيف تبدأ مشروع بيع أونلاين في العراق":"How to Start an Online Business in Iraq",
+    "التصوير الإعلاني بالموبايل":"Mobile Product Photography",
+    "التعليق الصوتي وصناعة الفيديو":"Voiceover and Video Production",
+    "Excel من الصفر للعمل":"Excel for Work: From Scratch",
+    "المحاسبة لأصحاب المشاريع الصغيرة":"Accounting for Small Business Owners",
+    "اللغة الإنجليزية للعمل والمحادثة":"English for Work and Conversation",
+    "تعلم كيفية إطلاق حملات إعلانية ناجحة على فيسبوك وإنستغرام.":"Learn to launch successful Facebook and Instagram advertising campaigns.",
+    "تعلم بناء الحملات الإعلانية وقراءة النتائج وتحسينها.":"Learn to build, measure, and optimize advertising campaigns.",
+    "تنظيم وإدارة الحسابات التجارية وجدولة المحتوى باحترافية.":"Organize and manage business accounts and schedule content professionally.",
+    "تصوير وإنتاج محتوى مرئي جذاب باستخدام الهاتف.":"Create engaging visual content using your phone.",
+    "مونتاج الفيديوهات القصيرة والريلز خطوة بخطوة.":"Edit short-form videos and reels step by step.",
+    "تصميم الإعلانات والمنشورات والهويات البصرية بسهولة.":"Design ads, posts, and visual identities with ease.",
+    "أساسيات التعديل والدمج وبناء التصاميم الإعلانية.":"Fundamentals of photo editing, compositing, and advertising design.",
+    "استخدام أدوات الذكاء الاصطناعي لرفع الإنتاجية.":"Use AI tools to improve productivity.",
+    "استخدام ChatGPT للأفكار والسيناريوهات والخطط التسويقية.":"Use ChatGPT for ideas, scripts, and marketing plans.",
+    "بناء متجر إلكتروني واستقبال طلبات الزبائن.":"Build an online store and accept customer orders.",
+    "من اختيار المنتج إلى التسويق والتوصيل داخل العراق.":"From product selection to marketing and delivery across Iraq.",
+    "زوايا وإضاءة تصوير المنتجات بالموبايل.":"Product photography angles and lighting with a phone.",
+    "تسجيل صوت واضح وإنتاج فيديو احترافي.":"Record clear audio and produce professional videos.",
+    "الجداول والمعادلات والتقارير التي يحتاجها الموظف.":"Spreadsheets, formulas, and workplace reports.",
+    "فهم الأرباح والخسائر والمصاريف وإدارة المشروع.":"Understand profits, losses, expenses, and project management.",
+    "محادثات ومصطلحات عملية للاستخدام في بيئة العمل.":"Practical conversations and vocabulary for the workplace."
+  };
+  Object.keys(courseContentEnglish).forEach(function(key){exact[key]=courseContentEnglish[key];});
+
   var titleMap={
     'الخدمات | RABBIT':'Services | RABBIT','المتجر | RABBIT':'Store | RABBIT','سلة التسوق | RABBIT':'Shopping Cart | RABBIT',
     'أكاديمية كورسيك | تعلم المهارات الرقمية على RABBIT':'Korsik Academy | Learn Digital Skills on RABBIT',
@@ -195,6 +266,7 @@
     if((m=text.match(/^الدفع من المحفظة\s*[—-]\s*(.+)$/))) return 'Pay with wallet — '+m[1];
     if((m=text.match(/^رقم\s+(\d+)$/))) return 'Digit '+m[1];
     if((m=text.match(/^أهلاً\s+(.+?)،\s*اختار مهارتك الجاية\.?$/))) return 'Welcome '+m[1]+', choose your next skill.';
+    if((m=text.match(/^المحور\s+(\d+):\s*(.+)$/))) return 'Module '+m[1]+': '+(exact[m[2]] || m[2]);
     if((m=text.match(/^([\d,]+)\s+محاور?$/))) return m[1]+' modules';
     if((m=text.match(/^([\d,]+)\s+د\.ع\s*\/\s*([\d,]+)\s+يوم$/))) return m[1]+' IQD / '+m[2]+' days';
     if((m=text.match(/^([\d,]+)\s+د\.ع\s+بال(بطاقة|بطاقه)$/))) return m[1]+' IQD by card';
