@@ -372,6 +372,7 @@ class CardCheckout(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
     order_type = db.Column(db.String(15), nullable=False)  # course or wallet
     reference_id = db.Column(db.Integer, nullable=True)
+    cart_snapshot = db.Column(db.Text, default='')
     amount_iqd = db.Column(db.Integer, nullable=False)
     gateway_expected_amount_iqd = db.Column(db.Integer, nullable=True)
     gateway_invoice_id = db.Column(db.String(120), unique=True, nullable=True)
@@ -1915,7 +1916,7 @@ def swiftpay_checkout_order_from_session():
         order = db.session.get(ServiceOrder, order_id)
     elif kind == 'store':
         order = db.session.get(StoreOrder, order_id)
-    elif kind in {'course', 'wallet'}:
+    elif kind in {'course', 'wallet', 'cart'}:
         order = db.session.get(CardCheckout, order_id)
         if order and order.order_type != kind:
             return None
@@ -1989,7 +1990,7 @@ def swiftpay_continue_checkout():
         order = db.session.get(ServiceOrder, payload.get('order_id'))
     elif kind == 'store':
         order = db.session.get(StoreOrder, payload.get('order_id'))
-    elif kind in {'course', 'wallet'}:
+    elif kind in {'course', 'wallet', 'cart'}:
         order = db.session.get(CardCheckout, payload.get('order_id'))
         if order and order.order_type != kind:
             abort(404)
@@ -2544,6 +2545,61 @@ def swiftpay_webhook():
                         url_for('learning_hub'))
             notify_admins('اشتراك كورسيك مدفوع',
                           f'كورس #{course.id}، طلب #{checkout.id}', url_for('admin_courses'))
+        elif checkout.order_type == 'cart':
+            try:
+                snapshot = json.loads(checkout.cart_snapshot or '[]')
+            except (TypeError, ValueError):
+                db.session.rollback()
+                return {'ok': True}
+            if not isinstance(snapshot, list) or not snapshot or len(snapshot) > 30:
+                db.session.rollback()
+                return {'ok': True}
+            for entry in snapshot:
+                if entry.get('kind') == 'service':
+                    order = ServiceOrder(
+                        user_id=checkout.user_id,
+                        service_id=entry['service_id'],
+                        service_package_id=entry.get('package_id'),
+                        package_label=entry.get('package_label', '')[:120],
+                        amount=f"{entry['price']:,} د.ع",
+                        page_url=entry.get('page_url', ''),
+                        details=entry.get('details', ''),
+                        contact=entry.get('contact', ''),
+                        payment_provider='swiftpay_card_cart',
+                        transaction_id=f'SWIFTPAY CART #{checkout.id}',
+                        status='approved')
+                    db.session.add(order)
+                elif entry.get('kind') == 'store':
+                    qty = entry.get('quantity', 1)
+                    order = StoreOrder(
+                        user_id=checkout.user_id,
+                        store_item_id=entry['store_item_id'],
+                        amount_iqd=entry['price'],
+                        contact=entry.get('contact', ''),
+                        details=(f'الكمية: {qty}\n' + entry.get('details', '')).strip(),
+                        payment_provider='swiftpay_card_cart',
+                        transaction_id=f'SWIFTPAY CART #{checkout.id}',
+                        status='approved')
+                    db.session.add(order)
+                else:
+                    db.session.rollback()
+                    return {'ok': True}
+                row = db.session.get(CartItem, entry.get('row_id'))
+                if row and row.user_id == checkout.user_id:
+                    if (entry['kind'] == 'service' and row.item_type == 'service'
+                            and row.service_id == entry['service_id']
+                            and row.package_id == entry.get('package_id')):
+                        db.session.delete(row)
+                    elif (entry['kind'] == 'store' and row.item_type == 'store'
+                            and row.store_item_id == entry['store_item_id']
+                            and row.quantity == entry.get('quantity')):
+                        db.session.delete(row)
+            notify_user(checkout.user_id, 'تم دفع السلة بالبطاقة',
+                        f'وصل تأكيد الدفع لـ{len(snapshot)} عناصر من سلتك.',
+                        url_for('account'))
+            notify_admins('طلب سلة إلكتروني مدفوع',
+                          f'{len(snapshot)} عناصر · {checkout.amount_iqd:,} د.ع',
+                          url_for('admin_panel'))
         elif checkout.order_type == 'wallet':
             # Credit ONLY the base wallet amount; processor fees do not
             # become customer balance, and this row is processed once.
@@ -2571,6 +2627,65 @@ def store_buy_wallet(item_id):
     item = db.session.get(StoreItem, item_id) or abort(404)
     flash('الدفع متاح حالياً يدوياً عبر كي كارد أو زين كاش.', 'error')
     return redirect(url_for('store_detail', item_id=item.id))
+
+@app.route('/cart/checkout-card', methods=['POST'])
+@login_required
+@limiter.limit('6 per hour')
+def cart_checkout_card():
+    if not terms_accepted():
+        flash('وافق على شروط الشراء أولاً.', 'error')
+        return redirect(url_for('cart'))
+    cart_rows = CartItem.query.filter_by(user_id=current_user.id).order_by(CartItem.id.asc()).all()
+    if not cart_rows or len(cart_rows) > 30:
+        flash('السلة فارغة أو تجاوزت الحد المسموح للعناصر.', 'error')
+        return redirect(url_for('cart'))
+    items = []
+    total = 0
+    for row in cart_rows:
+        data = cart_entry(row)
+        if not data:
+            flash('بعض عناصر السلة غير متاحة. راجع السلة قبل الدفع.', 'error')
+            return redirect(url_for('cart'))
+        notes = (request.form.get(f'details_{row.id}') or '').strip()
+        if len(notes) > 2000:
+            flash('ملاحظات أحد العناصر أطول من المطلوب.', 'error')
+            return redirect(url_for('cart'))
+        price = int(data['line_total'])
+        if price < 1:
+            abort(400)
+        total += price
+        entry = {'row_id': row.id, 'kind': data['type'], 'price': price,
+                 'contact': normalize_iraqi_mobile(request.form.get('contact'))}
+        if data['type'] == 'service':
+            service = db.session.get(Service, row.service_id)
+            if not service or is_account_recovery_service(service):
+                flash('خدمة استعادة الحساب تحتاج طلباً منفصلاً.', 'error')
+                return redirect(url_for('cart'))
+            page_url = (request.form.get(f'page_url_{row.id}') or '').strip()
+            parsed_url = urlparse(page_url)
+            if (not page_url or len(page_url) > 1000
+                    or parsed_url.scheme not in {'http', 'https'} or not parsed_url.netloc):
+                flash('أدخل رابط حساب أو مشروع صحيح لكل خدمة.', 'error')
+                return redirect(url_for('cart'))
+            prefix = f"المنصة: {data['platform']}\n" if data['platform'] else ''
+            entry.update({'service_id': row.service_id,
+                          'package_id': row.package_id,
+                          'package_label': str(data['label'] or '')[:120],
+                          'page_url': page_url,
+                          'details': (prefix + notes).strip()})
+        else:
+            entry.update({'store_item_id': row.store_item_id,
+                          'quantity': int(data['quantity']),
+                          'details': notes})
+        items.append(entry)
+    if not items[0]['contact']:
+        flash('اكتب رقم هاتف عراقي صحيح.', 'error')
+        return redirect(url_for('cart'))
+    result = begin_swiftpay_card_checkout(
+        'cart', None, f'RABBIT | طلب سلة ({len(items)} عناصر)',
+        total, request.form.get('contact'), cart_snapshot=items)
+    return result or redirect(url_for('cart'))
+
 
 @app.route('/cart')
 @login_required
@@ -4049,7 +4164,7 @@ def request_course_enrollment(course_id):
     return redirect(url_for('course_payment', course_id=c.id))
 
 
-def begin_swiftpay_card_checkout(kind, reference_id, description, amount_iqd, phone):
+def begin_swiftpay_card_checkout(kind, reference_id, description, amount_iqd, phone, cart_snapshot=None):
     if not swiftpay_available():
         flash('الدفع الإلكتروني غير متاح حالياً.', 'error')
         return None
@@ -4061,7 +4176,9 @@ def begin_swiftpay_card_checkout(kind, reference_id, description, amount_iqd, ph
         flash('أدخل رقم هاتف عراقي صحيح حتى ننشئ رابط الدفع.', 'error')
         return None
     checkout = CardCheckout(user_id=current_user.id, order_type=kind,
-                            reference_id=reference_id, amount_iqd=amount_iqd,
+                            reference_id=reference_id,
+                            cart_snapshot=json.dumps(cart_snapshot, ensure_ascii=False) if cart_snapshot else '',
+                            amount_iqd=amount_iqd,
                             payment_provider=f'swiftpay_{swiftpay_mode()}',
                             status='pending')
     db.session.add(checkout)
@@ -5742,6 +5859,10 @@ with app.app_context():
     if 'expires_at' not in enrollment_columns:
         with db.engine.begin() as connection:
             connection.execute(sql_text('ALTER TABLE enrollment ADD COLUMN expires_at TIMESTAMP'))
+    card_columns = {col['name'] for col in inspect(db.engine).get_columns('card_checkout')}
+    if 'cart_snapshot' not in card_columns:
+        with db.engine.begin() as connection:
+            connection.execute(sql_text('ALTER TABLE card_checkout ADD COLUMN cart_snapshot TEXT'))
     seed_courses()
     seed_korsik_demo_courses()
     seed_services_and_store()
