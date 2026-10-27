@@ -126,7 +126,7 @@
         <div style="font:800 11px Consolas,monospace;letter-spacing:1.5px;color:#00f58a">KORSIK / BULK UPLOAD</div>
         <h2 style="margin:10px 0 8px">رفع جميع الفيديوهات دفعة واحدة</h2>
         <p style="color:#b0cbb7;line-height:1.9">اختار لحد 60 فيديو من اللابتوب مرة وحدة (ومن ضمنها الـ42 فيديو). النظام يرتب أسماء الملفات بالأرقام ويرفعها بالتتابع، ويضيف درساً لكل فيديو تلقائياً. الدروس تكون غير مجانية افتراضياً.</p>
-        <p style="color:#e8c58c;line-height:1.8">مساحة Railway الحالية 500MB فقط، والحد 150MB للفيديو الواحد. يتم فحص الحجم والمساحة قبل البدء، ولا تُرفع مجموعة أكبر من المساحة المتاحة.</p>
+        <p style="color:#e8c58c;line-height:1.8">عند تفعيل Korsik Storage Bucket تختفي مشكلة الحد الإجمالي 500MB. الحد الحالي للفيديو الواحد 150MB؛ خليك محتفظ بنسخة أصلية من كل الملفات.</p>
         <input id="bulkFiles" type="file" accept=".mp4,.webm,.mov,.m4v,video/mp4,video/webm,video/quicktime" multiple style="margin-top:12px">
         <p id="bulkSummary" style="color:#bcd7c4" aria-live="polite">ما اخترت ملفات بعد.</p>
         <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:12px">
@@ -307,11 +307,11 @@
       const invalid=pendingFiles.find(f=>f.size===0 || f.size>q.max_file_bytes || !/\.(mp4|mov|m4v|webm)$/i.test(f.name));
       const usable=Math.max(0,q.free_bytes-q.reserve_bytes);
       if(invalid){status.textContent='ملف غير مدعوم أو أكبر من 150MB: '+invalid.name;return}
-      if(total>usable){
+      if(!q.bucket_enabled && total>usable){
         status.textContent='المساحة المتاحة ('+formatBytes(usable)+') أقل من حجم الفيديوهات ('+formatBytes(total)+'). لا تبدأ الرفع؛ نحتاج تخزيناً أكبر قبل رفع المجموعة.';
         return;
       }
-      status.textContent='جاهز — المساحة تكفي للفيديوهات المتبقية. سيبدأ الرفع فيديو بعد فيديو.';
+      status.textContent=q.bucket_enabled?'جاهز — تخزين كورسيك السحابي مفعّل. تگدر ترفع المجموعة.':'جاهز — المساحة تكفي للفيديوهات المتبقية. سيبدأ الرفع فيديو بعد فيديو.';
       start.disabled=false;
     }).catch(err=>{status.textContent=err.message});
   }

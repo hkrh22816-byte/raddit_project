@@ -12,6 +12,8 @@ import os
 import uuid
 import mimetypes
 import shutil
+from botocore.config import Config as BotoConfig
+import boto3
 import re
 import secrets
 import resend
@@ -1120,6 +1122,47 @@ def allowed_video(filename):
     )
 
 
+def korsik_bucket_enabled():
+    names = ('KORSIK_S3_ENDPOINT', 'KORSIK_S3_BUCKET',
+             'KORSIK_S3_ACCESS_KEY_ID', 'KORSIK_S3_SECRET_ACCESS_KEY')
+    return all(os.environ.get(k) for k in names)
+
+
+def korsik_s3():
+    if not korsik_bucket_enabled():
+        raise RuntimeError('Korsik object storage is not configured')
+    return boto3.client(
+        's3',
+        endpoint_url=os.environ['KORSIK_S3_ENDPOINT'],
+        region_name=os.environ.get('KORSIK_S3_REGION') or 'auto',
+        aws_access_key_id=os.environ['KORSIK_S3_ACCESS_KEY_ID'],
+        aws_secret_access_key=os.environ['KORSIK_S3_SECRET_ACCESS_KEY'],
+        config=BotoConfig(signature_version='s3v4', s3={'addressing_style': 'virtual'},
+                          retries={'max_attempts': 3, 'mode': 'standard'},
+                          connect_timeout=12, read_timeout=180),
+    )
+
+
+def delete_saved_video(identifier):
+    if identifier.startswith('s3:'):
+        key = identifier[3:]
+        if not key.startswith('videos/') or '/' in key[7:]:
+            return
+        try:
+            korsik_s3().delete_object(Bucket=os.environ['KORSIK_S3_BUCKET'], Key=key)
+        except Exception:
+            app.logger.exception('Could not delete old Korsik object')
+        return
+    if '://' in identifier:
+        return
+    path = os.path.join(app.config['UPLOAD_FOLDER'], os.path.basename(identifier))
+    if os.path.isfile(path):
+        try:
+            os.remove(path)
+        except OSError:
+            app.logger.exception('Could not delete old local video')
+
+
 def save_video(video_file):
 
     if not video_file:
@@ -1172,6 +1215,27 @@ def save_video(video_file):
     if not 0 < size <= MAX_COURSE_VIDEO_BYTES:
         app.logger.warning('Rejected course video upload outside 150MB limit')
         return None
+    if korsik_bucket_enabled():
+        key = 'videos/' + unique_name
+        try:
+            korsik_s3().upload_fileobj(
+                video_file.stream,
+                os.environ['KORSIK_S3_BUCKET'],
+                key,
+                ExtraArgs={'ContentType': guessed_type or declared_type or 'application/octet-stream'},
+                Config=boto3.s3.transfer.TransferConfig(
+                    multipart_threshold=8 * 1024 * 1024,
+                    multipart_chunksize=8 * 1024 * 1024,
+                    max_concurrency=2,
+                    use_threads=False))
+            return 's3:' + key
+        except Exception:
+            app.logger.exception('Korsik video upload to object storage failed')
+            try:
+                korsik_s3().delete_object(Bucket=os.environ['KORSIK_S3_BUCKET'], Key=key)
+            except Exception:
+                app.logger.warning('Could not clean up failed Korsik object')
+            return None
     try:
         if shutil.disk_usage(app.config['UPLOAD_FOLDER']).free < size + MIN_VIDEO_FREE_SPACE_BYTES:
             app.logger.warning('Rejected course video: insufficient persistent storage')
@@ -1287,6 +1351,23 @@ def protected_video(lesson_id):
 
     if not lesson.video_url:
         abort(404)
+
+    if lesson.video_url.startswith('s3:'):
+        key = lesson.video_url[3:]
+        if not key.startswith('videos/') or '/' in key[7:]:
+            abort(404)
+        try:
+            signed_url = korsik_s3().generate_presigned_url(
+                'get_object',
+                Params={'Bucket': os.environ['KORSIK_S3_BUCKET'], 'Key': key},
+                ExpiresIn=180)
+            response = redirect(signed_url, code=302)
+            response.headers['Cache-Control'] = 'private, no-store'
+            response.headers['Referrer-Policy'] = 'no-referrer'
+            return response
+        except Exception:
+            app.logger.exception('Korsik protected video signing failed')
+            abort(503)
 
     filename = os.path.basename(
         lesson.video_url
@@ -5562,15 +5643,18 @@ def admin_course_upload_quota(course_id):
     if not admin_only():
         abort(403)
     db.session.get(Course, course_id) or abort(404)
+    using_bucket = korsik_bucket_enabled()
     try:
-        free_bytes = shutil.disk_usage(app.config['UPLOAD_FOLDER']).free
+        free_bytes = (0 if using_bucket else
+                      shutil.disk_usage(app.config['UPLOAD_FOLDER']).free)
     except OSError:
         app.logger.exception('Video storage quota unavailable')
         return {'error': 'تعذر قراءة مساحة التخزين. حاول مجدداً.'}, 503
     response = app.json.response({
         'max_file_bytes': MAX_COURSE_VIDEO_BYTES,
         'free_bytes': free_bytes,
-        'reserve_bytes': MIN_VIDEO_FREE_SPACE_BYTES,
+        'reserve_bytes': 0 if using_bucket else MIN_VIDEO_FREE_SPACE_BYTES,
+        'bucket_enabled': using_bucket,
     })
     response.headers['Cache-Control'] = 'no-store'
     return response
@@ -5612,10 +5696,7 @@ def admin_course_bulk_upload(course_id):
         db.session.commit()
     except Exception:
         db.session.rollback()
-        try:
-            os.remove(os.path.join(app.config['UPLOAD_FOLDER'], stored))
-        except OSError:
-            pass
+        delete_saved_video(stored)
         app.logger.exception('Failed to store uploaded bulk lesson')
         return {'error': 'تعذر تسجيل الدرس. لم يتم الاحتفاظ بالملف.'}, 500
     return {'ok': True, 'skipped': False, 'title': title, 'lesson_id': lesson.id}, 201
@@ -5775,20 +5856,18 @@ def admin_lesson_edit(lesson_id):
                 flash('فشل رفع الفيديو. الحد 150MB لكل ملف، وتحتاج مساحة متاحة على Railway.', 'error')
                 return redirect(url_for('admin_lesson_edit', lesson_id=lesson.id))
             if uploaded_url:
-                if lesson.video_url and '://' not in lesson.video_url:
-                    old_path = os.path.join(app.config['UPLOAD_FOLDER'], os.path.basename(lesson.video_url))
-                    if os.path.isfile(old_path):
-                        try:
-                            os.remove(old_path)
-                        except OSError:
-                            pass
+                previous_video = lesson.video_url
                 video_url = uploaded_url
+                # Remove old file only after DB commit below.
+                remove_previous_after_commit = previous_video if previous_video != uploaded_url else ''
         lesson.title = title
         lesson.video_url = video_url
         lesson.duration = (request.form.get('duration') or '').strip()[:30]
         lesson.position = position
         lesson.is_preview = bool(request.form.get('is_preview'))
         db.session.commit()
+        if video_file and video_file.filename and 'remove_previous_after_commit' in locals() and remove_previous_after_commit:
+            delete_saved_video(remove_previous_after_commit)
         flash('تم تحديث الدرس.', 'success')
         return redirect(url_for('admin_lessons', course_id=lesson.course_id))
     return render_template('admin_lesson_edit.html', lesson=lesson)
@@ -5830,24 +5909,15 @@ def admin_lesson_delete(lesson_id):
 
     course_id = lesson.course_id
 
-    if lesson.video_url and '://' not in lesson.video_url:
-        filename = os.path.basename(lesson.video_url)
-        file_path = os.path.join(
-            app.config['UPLOAD_FOLDER'],
-            filename
-        )
-
-        if os.path.isfile(file_path):
-            try:
-                os.remove(file_path)
-            except OSError:
-                pass
+    old_video_id = lesson.video_url or ''
 
     db.session.delete(
         lesson
     )
 
     db.session.commit()
+    if old_video_id:
+        delete_saved_video(old_video_id)
 
     return redirect(
         url_for(
