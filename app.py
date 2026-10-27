@@ -11,6 +11,7 @@ from flask_wtf.csrf import CSRFProtect
 import os
 import uuid
 import mimetypes
+import math
 import shutil
 from botocore.config import Config as BotoConfig
 from botocore.exceptions import ClientError
@@ -745,6 +746,10 @@ class LessonProgress(db.Model):
     lesson_id = db.Column(db.Integer, db.ForeignKey('lesson.id'), nullable=False, index=True)
     completed = db.Column(db.Boolean, default=False, nullable=False)
     completed_at = db.Column(db.DateTime, nullable=True)
+    # Resume every video across sessions and devices, separately for each user.
+    last_position_seconds = db.Column(db.Float, nullable=False, default=0.0)
+    video_duration_seconds = db.Column(db.Float, nullable=False, default=0.0)
+    last_watched_at = db.Column(db.DateTime, nullable=True)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     user = db.relationship('User', backref='lesson_progress_records')
     lesson = db.relationship('Lesson', backref='progress_records')
@@ -4254,12 +4259,38 @@ def course_detail(course_id):
                 has_course_access = True
 
     completed_lesson_ids = set()
+    watch_positions = {}
+    resume_lesson = None
+    resume_seconds = 0
+    course_completion_percent = 0
     if current_user.is_authenticated and has_course_access:
-        completed_lesson_ids = {
-            row.lesson_id for row in LessonProgress.query.filter_by(
-                user_id=current_user.id, completed=True
-            ).filter(LessonProgress.lesson_id.in_([l.id for l in c.lessons] or [-1])).all()
+        lessons = list(c.lessons)
+        rows = LessonProgress.query.filter(
+            LessonProgress.user_id == current_user.id,
+            LessonProgress.lesson_id.in_([l.id for l in lessons] or [-1])
+        ).all()
+        completed_lesson_ids = {row.lesson_id for row in rows if row.completed}
+        watch_positions = {
+            row.lesson_id: {
+                'position': round(row.last_position_seconds or 0, 1),
+                'duration': round(row.video_duration_seconds or 0, 1)
+            }
+            for row in rows
         }
+        lesson_by_id = {lesson.id: lesson for lesson in lessons}
+        resumable = [row for row in rows if row.last_watched_at
+                     and row.last_position_seconds > 3 and not row.completed
+                     and row.lesson_id in lesson_by_id]
+        if resumable:
+            latest = max(resumable, key=lambda row: row.last_watched_at)
+            resume_lesson = lesson_by_id[latest.lesson_id]
+            resume_seconds = int(latest.last_position_seconds)
+        else:
+            resume_lesson = next((l for l in lessons
+                                  if l.video_url and l.id not in completed_lesson_ids), None)
+        if lessons:
+            course_completion_percent = round(
+                100 * len(completed_lesson_ids) / len(lessons))
 
     response = app.make_response(render_template(
         'course_detail.html',
@@ -4267,6 +4298,10 @@ def course_detail(course_id):
         has_course_access=has_course_access,
         enrollment=enrollment,
         completed_lesson_ids=completed_lesson_ids,
+        watch_positions=watch_positions,
+        resume_lesson=resume_lesson,
+        resume_seconds=resume_seconds,
+        course_completion_percent=course_completion_percent,
         course_ready=course_ready_for_sales(c)
     ))
     # The page can contain member-only lesson/video URLs; never share-cache it.
@@ -4294,13 +4329,76 @@ def learning_hub():
                     LessonProgress.lesson_id.in_(lesson_ids)
                 ).all()
             }
-        next_lesson = next((l for l in lessons if l.id not in completed_ids), lessons[-1] if lessons else None)
+        incomplete = next((l for l in lessons if l.id not in completed_ids), None)
+        # Continue from the last partially watched video rather than the first
+        # unfinished lesson. Completion records still drive the course bar.
+        recent = LessonProgress.query.filter(
+            LessonProgress.user_id == current_user.id,
+            LessonProgress.lesson_id.in_(lesson_ids or [-1]),
+            LessonProgress.completed.is_(False),
+            LessonProgress.last_position_seconds > 3,
+            LessonProgress.last_watched_at.isnot(None)
+        ).order_by(LessonProgress.last_watched_at.desc()).first()
+        next_lesson = (next((l for l in lessons if l.id == recent.lesson_id), None)
+                       if recent else None) or incomplete
+        resume_seconds = int(recent.last_position_seconds) if recent and next_lesson and recent.lesson_id == next_lesson.id else 0
         total = len(lessons)
         completed = len(completed_ids)
         percent = int((completed / total) * 100) if total else 0
         cards.append({'course': course, 'total': total, 'completed': completed,
-                      'percent': percent, 'next_lesson': next_lesson})
+                      'percent': percent, 'next_lesson': next_lesson,
+                      'resume_seconds': resume_seconds})
     return render_template('learning_hub.html', cards=cards)
+
+
+@app.route('/lesson/<int:lesson_id>/watch-progress', methods=['POST'])
+@login_required
+@limiter.limit('90 per minute')
+def lesson_watch_progress(lesson_id):
+    """Save a student's playback position; never grant enrollment by itself."""
+    lesson = db.session.get(Lesson, lesson_id) or abort(404)
+    if not current_user.is_admin:
+        enrollment = Enrollment.query.filter_by(
+            user_id=current_user.id, course_id=lesson.course_id).first()
+        if not enrollment_has_access(enrollment):
+            abort(403)
+    if not lesson.video_url:
+        abort(404)
+
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict):
+        return {'error': 'Invalid progress data'}, 400
+    try:
+        position = float(payload['position'])
+        duration = float(payload.get('duration', 0))
+    except (KeyError, ValueError, TypeError):
+        return {'error': 'Invalid playback position'}, 400
+    if (not math.isfinite(position) or not math.isfinite(duration)
+            or position < 0 or duration < 0
+            or position > 24 * 3600 or duration > 24 * 3600
+            or (duration > 0 and position > duration + 4)):
+        return {'error': 'Invalid playback values'}, 400
+    if duration > 0:
+        position = min(position, duration)
+
+    row = LessonProgress.query.filter_by(
+        user_id=current_user.id, lesson_id=lesson.id).first()
+    if row is None:
+        row = LessonProgress(user_id=current_user.id, lesson_id=lesson.id)
+        db.session.add(row)
+    row.last_position_seconds = round(position, 2)
+    if duration:
+        row.video_duration_seconds = round(duration, 2)
+    row.last_watched_at = datetime.utcnow()
+    row.updated_at = datetime.utcnow()
+    db.session.commit()
+    response = app.json.response({
+        'ok': True, 'position': row.last_position_seconds,
+        'duration': row.video_duration_seconds,
+        'completed': row.completed
+    })
+    response.headers['Cache-Control'] = 'private, no-store'
+    return response
 
 
 @app.route('/lesson/<int:lesson_id>/complete', methods=['POST'])
@@ -6058,6 +6156,21 @@ with app.app_context():
             )
 
     db.create_all()
+
+    # Production databases have an older lesson_progress schema. Add new
+    # resume columns in place, preserving all existing lesson completion rows.
+    progress_columns = {col['name'] for col in inspect(db.engine).get_columns('lesson_progress')}
+    progress_additions = {
+        'last_position_seconds': 'FLOAT NOT NULL DEFAULT 0',
+        'video_duration_seconds': 'FLOAT NOT NULL DEFAULT 0',
+        'last_watched_at': 'TIMESTAMP',
+    }
+    with db.engine.begin() as connection:
+        for column_name, column_type in progress_additions.items():
+            if column_name not in progress_columns:
+                connection.execute(sql_text(
+                    f'ALTER TABLE lesson_progress ADD COLUMN {column_name} {column_type}'
+                ))
 
     # Add package details to existing databases without changing existing packages.
     package_inspector = inspect(db.engine)
