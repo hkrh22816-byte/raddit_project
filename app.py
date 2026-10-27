@@ -6200,6 +6200,20 @@ with app.app_context():
         else:
             app.logger.warning('Korsik AI course 21 not found or title does not match; not changed')
 
+    # Non-sensitive release check in Railway logs: verifies that the database
+    # update actually ran (successful deployment alone is not proof of sale readiness).
+    released_course = db.session.get(Course, 21)
+    if released_course and released_course.title == 'تعليم الذكاء الاصطناعي من الصفر إلى الاحتراف':
+        released_videos = sum(bool((row.video_url or '').strip())
+                              for row in released_course.lessons)
+        app.logger.warning(
+            'KORSIK_AI21_RELEASE_AUDIT published=%s demo=%s price_iqd=%s lessons=%s videos=%s titles_with_numeric_prefix=%s',
+            released_course.is_published, released_course.is_demo,
+            released_course.price_iqd, len(released_course.lessons),
+            released_videos,
+            sum(bool(re.match(r'^\\s*\\d{1,3}\\s*[.)_\\-]', row.title or ''))
+                for row in released_course.lessons))
+
     admin_username = os.environ.get('ADMIN_USERNAME')
     admin_password = os.environ.get('ADMIN_PASSWORD')
 
