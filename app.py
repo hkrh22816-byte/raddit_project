@@ -1331,9 +1331,8 @@ def protected_video(lesson_id):
     if current_user.is_authenticated and current_user.is_admin:
         has_access = True
 
-    elif lesson.is_preview:
-        has_access = True
-
+    # A video is never public just because the lesson was once marked as a
+    # preview. Viewing any course video requires current enrollment or admin.
     elif not current_user.is_authenticated:
         # Anonymous visitors must not trigger a user-id lookup for paid lessons.
         abort(403)
@@ -4212,14 +4211,17 @@ def course_detail(course_id):
             ).filter(LessonProgress.lesson_id.in_([l.id for l in c.lessons] or [-1])).all()
         }
 
-    return render_template(
+    response = app.make_response(render_template(
         'course_detail.html',
         course=c,
         has_course_access=has_course_access,
         enrollment=enrollment,
         completed_lesson_ids=completed_lesson_ids,
         course_ready=course_ready_for_sales(c)
-    )
+    ))
+    # The page can contain member-only lesson/video URLs; never share-cache it.
+    response.headers['Cache-Control'] = 'private, no-store'
+    return response
 
 
 @app.route('/learn')

@@ -1238,6 +1238,7 @@ footer{
                 </div>
 
 
+                {% if has_course_access %}
                 <div class="meta-item">
 
                     <span class="meta-label">
@@ -1249,6 +1250,7 @@ footer{
                     </span>
 
                 </div>
+                {% endif %}
 
             </div>
 
@@ -1407,6 +1409,9 @@ footer{
 
 
 
+    <!-- Lesson titles, numbers, videos and the complete curriculum are
+         server-rendered exclusively for active subscribers and admins. -->
+    {% if has_course_access %}
     <!-- =========================
          LESSONS
     ========================= -->
@@ -1640,6 +1645,7 @@ footer{
 
 
     </section>
+    {% endif %}
 
 
 </main>
