@@ -5644,6 +5644,12 @@ def admin_course_upload_quota(course_id):
         abort(403)
     db.session.get(Course, course_id) or abort(404)
     using_bucket = korsik_bucket_enabled()
+    if using_bucket:
+        try:
+            korsik_s3().head_bucket(Bucket=os.environ['KORSIK_S3_BUCKET'])
+        except Exception:
+            app.logger.exception('Korsik bucket connectivity check failed')
+            return {'error': 'مخزن كورسيك السحابي مو متصل؛ راجع إعدادات Railway.'}, 503
     try:
         free_bytes = (0 if using_bucket else
                       shutil.disk_usage(app.config['UPLOAD_FOLDER']).free)
