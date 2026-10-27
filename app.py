@@ -1,4 +1,4 @@
-from flask import Flask, render_template, redirect, url_for, request, flash, abort, session, Response
+from flask import Flask, render_template, redirect, url_for, request, flash, abort, session, Response, stream_with_context
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -13,6 +13,7 @@ import uuid
 import mimetypes
 import shutil
 from botocore.config import Config as BotoConfig
+from botocore.exceptions import ClientError
 import boto3
 import re
 import secrets
@@ -1355,18 +1356,67 @@ def protected_video(lesson_id):
         key = lesson.video_url[3:]
         if not key.startswith('videos/') or '/' in key[7:]:
             abort(404)
+
+        # Keep playback on rabbitrq.com. Browsers previously received a 302 to
+        # the private S3 endpoint but were unable to load video metadata (0:00).
+        # Stream byte ranges from the bucket without disclosing credentials or
+        # permanent URLs; subscription authorization above remains mandatory.
+        client_range = (request.headers.get('Range') or '').strip()
+        if client_range and not re.fullmatch(r'bytes=\d*-\d*', client_range):
+            return Response(status=416, headers={
+                'Accept-Ranges': 'bytes',
+                'Cache-Control': 'private, no-store',
+            })
+        params = {'Bucket': os.environ['KORSIK_S3_BUCKET'], 'Key': key}
+        if client_range:
+            params['Range'] = client_range
+
         try:
-            signed_url = korsik_s3().generate_presigned_url(
-                'get_object',
-                Params={'Bucket': os.environ['KORSIK_S3_BUCKET'], 'Key': key},
-                ExpiresIn=180)
-            response = redirect(signed_url, code=302)
-            response.headers['Cache-Control'] = 'private, no-store'
-            response.headers['Referrer-Policy'] = 'no-referrer'
-            return response
-        except Exception:
-            app.logger.exception('Korsik protected video signing failed')
+            obj = korsik_s3().get_object(**params)
+        except ClientError as exc:
+            err_code = str(exc.response.get('Error', {}).get('Code', ''))
+            if err_code in {'NoSuchKey', '404', 'NotFound'}:
+                abort(404)
+            if err_code in {'InvalidRange', '416', 'RequestedRangeNotSatisfiable'}:
+                return Response(status=416, headers={
+                    'Accept-Ranges': 'bytes',
+                    'Cache-Control': 'private, no-store',
+                })
+            app.logger.exception('Korsik video object fetch failed')
             abort(503)
+        except Exception:
+            app.logger.exception('Korsik video object fetch failed')
+            abort(503)
+
+        stream = obj['Body']
+        def chunks():
+            try:
+                for chunk in stream.iter_chunks(chunk_size=256 * 1024):
+                    if chunk:
+                        yield chunk
+            finally:
+                stream.close()
+
+        mime = obj.get('ContentType') or 'video/mp4'
+        # All uploaded course videos are supported video formats.
+        if not mime.startswith('video/'):
+            mime = mimetypes.guess_type(key)[0] or 'video/mp4'
+        headers = {
+            'Accept-Ranges': 'bytes',
+            'Cache-Control': 'private, no-store',
+            'X-Content-Type-Options': 'nosniff',
+            'X-Accel-Buffering': 'no',
+        }
+        if obj.get('ContentLength') is not None:
+            headers['Content-Length'] = str(obj['ContentLength'])
+        if obj.get('ContentRange'):
+            headers['Content-Range'] = obj['ContentRange']
+        return Response(
+            stream_with_context(chunks()),
+            status=206 if obj.get('ContentRange') else 200,
+            headers=headers,
+            content_type=mime
+        )
 
     filename = os.path.basename(
         lesson.video_url

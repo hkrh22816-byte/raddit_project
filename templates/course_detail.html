@@ -1520,7 +1520,7 @@ footer{
                                 <video
                                     controls
                                     controlsList="nodownload"
-                                    preload="metadata"
+                                    preload="none"
                                     {% if has_course_access %}data-complete-url="{{ url_for('lesson_complete', lesson_id=l.id) }}"{% endif %}
                                 >
 
