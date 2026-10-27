@@ -1144,10 +1144,6 @@ footer{
 .resume-course-stats{font-size:12px;color:#b4d7c0;margin-top:10px}
 .lesson{scroll-margin-top:100px}
 .lesson.resume-target{border-color:rgba(0,245,138,.72)!important;box-shadow:0 0 0 1px rgba(0,245,138,.2)}
-.watch-status{margin-top:10px;color:#a4c7b2;font-size:12px;line-height:1.6;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
-.watch-status .done-label{color:#00f58a;font-weight:800}
-.watch-progress-track{margin-top:9px;height:5px;background:#11271b;border-radius:10px;overflow:hidden}
-.watch-progress-track span{display:block;height:100%;width:0;background:#00f58a;border-radius:10px;transition:width .2s}
 </style>
 </head>
 
@@ -1577,20 +1573,7 @@ footer{
                                     متصفحك لا يدعم تشغيل الفيديو.
 
                                 </video>
-                                {% set saved = watch_positions.get(l.id, {}) %}
-                                <div class="watch-status">
-                                    <span class="watch-message" data-watch-label="{{ l.id }}">
-                                        {% if l.id in completed_lesson_ids %}<span class="done-label">✓ تم إكمال الدرس</span>
-                                        {% elif saved.get('position', 0) > 3 %}محفوظ — يكمل تلقائياً من آخر توقف
-                                        {% else %}تقدمك ينحفظ تلقائياً أثناء المشاهدة{% endif %}
-                                    </span>
-                                    <span class="watch-time" data-watch-time="{{ l.id }}">
-                                        {% if saved.get('position', 0) > 0 %}
-                                        {{ (saved.get('position', 0) // 60)|int }}:{{ '%02d'|format((saved.get('position', 0) % 60)|int) }}
-                                        {% endif %}
-                                    </span>
-                                </div>
-                                <div class="watch-progress-track" aria-hidden="true"><span data-watch-fill="{{ l.id }}" style="width:{{ ((saved.get('position', 0) / saved.get('duration', 1)) * 100)|round|int if saved.get('duration', 0) > 0 else 0 }}%"></span></div>
+
                             </div>
 
 
@@ -1728,32 +1711,14 @@ footer{
     const csrf = {{ csrf_token() | tojson }};
     const players = Array.from(document.querySelectorAll('video[data-watch-url]'));
     const resumeButton = document.querySelector('.resume-course-btn');
-    const secondsText = n => {
-        n = Math.max(0, Math.floor(Number(n) || 0));
-        return Math.floor(n / 60) + ':' + String(n % 60).padStart(2, '0');
-    };
     let activePlayer = null;
 
     players.forEach(video => {
-        const lessonId = video.dataset.lessonId;
-        const label = document.querySelector('[data-watch-label="' + lessonId + '"]');
-        const timeLabel = document.querySelector('[data-watch-time="' + lessonId + '"]');
-        const progressFill = document.querySelector('[data-watch-fill="' + lessonId + '"]');
         const savedSeconds = Math.max(0, Number(video.dataset.resumeSeconds) || 0);
         let lastSentTime = 0;
         let lastKnownPosition = savedSeconds;
         let restored = false;
 
-        function renderProgress(){
-            const pos = Math.max(0, Number(video.currentTime) || 0);
-            lastKnownPosition = pos;
-            const dur = Number(video.duration);
-            if (timeLabel) timeLabel.textContent = secondsText(pos) +
-                (Number.isFinite(dur) && dur > 0 ? ' / ' + secondsText(dur) : '');
-            if (progressFill && Number.isFinite(dur) && dur > 0){
-                progressFill.style.width = Math.min(100, pos / dur * 100).toFixed(1) + '%';
-            }
-        }
         function save(force){
             const pos = Number(video.currentTime);
             if (!Number.isFinite(pos) || pos < 0 || (!force && video.paused)) return;
@@ -1773,8 +1738,7 @@ footer{
                     duration: Math.max(0, Number.isFinite(dur) ? dur : 0)})
             }).then(r=>{
                 if (!r.ok) throw new Error('Progress HTTP ' + r.status);
-                if (label && !video.ended) label.textContent = '✓ تقدمك محفوظ على حسابك';
-            }).catch(()=>{if (label && !video.ended) label.textContent = 'تعذر الحفظ مؤقتاً — أوقف الفيديو وحاول مجدداً';});
+            }).catch(err=>console.warn('Korsik watch progress save failed', err));
         }
         video.addEventListener('loadedmetadata', () => {
             if (!restored && savedSeconds > 3 &&
@@ -1782,15 +1746,14 @@ footer{
                 try {video.currentTime = savedSeconds;} catch(e) {}
             }
             restored = true;
-            renderProgress();
         });
         video.addEventListener('play',()=>{
             players.forEach(other=>{if(other!==video && !other.paused) other.pause();});
             activePlayer=video;
             video.closest('.lesson')?.classList.add('resume-target');
         });
-        video.addEventListener('timeupdate',()=>{renderProgress();save(false);});
-        video.addEventListener('seeked',()=>{renderProgress();save(true);});
+        video.addEventListener('timeupdate',()=>{save(false);});
+        video.addEventListener('seeked',()=>{save(true);});
         video.addEventListener('pause',()=>{save(true);});
         video.addEventListener('ended',()=>{
             save(true);
@@ -1801,7 +1764,6 @@ footer{
                 headers:{'X-CSRFToken':csrf}
             }).then(r=>{
                 if (!r.ok) throw new Error('Completion HTTP ' + r.status);
-                if (label) label.textContent = '✓ اكتمل هذا الدرس';
                 const card=video.closest('.lesson');
                 card?.classList.add('lesson-complete');
             }).catch(()=>{video.dataset.completedSent='';});
