@@ -6148,6 +6148,58 @@ with app.app_context():
     seed_services_and_store()
     seed_account_recovery_service()
 
+    # One-off, idempotent release of the AI course already uploaded by the
+    # academy administrator. Never publish or charge for an incomplete set.
+    ai_release_key = 'korsik_ai_course_21_40000_iqd_clean_titles_v1'
+    if db.session.get(CatalogMigration, ai_release_key) is None:
+        ai_course = db.session.get(Course, 21)
+        if ai_course and ai_course.title == 'تعليم الذكاء الاصطناعي من الصفر إلى الاحتراف':
+            ai_lessons = sorted(ai_course.lessons, key=lambda lesson: (lesson.position, lesson.id))
+            video_lessons = [lesson for lesson in ai_lessons if (lesson.video_url or '').strip()]
+            # This course was uploaded as a 46-video set. If any lesson is
+            # missing a video, leave its demo/unpublished state untouched.
+            if len(ai_lessons) >= 46 and len(video_lessons) == len(ai_lessons):
+                for lesson in ai_lessons:
+                    original_title = re.sub(r'\\s+', ' ', (lesson.title or '')).strip()
+                    clean_title = original_title
+                    # Remove repetitions of the filename number, including:
+                    # "13. 13 13. دورة الذكاء الاصطناعي | عنوان الدرس"
+                    # but never numbers appearing inside the actual topic.
+                    for _ in range(5):
+                        old_title = clean_title
+                        clean_title = re.sub(
+                            r'^(?:\\d{1,3}\\s*(?:[.):._\\-]+\\s*|\\s+))+',
+                            '', clean_title).strip(' ._-—–|:،')
+                        clean_title = re.sub(
+                            r'^(?:دورة|كورس)\\s+الذكاء\\s+الاصطناعي\\s*(?:[|:—–-]\\s*)?',
+                            '', clean_title, flags=re.IGNORECASE
+                        ).strip(' ._-—–|:،')
+                        if clean_title == old_title:
+                            break
+                    if clean_title:
+                        lesson.title = clean_title[:180]
+                ai_course.price = '40,000 د.ع'
+                ai_course.price_iqd = 40000
+                ai_course.access_days = 30
+                ai_course.is_demo = False
+                ai_course.is_published = True
+                ai_course.description = (
+                    'برنامج عملي متدرج لتعلّم الذكاء الاصطناعي من الأساسيات إلى '
+                    'التطبيقات المتقدمة: التعامل مع البيانات، نماذج الانحدار '
+                    'والتصنيف، التنبؤ بالسلاسل الزمنية، وتطبيقات ومشاريع عملية. '
+                    'يتضمن محتوى الفيديوهات المرفوعة، مع وصول لمدة 30 يوماً لكل اشتراك.'
+                )
+                db.session.add(CatalogMigration(key=ai_release_key))
+                db.session.commit()
+                app.logger.info('Korsik AI course 21 published at 40000 IQD with %s videos',
+                                len(video_lessons))
+            else:
+                app.logger.warning(
+                    'Korsik AI course 21 remains unpublished: %s lessons / %s videos (need 46)',
+                    len(ai_lessons), len(video_lessons))
+        else:
+            app.logger.warning('Korsik AI course 21 not found or title does not match; not changed')
+
     admin_username = os.environ.get('ADMIN_USERNAME')
     admin_password = os.environ.get('ADMIN_PASSWORD')
 
