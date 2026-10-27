@@ -5520,6 +5520,108 @@ def admin_course_edit(course_id):
 
 
 # =========================
+# Korsik bulk video import / AI academy course
+# =========================
+
+@app.route('/admin/courses/ai/create', methods=['POST'])
+@login_required
+def admin_create_ai_course():
+    if not admin_only():
+        abort(403)
+    name = 'تعليم الذكاء الاصطناعي من الصفر إلى الاحتراف'
+    # Repeat submissions should take the admin to the same course.
+    course = Course.query.filter_by(title=name).first()
+    if course is None:
+        course = Course(
+            title=name,
+            category='الذكاء الاصطناعي',
+            level='من الصفر إلى الاحتراف',
+            price='قيد تجهيز الدروس',
+            price_iqd=None,
+            instructor='أكاديمية كورسيك',
+            description=(
+                'برنامج متدرج لفهم الذكاء الاصطناعي وأدواته وتطبيقاته العملية، '
+                'من الأساسيات وحتى المشاريع. سيتم تحديث المحاور بحسب محتوى '
+                'الفيديوهات المرفوعة فعلياً.'
+            ),
+            is_published=False,
+            is_demo=True,
+            access_days=30
+        )
+        db.session.add(course)
+        db.session.commit()
+        flash('تم إنشاء كورس الذكاء الاصطناعي كمسودة آمنة، جاهزة لاستقبال الفيديوهات.', 'success')
+    else:
+        flash('تم فتح كورس الذكاء الاصطناعي الموجود دون إنشاء نسخة مكررة.', 'info')
+    return redirect(url_for('admin_lessons', course_id=course.id))
+
+
+@app.route('/admin/course/<int:course_id>/lessons/upload-quota', methods=['GET'])
+@login_required
+def admin_course_upload_quota(course_id):
+    if not admin_only():
+        abort(403)
+    db.session.get(Course, course_id) or abort(404)
+    try:
+        free_bytes = shutil.disk_usage(app.config['UPLOAD_FOLDER']).free
+    except OSError:
+        app.logger.exception('Video storage quota unavailable')
+        return {'error': 'تعذر قراءة مساحة التخزين. حاول مجدداً.'}, 503
+    response = app.json.response({
+        'max_file_bytes': MAX_COURSE_VIDEO_BYTES,
+        'free_bytes': free_bytes,
+        'reserve_bytes': MIN_VIDEO_FREE_SPACE_BYTES,
+    })
+    response.headers['Cache-Control'] = 'no-store'
+    return response
+
+
+@app.route('/admin/course/<int:course_id>/lessons/bulk-upload', methods=['POST'])
+@login_required
+@limiter.limit('80 per hour')
+def admin_course_bulk_upload(course_id):
+    if not admin_only():
+        abort(403)
+    course = db.session.get(Course, course_id) or abort(404)
+    video = request.files.get('video_file')
+    title = re.sub(r'\s+', ' ', (request.form.get('title') or '')).strip()
+    if not video or not video.filename or not title or len(title) > 180:
+        return {'error': 'الفيديو أو عنوان الدرس غير صالح (الحد 180 حرفاً).'}, 400
+    if not allowed_video(video.filename):
+        return {'error': 'الصيغة غير مدعومة. استخدم MP4 أو WEBM أو MOV أو M4V.'}, 400
+    existing = Lesson.query.filter_by(course_id=course.id, title=title).first()
+    if existing:
+        # Safe retry. Never overwrite a real lesson just because of a duplicate title.
+        if existing.video_url:
+            return {'ok': True, 'skipped': True, 'title': title, 'lesson_id': existing.id}
+        return {'error': 'يوجد درس بنفس الاسم بدون فيديو؛ افتحه من قائمة الدروس وارفع الفيديو له.'}, 409
+    try:
+        position = int(request.form.get('position') or 0)
+    except (ValueError, TypeError):
+        position = 0
+    if not 1 <= position <= 999:
+        return {'error': 'ترتيب الدرس غير صالح.'}, 400
+    stored = save_video(video)
+    if not stored:
+        return {'error': 'فشل حفظ الفيديو: تحقق من الحجم (150MB) والمساحة والصيغة.'}, 507
+    try:
+        lesson = Lesson(course_id=course.id, title=title,
+                        video_url=stored, duration='', position=position,
+                        is_preview=False)
+        db.session.add(lesson)
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        try:
+            os.remove(os.path.join(app.config['UPLOAD_FOLDER'], stored))
+        except OSError:
+            pass
+        app.logger.exception('Failed to store uploaded bulk lesson')
+        return {'error': 'تعذر تسجيل الدرس. لم يتم الاحتفاظ بالملف.'}, 500
+    return {'ok': True, 'skipped': False, 'title': title, 'lesson_id': lesson.id}, 201
+
+
+# =========================
 # Admin Lessons + Video Upload
 # =========================
 
