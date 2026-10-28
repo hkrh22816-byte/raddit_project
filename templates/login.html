@@ -21,8 +21,25 @@ h2{margin:0 0 8px;font-size:27px}.sub{margin:0 0 24px;color:var(--muted);font-si
 .verified{padding:11px;border:1px solid rgba(0,245,138,.18);background:rgba(0,245,138,.04);border-radius:10px;color:#8affc5;font-size:12px;margin-bottom:18px;direction:ltr;text-align:center;overflow-wrap:anywhere}
 @media(max-width:900px){.shell{grid-template-columns:1fr;max-width:520px;gap:20px}.brand{text-align:center}.brand h1{font-size:38px;margin-top:25px}.brand p{margin:auto}.logo{justify-content:center}}@media(max-width:520px){body{padding:14px}.brand p,.terminal{display:none}.brand h1{font-size:31px}.card{padding:25px 18px}.otp{gap:5px}.otp input{width:43px;height:54px}}
 </style>
+<!-- Meta Pixel Code -->
+<script>
+!function(f,b,e,v,n,t,s)
+{if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+n.queue=[];t=b.createElement(e);t.async=!0;
+t.src=v;s=b.getElementsByTagName(e)[0];
+s.parentNode.insertBefore(t,s)}(window, document,'script',
+'https://connect.facebook.net/en_US/fbevents.js');
+fbq('init', '1118289697236842');
+fbq('track', 'PageView');
+</script>
+<!-- End Meta Pixel Code -->
 </head>
 <body>
+<noscript><img height="1" width="1" style="display:none"
+src="https://www.facebook.com/tr?id=1118289697236842&ev=PageView&noscript=1"
+/></noscript>
 <main class="shell">
 <section class="brand">
 <a class="logo" href="{{ url_for('home') }}"><span class="mark"></span><span>RABBIT<span style="color:var(--green)">.</span></span></a>

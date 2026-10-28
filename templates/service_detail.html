@@ -6,8 +6,25 @@
 <style>
 *{box-sizing:border-box}body{margin:0;background:#020605;color:#f2fff8;font-family:Segoe UI,Tahoma,Arial,sans-serif}a{text-decoration:none;color:inherit}.wrap{width:min(1050px,92%);margin:auto;padding:28px 0 80px}.hero{padding:65px 0 30px}.tag{color:#00f58a;font:12px Consolas}.hero h1{font-size:clamp(34px,6vw,62px);margin:15px 0}.desc{color:#9db3a7;line-height:2;white-space:pre-line}.price{font-size:28px;color:#00f58a;margin-top:18px}.box{margin-top:24px;border:1px solid #0e4a30;background:#06100b;border-radius:18px;padding:25px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.full{grid-column:1/-1}label{display:block;margin:0 0 8px;font-weight:700}input,textarea,select{width:100%;background:#020806;border:1px solid #17462f;color:#fff;border-radius:10px;padding:13px;font:inherit}textarea{min-height:105px;resize:vertical}.package-area{margin:20px 0 26px}.package-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:13px}.package-card{display:block;position:relative;text-align:right;border:1px solid #17462f;border-radius:14px;padding:18px;background:#06100b;cursor:pointer;transition:.18s}.package-card:hover,.package-card.selected{border-color:#00f58a;box-shadow:0 0 0 1px #00f58a;background:#081810}.package-card input{width:auto;accent-color:#00f58a;margin:0 0 10px 8px}.package-card h3{font-size:19px;margin:0 0 6px}.package-price{font-size:21px;color:#00f58a;font-weight:900}.package-card p{color:#9db3a7;line-height:1.7}.package-card[hidden]{display:none}.support,.flash{padding:12px;border:1px solid #17462f;border-radius:10px;margin-top:12px;color:#9db3a7}.flash{color:#fff}.actions{display:grid;grid-template-columns:1fr 1fr;gap:12px}.btn{width:100%;border:0;border-radius:10px;background:#00f58a;color:#00170c;padding:15px;font-weight:900;font-size:16px;cursor:pointer;text-align:center}.btn.secondary{background:#10251a;color:#00f58a;border:1px solid #00f58a}.buy-panel{display:none;margin-top:22px;padding-top:20px;border-top:1px solid #17462f}.buy-panel.show{display:block}.paychoices{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:16px 0}.paychoice{border:1px solid #17462f;background:#06100b;color:#fff;border-radius:14px;padding:17px;text-align:right;cursor:pointer;font:inherit}.paychoice:hover,.paychoice.active{border-color:#00f58a}.paychoice strong{display:block;font-size:18px;margin-bottom:5px}.paychoice small{color:#9db3a7}.paychoice.wallet strong{color:#00f58a}.payform{display:none;margin-top:15px;padding:18px;border:1px solid #17462f;border-radius:14px;background:#041009}.payform.show{display:block}.method-details{display:none;margin-top:10px;padding:14px;border:1px solid #17462f;border-radius:10px;background:#020806}.method-details.show{display:block}.number{font-size:19px;color:#00f58a;direction:ltr;text-align:right}.balance-line{padding:12px;border:1px solid rgba(0,245,138,.24);border-radius:10px;background:#06150d;margin-bottom:14px}.selection-message:empty{display:none}@media(max-width:700px){.wrap{width:calc(100% - 22px)}.hero{padding-top:42px}.hero h1{font-size:36px}.package-grid,.actions,.paychoices,.grid{grid-template-columns:1fr}.box{padding:18px}.full{grid-column:auto}input,select,textarea{font-size:16px}}
 </style>
+<!-- Meta Pixel Code -->
+<script>
+!function(f,b,e,v,n,t,s)
+{if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+n.queue=[];t=b.createElement(e);t.async=!0;
+t.src=v;s=b.getElementsByTagName(e)[0];
+s.parentNode.insertBefore(t,s)}(window, document,'script',
+'https://connect.facebook.net/en_US/fbevents.js');
+fbq('init', '1118289697236842');
+fbq('track', 'PageView');
+</script>
+<!-- End Meta Pixel Code -->
 </head>
-<body><div class="wrap">
+<body>
+<noscript><img height="1" width="1" style="display:none"
+src="https://www.facebook.com/tr?id=1118289697236842&ev=PageView&noscript=1"
+/></noscript><div class="wrap">
 {% include '_site_header.html' %}
 {% with messages=get_flashed_messages(with_categories=true) %}{% for category,message in messages %}<div class="flash">{{ message }}</div>{% endfor %}{% endwith %}
 <section class="hero"><div class="tag">{{ service.category }}</div><h1>{{ service.title }}</h1><div class="desc">{{ service.description or service.short_description }}</div>{% if not packages %}<div class="price">{{ service.price }}</div>{% endif %}</section>
