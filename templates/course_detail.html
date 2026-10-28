@@ -1168,6 +1168,20 @@ fbq('track', 'ViewContent', {
   currency: 'IQD'
 });
 </script>
+<script>
+document.querySelectorAll('form[action*="course_pay_card"], form[action*="course_buy_wallet"]').forEach(function (form) {
+  form.addEventListener('submit', function () {
+    if (typeof window.fbq !== 'function') return;
+    window.fbq('track', 'InitiateCheckout', {
+      content_ids: [{{ course.id | tojson }}],
+      content_name: {{ course.title | tojson }},
+      content_type: 'product',
+      value: Number({{ (course.price_iqd or 0) | tojson }}),
+      currency: 'IQD'
+    });
+  });
+});
+</script>
 {% if meta_purchase_event %}
 <script>
 (function () {
