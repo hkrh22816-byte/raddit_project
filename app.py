@@ -1624,6 +1624,61 @@ def seed_korsik_demo_courses():
 
 
 
+
+def cleanup_old_korsik_placeholders():
+    """Remove unused demo/seed courses while retaining all student records.
+
+    The three approved courses (21, 22, 23) must never be modified by this
+    cleanup. Once-only key and the absence of automatic sample seeding keep
+    retired placeholder courses from reappearing on subsequent deploys.
+    """
+    migration_key = 'korsik_keep_real_courses_21_22_23_cleanup_v1'
+    keep_ids = {21, 22, 23}
+    if db.session.get(CatalogMigration, migration_key) is not None:
+        return
+
+    removed_ids = []
+    archived_ids = []
+    retired_courses = Course.query.filter(~Course.id.in_(keep_ids)).all()
+    for course in retired_courses:
+        # Preserve historical orders, active subscriptions, viewing progress,
+        # uploaded videos and any non-placeholder course that was configured
+        # manually. These are archived instead of destructively removed.
+        has_enrollment = Enrollment.query.filter_by(course_id=course.id).first() is not None
+        has_payment = CoursePayment.query.filter_by(course_id=course.id).first() is not None
+        has_video = any(bool((lesson.video_url or '').strip()) for lesson in course.lessons)
+        lesson_ids = [lesson.id for lesson in course.lessons]
+        has_progress = bool(lesson_ids and LessonProgress.query.filter(
+            LessonProgress.lesson_id.in_(lesson_ids)).first() is not None)
+        is_placeholder = (
+            (course.title or '').startswith('نموذج تجريبي |')
+            or (course.title or '') in {item[0] for item in SEED}
+            or (
+                course.is_demo
+                and not course.price_iqd
+                and not has_video
+            )
+        )
+        if is_placeholder and not any(
+                (has_enrollment, has_payment, has_video, has_progress)):
+            # No customer activity or uploaded assets: safe to discard dummy
+            # course along with its empty/demo-only lessons.
+            removed_ids.append(course.id)
+            db.session.delete(course)
+        else:
+            # An archived legacy course must not appear to customers. Keep its
+            # DB relationships and financial records intact.
+            course.is_published = False
+            archived_ids.append(course.id)
+
+    db.session.add(CatalogMigration(key=migration_key))
+    db.session.commit()
+    app.logger.warning(
+        'KORSIK_CATALOG_CLEANUP removed_ids=%s archived_ids=%s kept_ids=%s',
+        removed_ids, archived_ids, sorted(keep_ids)
+    )
+
+
 def seed_structural_design_course():
     """Add a real structural-design course draft once, without fake lessons.
 
@@ -5663,9 +5718,13 @@ def admin_courses():
 
     return render_template(
         'admin_courses.html',
-        courses=Course.query.order_by(
+        courses=Course.query.filter(Course.id.in_([21, 22, 23])).order_by(
             Course.id
-        ).all()
+        ).all(),
+        archived_count=Course.query.filter(~Course.id.in_([21, 22, 23])).count(),
+        archived_courses=(Course.query.filter(~Course.id.in_([21, 22, 23]))
+                          .order_by(Course.id).all()
+                          if request.args.get('show_archived') == '1' else [])
     )
 
 
@@ -6497,11 +6556,12 @@ with app.app_context():
     if 'cart_snapshot' not in card_columns:
         with db.engine.begin() as connection:
             connection.execute(sql_text('ALTER TABLE card_checkout ADD COLUMN cart_snapshot TEXT'))
-    seed_courses()
-    seed_korsik_demo_courses()
+    # Do not re-create placeholder/demo courses on application restart.
+    # New courses are added deliberately through the Korsik admin panel.
     seed_services_and_store()
     seed_account_recovery_service()
     structural_course = seed_structural_design_course()
+    cleanup_old_korsik_placeholders()
     app.logger.warning(
         'KORSIK_STRUCTURAL_AUDIT course_id=%s published=%s demo=%s price_iqd=%s lessons=%s',
         structural_course.id, structural_course.is_published,
