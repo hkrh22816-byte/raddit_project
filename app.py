@@ -1623,6 +1623,58 @@ def seed_korsik_demo_courses():
         db.session.commit()
 
 
+
+def seed_structural_design_course():
+    """Add a real structural-design course draft once, without fake lessons.
+
+    Topics are a proposed syllabus and must be reconciled to the uploader's
+    actual video content before the course is publicly advertised.
+    """
+    title = 'التصميم الإنشائي الشامل من الصفر إلى الاحتراف'
+    existing = Course.query.filter_by(title=title).first()
+    if existing:
+        return existing
+    description = (
+        'دورة شاملة مقترحة لطلبة وخريجي الهندسة المدنية والمهتمين بفهم '
+        'منهجية التحليل والتصميم الإنشائي من المفاهيم الأساسية إلى '
+        'إعداد المخططات والمشاريع التطبيقية.\n\n'
+        'المحاور المقترحة للمنهج (تُراجع بعد رفع الدروس الفعلية):\n'
+        '1. مدخل للتصميم الإنشائي وقراءة المخططات المعمارية والإنشائية.\n'
+        '2. مبادئ مقاومة المواد والخرسانة المسلحة وسلوك العناصر الإنشائية.\n'
+        '3. تحديد الأحمال الميتة والحية والرياح والزلازل وتراكيب الأحمال حسب الكود المعتمد.\n'
+        '4. أساسيات التحليل الإنشائي واختيار النظام الإنشائي المناسب.\n'
+        '5. النمذجة والتحليل باستخدام ETABS أو SAP2000 عند توفر دروسها.\n'
+        '6. تصميم البلاطات والكمرات والأعمدة ومراجعة النتائج.\n'
+        '7. تصميم القواعد والأساسات ودراسة نتائج التربة باستخدام SAFE عند توفر دروسه.\n'
+        '8. تصميم السلالم والجدران الاستنادية والتفاصيل الإنشائية الخاصة.\n'
+        '9. تفاصيل التسليح والربط والاشتراطات الإنشائية الأساسية.\n'
+        '10. إخراج المخططات التنفيذية وجداول الحديد والكميات والتنسيق مع المعماري.\n'
+        '11. تدقيق النماذج والتصاميم وتوثيق الافتراضات والتحقق من الأخطاء.\n'
+        '12. مشروع تطبيقي من قراءة المخططات إلى تسليم النتائج.\n\n'
+        'المحتوى النهائي يعتمد على الفيديوهات التي ستُرفع لاحقاً. '
+        'التطبيق على مشاريع حقيقية يحتاج مراجعة مهندس إنشائي مختص '
+        'والالتزام بالكود والأنظمة المحلية المعتمدة.'
+    )
+    course = Course(
+        title=title,
+        category='الهندسة المدنية والإنشائية',
+        level='من الأساسيات إلى التطبيق العملي',
+        price='قيد تجهيز الكورس',
+        price_iqd=None,
+        instructor='أكاديمية كورسيك — يُحدّد المدرب لاحقاً',
+        description=description,
+        is_published=False,
+        is_demo=True,
+        access_days=30
+    )
+    db.session.add(course)
+    db.session.commit()
+    app.logger.warning(
+        'KORSIK_STRUCTURAL_DRAFT_CREATED course_id=%s published=%s price_iqd=%s',
+        course.id, course.is_published, course.price_iqd)
+    return course
+
+
 SERVICE_SEED = []
 
 STORE_SEED = [
@@ -5791,6 +5843,19 @@ def admin_create_ai_course():
     return redirect(url_for('admin_lessons', course_id=course.id))
 
 
+@app.route('/admin/courses/structural-design')
+@login_required
+def admin_structural_design_course():
+    if not admin_only():
+        abort(403)
+    course = Course.query.filter_by(
+        title='التصميم الإنشائي الشامل من الصفر إلى الاحتراف').first()
+    if not course:
+        flash('كورس التصميم الإنشائي لم يُنشأ بعد. راجع إعدادات الموقع.', 'error')
+        return redirect(url_for('admin_courses'))
+    return redirect(url_for('admin_lessons', course_id=course.id))
+
+
 @app.route('/admin/courses/python/create', methods=['POST'])
 @login_required
 def admin_create_python_course():
@@ -6436,6 +6501,12 @@ with app.app_context():
     seed_korsik_demo_courses()
     seed_services_and_store()
     seed_account_recovery_service()
+    structural_course = seed_structural_design_course()
+    app.logger.warning(
+        'KORSIK_STRUCTURAL_AUDIT course_id=%s published=%s demo=%s price_iqd=%s lessons=%s',
+        structural_course.id, structural_course.is_published,
+        structural_course.is_demo, structural_course.price_iqd,
+        len(structural_course.lessons))
 
     # One-off, idempotent release of the AI course already uploaded by the
     # academy administrator. Never publish or charge for an incomplete set.
