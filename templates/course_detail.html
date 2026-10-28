@@ -1169,18 +1169,18 @@ fbq('track', 'ViewContent', {
 });
 </script>
 <script>
-document.querySelectorAll('form[action*="/pay-card"], form[action*="/buy-wallet"]').forEach(function (form) {
-  form.addEventListener('submit', function () {
-    if (typeof window.fbq !== 'function') return;
-    window.fbq('track', 'InitiateCheckout', {
-      content_ids: [{{ course.id | tojson }}],
-      content_name: {{ course.title | tojson }},
-      content_type: 'product',
-      value: Number({{ (course.price_iqd or 0) | tojson }}),
-      currency: 'IQD'
-    });
+document.addEventListener('submit', function (event) {
+  var form = event.target;
+  if (!form || !form.matches || !form.matches('form[action*="/pay-card"], form[action*="/buy-wallet"]')) return;
+  if (typeof window.fbq !== 'function') return;
+  window.fbq('track', 'InitiateCheckout', {
+    content_ids: [{{ course.id | tojson }}],
+    content_name: {{ course.title | tojson }},
+    content_type: 'product',
+    value: Number({{ (course.price_iqd or 0) | tojson }}),
+    currency: 'IQD'
   });
-});
+}, true);
 </script>
 {% if meta_purchase_event %}
 <script>
