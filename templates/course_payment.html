@@ -40,7 +40,7 @@ textarea{min-height:100px;resize:vertical}.btn{width:100%;margin-top:20px;border
   <div class="muted">{{ course.title }}{% if course.price %} — {{ course.price }}{% endif %}</div>
 
 {% if course.price_iqd and not course.is_demo and (course.lessons|selectattr('video_url')|list|length) %}
-<div class="card" style="margin:18px 0"><div class="tag">SECURE CARD PAYMENT</div><h2>الدفع الإلكتروني بالفيزا أو الماستركارد</h2><p class="muted">يتم تفعيل الكورس عند تأكيد الدفع بنجاح.</p>
+<div class="card" style="margin:18px 0"><div class="tag">SECURE CARD PAYMENT</div><h2>الدفع الإلكتروني بالفيزا أو الماستركارد</h2><p class="muted">يتفعّل الكورس تلقائياً بعد تأكيد الدفع، بدون انتظار موافقة الإدارة.</p>
 <form method="post" action="{{ url_for('course_pay_card',course_id=course.id) }}" style="display:grid;gap:12px">
 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 <label>رقم الهاتف العراقي</label><input name="contact" type="tel" maxlength="20" placeholder="07xxxxxxxxx" required>
@@ -49,7 +49,8 @@ textarea{min-height:100px;resize:vertical}.btn{width:100%;margin-top:20px;border
 </form></div>{% endif %}
   <div class="grid">
     <div class="card">
-      <div class="tag">PAYMENT METHODS</div>
+      <div class="tag">الدفع اليدوي — مراجعة الإدارة</div>
+      <p class="muted">بالتحويل اليدوي، يبقى الكورس بانتظار مراجعة إثبات الدفع وموافقة الإدارة.</p>
       {% if payment_methods %}
       <form method="POST" enctype="multipart/form-data">
 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">

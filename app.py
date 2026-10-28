@@ -29,6 +29,7 @@ import json
 import time
 from urllib.request import Request as UrlRequest, urlopen
 from urllib.error import HTTPError, URLError
+from decimal import Decimal, InvalidOperation
 from datetime import datetime, timedelta
 from urllib.parse import urlparse
 from xml.sax.saxutils import escape as xml_escape
@@ -961,6 +962,19 @@ def create_swiftpay_invoice(order_type, order_id, customer_name,
         app.logger.info('SwiftPay checkout URL reconstructed from invoice slug')
 
     return invoice_id, pay_url, invoice_total
+
+
+def parse_gateway_iqd(value):
+    """Read whole dinars without silently truncating a signed amount."""
+    if isinstance(value, bool) or not isinstance(value, (str, int, float)):
+        raise ValueError('Invalid payment amount')
+    try:
+        amount = Decimal(str(value))
+    except InvalidOperation as exc:
+        raise ValueError('Invalid payment amount') from exc
+    if not amount.is_finite() or amount < 1 or amount != amount.to_integral_value() or amount > 2147483647:
+        raise ValueError('Invalid payment amount')
+    return int(amount)
 
 
 def verify_swiftpay_webhook(raw_body, signature_header):
@@ -2246,13 +2260,15 @@ def swiftpay_return():
         flash('يمكنك مراجعة حالة طلبك من حسابك في RABBIT.', 'info')
         return redirect(url_for('account'))
     state = swiftpay_checkout_state(order)
+    course_checkout = isinstance(order, CardCheckout) and order.order_type == 'course'
     response = app.make_response(render_template(
         'swiftpay_return.html',
         state=state,
         cancelled=request.args.get('result') == 'cancel',
         order_id=order.id,
         status_url=url_for('swiftpay_return_status'),
-        account_url=url_for('account'),
+        account_url=url_for('learning_hub') if course_checkout else url_for('account'),
+        course_checkout=course_checkout,
     ))
     response.headers['Cache-Control'] = 'no-store, private'
     response.headers['Referrer-Policy'] = 'no-referrer'
@@ -2807,11 +2823,13 @@ def swiftpay_webhook():
             or not data.get('invoiceId')):
         return {'ok': True}
     try:
-        paid_amount = int(data.get('amount'))
+        paid_amount = parse_gateway_iqd(data.get('amount'))
     except (TypeError, ValueError):
         return {'ok': True}
 
-    invoice_id = str(data['invoiceId'])[:120]
+    invoice_id = str(data['invoiceId'])
+    if not invoice_id or len(invoice_id) > 120:
+        return {'ok': True}
     order = ServiceOrder.query.filter_by(
         gateway_invoice_id=invoice_id, payment_provider=f'swiftpay_{swiftpay_mode()}'
     ).first()
