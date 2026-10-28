@@ -4344,11 +4344,16 @@ def course_detail(course_id):
     if not c:
         abort(404)
 
-    if (
-        not c.is_published
-        and not admin_only()
-    ):
-        abort(404)
+    if not c.is_published and not admin_only():
+        # An archived legacy course is hidden from the catalog, but students
+        # with an existing active enrollment must retain what they purchased.
+        archived_enrollment = (
+            Enrollment.query.filter_by(
+                user_id=current_user.id, course_id=c.id).first()
+            if current_user.is_authenticated else None
+        )
+        if not enrollment_has_access(archived_enrollment):
+            abort(404)
 
     has_course_access = False
     enrollment = None
