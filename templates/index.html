@@ -1702,10 +1702,9 @@ src="https://www.facebook.com/tr?id=1118289697236842&ev=PageView&noscript=1"
                 <h3><a href="{{ url_for('course_detail', course_id=course.id) }}">{{ course.title }}</a></h3>
                 <p>{{ course.description.split('\n')[0]|striptags|truncate(115, True, '…') }}</p>
                 <div class="k-details"><span>{{ course.lessons|length }} محاور</span>
-                    {% if item.ready and course.price_iqd %}
-                    <b>{{ '{:,}'.format(course.price_iqd) }} د.ع / {{ course.access_days }} يوم</b>
-                    {% elif course.is_demo %}<b>للعرض فقط</b>
-                    {% else %}<b>قريباً</b>{% endif %}
+                    {% if course.is_demo %}<b>نموذج للعرض</b>
+                    {% elif item.ready %}<b>ضمن الأكاديمية</b>
+                    {% else %}<b>قيد التجهيز</b>{% endif %}
                 </div>
                 <a class="k-open" href="{{ url_for('course_detail', course_id=course.id) }}">تفاصيل المسار <span>←</span></a>
             </div>
@@ -1716,8 +1715,8 @@ src="https://www.facebook.com/tr?id=1118289697236842&ev=PageView&noscript=1"
     <div class="k-empty">قريباً: مسارات الأكاديمية. تابع صفحة الكورسات للاطلاع على جديدنا.</div>
     {% endif %}
     <div class="k-bottom">
-        <div><small>RABBIT × KORSIK</small><h3>التعلّم بداية الطريق، والتطبيق يصنع الفرق.</h3><p>تعلم مع كورسيك، واستفد من خدمات RABBIT ومتجرها لتطوير مشروعك الرقمي.</p></div>
-        <a class="main-btn primary-btn" href="{{ url_for('courses') }}">استكشف الأكاديمية</a>
+        <div><small>RABBIT × KORSIK / ANNUAL PASS</small><h3>اشتراك واحد، وكل الكورسات المنشورة إلك.</h3><p>49,000 د.ع لمدة سنة كاملة — تدفع مرة واحدة، وتتعلم من كل المسارات المتاحة بحسابك.</p></div>
+        <a class="main-btn primary-btn" href="{{ url_for('korsik_subscription') }}">اشترك سنوياً ←</a>
     </div>
 </section>
 
