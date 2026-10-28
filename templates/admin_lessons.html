@@ -104,6 +104,11 @@
     </a>
 
     <h1>{{ course.title }}</h1>
+    {% if not course.is_published %}
+    <div class="box" style="border-color:#8b6830;background:#1b1608;color:#f3d79d;line-height:1.8">
+        الدورة مخفية حالياً. بعد رفع الدروس ومراجعتها، ارجع لإدارة الكورسات واضغط «تعديل» ثم فعّل «منشورة للزوار».
+    </div>
+    {% endif %}
     <div class="box" style="border-color:#206b45;background:linear-gradient(120deg,#071e12,#07110b)">
         <div style="font-size:11px;color:#00f58a;letter-spacing:1.5px">KORSIK / VIDEO STUDIO</div>
         <h2 style="margin:10px 0">رفع فيديوهات الكورس</h2>
