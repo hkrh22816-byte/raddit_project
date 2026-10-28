@@ -1822,7 +1822,7 @@
                     </span>
 
                     <span class="price">
-                        {% if c.is_demo %}نموذج للعرض فقط{% elif not (c.lessons|selectattr('video_url')|list|length) %}قريباً — بانتظار الدروس{% elif c.price_iqd %}{{ '{:,}'.format(c.price_iqd) }} د.ع / {{ c.access_days }} يوم{% else %}{{ c.price }}{% endif %}
+                        {% if c.is_demo %}نموذج للعرض فقط{% elif not (c.lessons|selectattr('video_url')|list|length) %}قريباً — بانتظار الدروس{% elif c.price_iqd %}{{ '{:,}'.format(c.price_iqd) }} د.ع / {{ 'اشتراك سنوي' if c.access_days >= 365 else (c.access_days ~ ' يوم') }}{% else %}{{ c.price }}{% endif %}
                     </span>
 
                 </div>

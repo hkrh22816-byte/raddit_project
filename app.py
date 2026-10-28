@@ -6489,6 +6489,83 @@ with app.app_context():
         else:
             app.logger.warning('Korsik AI course 21 not found or title does not match; not changed')
 
+
+    # Release this already-uploaded course only if every listed lesson has a video.
+    # Idempotent migration: preserves existing enrollments and site lesson order.
+    python_release_key = 'korsik_python_30000_365d_clean_titles_v1'
+    python_course = Course.query.filter_by(
+        title='تعلم لغة بايثون من الصفر إلى الاحتراف').first()
+    if python_course and db.session.get(CatalogMigration, python_release_key) is None:
+        python_lessons = list(python_course.lessons)
+        python_videos = [lesson for lesson in python_lessons
+                         if (lesson.video_url or '').strip()]
+        if len(python_lessons) >= 2 and len(python_videos) == len(python_lessons):
+            for lesson in python_lessons:
+                original_title = re.sub(r'\s+', ' ', (lesson.title or '')).strip()
+                clean = original_title
+                serial_number = int(lesson.position or 0)
+                for _ in range(8):
+                    previous = clean
+                    # Uploaded names can repeat the lesson number three times.
+                    clean = re.sub(r'^\s*\d{1,3}\s*[.)_:\-–—]\s*',
+                                   '', clean).strip()
+                    clean = re.sub(
+                        r'^\s*\d{1,3}\s+(?=\d{1,3}(?:\s|[.):_\-–—])|(?:دورة|كورس|درس|تعلم|تعليم)\b|Python\b|بايثون\b)',
+                        '', clean, flags=re.IGNORECASE).strip()
+                    if serial_number:
+                        clean = re.sub(
+                            r'^\s*0*' + str(serial_number) + r'(?=\s|[.):_\-–—])\s*[.):_\-–—]?\s*',
+                            '', clean).strip()
+                    clean = re.sub(
+                        r'^\s*(?:(?:كورس|دورة|تعليم|تعلم)\s+)(?:لغة\s+)?'
+                        r'(?:ال)?(?:بايثون|python)'
+                        r'(?:\s+من\s+الصفر\s+(?:إلى|الى)\s+الاحتراف)?'
+                        r'\s*(?:[|:–—\-]\s*)?',
+                        '', clean, flags=re.IGNORECASE
+                    ).strip(' ._:-–—|،')
+                    if clean == previous:
+                        break
+                if '|' in clean:
+                    left, _, right = clean.partition('|')
+                    if right.strip() and re.search(r'(?:كورس|دورة|python|بايثون)', left, re.I):
+                        clean = right.strip()
+                if clean:
+                    lesson.title = clean[:180]
+            python_course.price = '30,000 د.ع — اشتراك سنوي'
+            python_course.price_iqd = 30000
+            python_course.access_days = 365
+            python_course.is_demo = False
+            python_course.is_published = True
+            python_course.description = (
+                'تعلم لغة Python من الصفر إلى الاحتراف، من مفاهيم البرمجة '
+                'إلى الموضوعات والتطبيقات العملية الموجودة في دروس الدورة. '
+                'اشتراك سنوي لمدة 365 يوماً يبدأ عند تفعيل الاشتراك، '
+                'بقيمة 30,000 دينار عراقي دون تجديد تلقائي.'
+            )
+            db.session.add(CatalogMigration(key=python_release_key))
+            db.session.commit()
+            app.logger.warning(
+                'KORSIK_PYTHON_RELEASE published=True price=30000 days=365 lessons=%d',
+                len(python_lessons)
+            )
+        else:
+            app.logger.warning(
+                'KORSIK_PYTHON_RELEASE_PENDING lessons=%d videos=%d',
+                len(python_lessons), len(python_videos)
+            )
+    if python_course:
+        app.logger.warning(
+            'KORSIK_PYTHON_AUDIT id=%d published=%s demo=%s price=%s days=%s lessons=%d videos=%d numeric_prefixes=%d',
+            python_course.id, python_course.is_published, python_course.is_demo,
+            python_course.price_iqd, python_course.access_days,
+            len(python_course.lessons),
+            sum(bool((l.video_url or '').strip()) for l in python_course.lessons),
+            sum(bool(re.match(r'^\s*\d{1,3}\s*[.)_:\-–—]',
+                              l.title or '')) for l in python_course.lessons)
+        )
+    else:
+        app.logger.warning('KORSIK_PYTHON_AUDIT no matching course found')
+
     # Non-sensitive release check in Railway logs: verifies that the database
     # update actually ran (successful deployment alone is not proof of sale readiness).
     released_course = db.session.get(Course, 21)
