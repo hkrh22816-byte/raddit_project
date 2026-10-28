@@ -5,6 +5,7 @@ No requests are sent to SwiftPay and no real database credentials are used.
 import hashlib
 import hmac
 import importlib
+from io import BytesIO
 import json
 import os
 from pathlib import Path
@@ -12,7 +13,7 @@ import sys
 import tempfile
 import time
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 
 class CoursePaymentTests(unittest.TestCase):
@@ -84,10 +85,13 @@ class CoursePaymentTests(unittest.TestCase):
         return row
 
     def webhook(self, amount=1250, event='payment.succeeded', live=True,
-                secret='whsec_test_fixture', timestamp=None, invoice_id='invoice-course'):
-        body = json.dumps({'event': event, 'data': {'invoiceId': invoice_id,
-            'amount': amount, 'isLive': live, 'status': 'SUCCEEDED',
-            'paymentId': 'payment-1'}}).encode()
+                status='SUCCEEDED', reason=None, secret='whsec_test_fixture',
+                timestamp=None, invoice_id='invoice-course'):
+        data = {'invoiceId': invoice_id, 'amount': amount, 'isLive': live,
+                'status': status, 'paymentId': 'payment-1'}
+        if reason is not None:
+            data['failureReason'] = reason
+        body = json.dumps({'event': event, 'data': data}).encode()
         timestamp = int(time.time()) if timestamp is None else timestamp
         signature = hmac.new(secret.encode(), str(timestamp).encode() + b'.' + body,
                              hashlib.sha256).hexdigest()
@@ -108,6 +112,41 @@ class CoursePaymentTests(unittest.TestCase):
         self.assertIsNotNone(self.enrollment().expires_at)
         self.assertEqual(self.m.CoursePayment.query.count(), 0)
 
+    def test_signed_decline_shows_reason_but_does_not_unlock_and_later_success_wins(self):
+        checkout = self.checkout()
+        self.login(self.student_id)
+        with self.client.session_transaction() as session:
+            session['swiftpay_checkout'] = {'order_type': 'course', 'order_id': checkout.id,
+                'user_id': self.student_id, 'invoice_id': 'invoice-course'}
+
+        response = self.webhook(event='payment.failed', status='FAILED',
+                                reason='Insufficient funds')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(checkout.status, 'failed')
+        self.assertIn('عدم كفاية الرصيد', checkout.gateway_failure_reason)
+        self.assertIsNone(self.enrollment())
+        self.assertEqual(self.client.get('/payments/swiftpay/return/status').json['state'], 'failed')
+        page = self.client.get('/payments/swiftpay/return')
+        self.assertIn('تعذّر إكمال الدفع'.encode(), page.data)
+        self.assertIn('عدم كفاية الرصيد'.encode(), page.data)
+        account = self.client.get('/account')
+        self.assertIn('تعذّر الدفع'.encode(), account.data)
+        self.assertIn('عدم كفاية الرصيد'.encode(), account.data)
+
+        self.webhook()
+        self.assertEqual(checkout.status, 'paid')
+        self.assertEqual(checkout.gateway_failure_reason, '')
+        self.assertTrue(self.m.enrollment_has_access(self.enrollment()))
+
+    def test_late_failed_event_cannot_downgrade_a_paid_course(self):
+        checkout = self.checkout()
+        self.webhook()
+        expiry = self.enrollment().expires_at
+        self.webhook(event='payment.failed', status='FAILED', reason='Insufficient funds')
+        self.assertEqual(checkout.status, 'paid')
+        self.assertEqual(checkout.gateway_failure_reason, '')
+        self.assertEqual(self.enrollment().expires_at, expiry)
+
     def test_duplicate_success_events_do_not_extend_access_or_notify_twice(self):
         self.checkout()
         self.webhook()
@@ -123,13 +162,41 @@ class CoursePaymentTests(unittest.TestCase):
         checkout = self.checkout()
         for arguments in ({'amount': 1000}, {'amount': 1250.9}, {'amount': True},
                           {'amount': None}, {'amount': 'NaN'}, {'amount': 'Infinity'},
-                          {'live': False}, {'event': 'payment.failed'},
+                          {'live': False},
+                          {'event': 'payment.failed', 'status': 'FAILED', 'amount': 1000},
+                          {'status': 'PENDING'},
                           {'invoice_id': 'unknown'}, {'invoice_id': 'invoice-course' + 'x' * 121},
-                          {'secret': 'wrong'}, {'timestamp': int(time.time()) - 301}):
+                          {'secret': 'wrong'}, {'timestamp': int(time.time()) - 301},
+                          {'timestamp': int(time.time()) + 301}):
             with self.subTest(arguments=arguments):
                 self.webhook(**arguments)
                 self.assertIsNone(self.enrollment())
                 self.assertEqual(checkout.status, 'pending')
+
+    def test_admin_and_paid_video_routes_reject_anonymous_and_regular_users(self):
+        lesson_id = self.m.Lesson.query.filter_by(course_id=self.course_id).one().id
+        self.assertEqual(self.client.get('/admin').status_code, 302)
+        self.assertEqual(self.client.get(f'/admin/course/{self.course_id}/lessons').status_code, 302)
+        self.assertEqual(self.client.get(f'/protected-video/{lesson_id}').status_code, 403)
+
+        self.login(self.student_id)
+        self.assertEqual(self.client.get('/admin').status_code, 403)
+        self.assertEqual(self.client.get(f'/admin/course/{self.course_id}/lessons').status_code, 403)
+        self.assertEqual(self.client.get(f'/protected-video/{lesson_id}').status_code, 403)
+
+    def test_cloud_video_upload_uses_parallel_multipart_transfer(self):
+        video = self.m.FileStorage(stream=BytesIO(b'video-bytes'), filename='lesson.mp4',
+                                   content_type='video/mp4')
+        with patch.dict(os.environ, {'KORSIK_S3_BUCKET': 'fixture-bucket'}), \
+             patch.object(self.m, 'korsik_bucket_enabled', return_value=True), \
+             patch.object(self.m, 'korsik_s3', return_value=Mock()) as s3_factory:
+            stored = self.m.save_video(video)
+            transfer = s3_factory.return_value.upload_fileobj.call_args.kwargs['Config']
+
+        self.assertRegex(stored, r'^s3:videos/[0-9a-f]{32}\.mp4$')
+        # Inspect the transfer config instead of timing a real network upload.
+        self.assertTrue(transfer.use_threads)
+        self.assertEqual(transfer.max_concurrency, 3)
 
     def test_browser_success_parameter_does_not_activate(self):
         checkout = self.checkout()
