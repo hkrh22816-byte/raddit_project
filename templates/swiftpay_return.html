@@ -15,6 +15,34 @@ a{display:block;text-decoration:none;border-radius:10px;padding:15px;margin:20px
 .small{color:#9ab2a2;font-size:13px}.indicator{height:12px;width:12px;border-radius:50%;display:inline-block;background:#facf5c;margin-inline-end:5px}
 .indicator.paid{background:#00f58a}.indicator.attention,.indicator.failed{background:#fd8491}
 </style>
+<!-- Meta Pixel Code -->
+<script>
+!function(f,b,e,v,n,t,s)
+{if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+n.queue=[];t=b.createElement(e);t.async=!0;
+t.src=v;s=b.getElementsByTagName(e)[0];
+s.parentNode.insertBefore(t,s)}(window, document,'script',
+'https://connect.facebook.net/en_US/fbevents.js');
+fbq('init', '1118289697236842');
+fbq('track', 'PageView');
+</script>
+<!-- End Meta Pixel Code -->
+{% if state == 'paid' and course_checkout %}
+<script>
+(function () {
+  var eventId = {{ ('card-course-' ~ order_id) | tojson }};
+  var eventValue = {{ purchase_value_iqd | tojson }};
+  if (!eventId || typeof window.fbq !== 'function') return;
+  var key = 'rabbit-meta-purchase:' + eventId;
+  try { if (window.localStorage.getItem(key)) return; } catch (e) {}
+  window.fbq('track', 'Purchase', {value: Number(eventValue) || 0, currency: 'IQD'}, {eventID: eventId});
+  try { window.localStorage.setItem(key, '1'); } catch (e) {}
+  
+})();
+</script>
+{% endif %}
 </head>
 <body>
 <main class="card">

@@ -2311,6 +2311,7 @@ def swiftpay_return():
         account_url=url_for('learning_hub') if course_checkout else url_for('account'),
         retry_url=retry_url,
         course_checkout=course_checkout,
+        purchase_value_iqd=(order.amount_iqd if course_checkout and state == 'paid' else 0),
     ))
     response.headers['Cache-Control'] = 'no-store, private'
     response.headers['Referrer-Policy'] = 'no-referrer'
@@ -4504,7 +4505,22 @@ def course_detail(course_id):
         resume_lesson=resume_lesson,
         resume_seconds=resume_seconds,
         course_completion_percent=course_completion_percent,
-        course_ready=course_ready_for_sales(c)
+        course_ready=course_ready_for_sales(c),
+        meta_purchase_event=(
+            {
+                'id': f'manual-course-{manual_payment.id}',
+                'value': c.price_iqd or parse_iqd_price(c.price) or 0
+            }
+            if (current_user.is_authenticated
+                and request.args.get('meta_payment_id')
+                and (manual_payment := CoursePayment.query.filter_by(
+                    id=request.args.get('meta_payment_id'),
+                    user_id=current_user.id,
+                    course_id=c.id,
+                    status='approved'
+                ).first()))
+            else None
+        )
     ))
     # The page can contain member-only lesson/video URLs; never share-cache it.
     response.headers['Cache-Control'] = 'private, no-store'
@@ -4550,7 +4566,9 @@ def learning_hub():
         cards.append({'course': course, 'total': total, 'completed': completed,
                       'percent': percent, 'next_lesson': next_lesson,
                       'resume_seconds': resume_seconds})
-    return render_template('learning_hub.html', cards=cards)
+    meta_purchase_event = session.pop('meta_purchase_event', None)
+    return render_template('learning_hub.html', cards=cards,
+                           meta_purchase_event=meta_purchase_event)
 
 
 @app.route('/lesson/<int:lesson_id>/watch-progress', methods=['POST'])
@@ -4799,6 +4817,10 @@ def course_buy_wallet(course_id):
         amount_iqd=-amount_iqd, reference_type='course', reference_id=c.id,
         note=f'شراء كورس: {c.title}'[:250]))
     db.session.commit()
+    session['meta_purchase_event'] = {
+        'id': f'wallet-course-{enrollment.id}',
+        'value': amount_iqd,
+    }
     flash('تم شراء الكورس وتفعيله. دخلناك مباشرة إلى منطقة الدراسة.', 'success')
     return redirect(url_for('learning_hub'))
 
@@ -4979,7 +5001,9 @@ def admin_payment_approve(payment_id):
     enrollment.status = 'approved'
     enrollment.expires_at = new_course_expiration(payment.course)
     notify_user(payment.user_id, 'تم قبول الدفع وتفعيل الكورس',
-                f'صار بإمكانك مشاهدة كورس «{payment.course.title}».', url_for('course_detail', course_id=payment.course_id))
+                f'صار بإمكانك مشاهدة كورس «{payment.course.title}».',
+                url_for('course_detail', course_id=payment.course_id,
+                        meta_payment_id=payment.id))
     db.session.commit()
 
     flash('تم قبول الدفعة وتفعيل الكورس للزبون.', 'success')
