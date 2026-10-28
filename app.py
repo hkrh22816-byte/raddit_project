@@ -737,8 +737,29 @@ def enrollment_has_access(enrollment):
                      or enrollment.expires_at > datetime.utcnow()))
 
 
+KORSIK_ANNUAL_PRICE_IQD = 49000
+KORSIK_ANNUAL_DAYS = 365
+
+
 def new_course_expiration(course):
     return datetime.utcnow() + timedelta(days=max(1, min(365, course.access_days or 30)))
+
+
+def active_korsik_subscription(user_id):
+    return KorsikSubscription.query.filter(
+        KorsikSubscription.user_id == user_id,
+        KorsikSubscription.status == 'active',
+        KorsikSubscription.expires_at > datetime.utcnow()
+    ).order_by(KorsikSubscription.expires_at.desc()).first()
+
+
+def user_has_course_access(user_id, course_id):
+    if active_korsik_subscription(user_id):
+        return True
+    enrollment = Enrollment.query.filter_by(
+        user_id=user_id, course_id=course_id
+    ).first()
+    return enrollment_has_access(enrollment)
 
 
 def course_ready_for_sales(course):
@@ -1115,6 +1136,22 @@ class CoursePayment(db.Model):
     )
 
 
+class KorsikSubscription(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
+    amount_iqd = db.Column(db.Integer, nullable=False, default=49000)
+    status = db.Column(db.String(20), nullable=False, default='pending')
+    payment_method_id = db.Column(db.Integer, db.ForeignKey('payment_method.id'), nullable=True)
+    transaction_id = db.Column(db.String(250), default='')
+    proof_filename = db.Column(db.String(250), default='')
+    note = db.Column(db.Text, default='')
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    starts_at = db.Column(db.DateTime, nullable=True)
+    expires_at = db.Column(db.DateTime, nullable=True)
+    user = db.relationship('User', backref='korsik_subscriptions')
+    payment_method = db.relationship('PaymentMethod', backref='korsik_subscriptions')
+
+
 # =========================
 # Login
 # =========================
@@ -1373,7 +1410,7 @@ def protected_video(lesson_id):
             course_id=lesson.course_id
         ).first()
 
-        has_access = enrollment_has_access(enrollment)
+        has_access = user_has_course_access(current_user.id, lesson.course_id)
 
     if not has_access:
         abort(403)
@@ -2296,11 +2333,13 @@ def swiftpay_return():
         flash('يمكنك مراجعة حالة طلبك من حسابك في RABBIT.', 'info')
         return redirect(url_for('account'))
     state = swiftpay_checkout_state(order)
-    course_checkout = isinstance(order, CardCheckout) and order.order_type == 'course'
-    retry_url = (url_for('course_detail', course_id=order.reference_id)
-                 if course_checkout and order.reference_id else
-                 (url_for('account') if state == 'failed' else
-                  (url_for('learning_hub') if course_checkout else url_for('account'))))
+    course_checkout = isinstance(order, CardCheckout) and order.order_type in {'course', 'subscription'}
+    retry_url = (url_for('korsik_subscription') if isinstance(order, CardCheckout)
+                 and order.order_type == 'subscription' else
+                 (url_for('course_detail', course_id=order.reference_id)
+                  if course_checkout and order.reference_id else
+                  (url_for('account') if state == 'failed' else
+                   (url_for('learning_hub') if course_checkout else url_for('account')))))
     response = app.make_response(render_template(
         'swiftpay_return.html',
         state=state,
@@ -2351,7 +2390,7 @@ def swiftpay_continue_checkout():
         order = db.session.get(ServiceOrder, payload.get('order_id'))
     elif kind == 'store':
         order = db.session.get(StoreOrder, payload.get('order_id'))
-    elif kind in {'course', 'wallet', 'cart'}:
+    elif kind in {'course', 'wallet', 'cart', 'subscription'}:
         order = db.session.get(CardCheckout, payload.get('order_id'))
         if order and order.order_type != kind:
             abort(404)
@@ -2940,7 +2979,23 @@ def swiftpay_webhook():
         checkout.status = 'paid'
         checkout.gateway_failure_reason = ''
         checkout.confirmed_at = datetime.utcnow()
-        if checkout.order_type == 'course':
+        if checkout.order_type == 'subscription':
+            now = datetime.utcnow()
+            existing = active_korsik_subscription(checkout.user_id)
+            start = max(existing.expires_at, now) if existing else now
+            subscription = KorsikSubscription(
+                user_id=checkout.user_id, amount_iqd=checkout.amount_iqd,
+                status='active', starts_at=start,
+                expires_at=start + timedelta(days=KORSIK_ANNUAL_DAYS),
+                transaction_id=str(data.get('gatewayTxnId') or data.get('paymentId') or '')[:250])
+            db.session.add(subscription)
+            notify_user(checkout.user_id, 'تم تفعيل اشتراك كورسيك',
+                        'تم تأكيد الدفع وفتح جميع الكورسات لمدة سنة.',
+                        url_for('learning_hub'))
+            notify_admins('اشتراك كورسيك سنوي مدفوع',
+                          f'طلب #{checkout.id} · {checkout.amount_iqd:,} د.ع',
+                          url_for('admin_korsik_subscriptions'))
+        elif checkout.order_type == 'course':
             course = db.session.get(Course, checkout.reference_id)
             if not course:
                 db.session.rollback()
@@ -4415,7 +4470,149 @@ def courses():
         Course.is_published.is_(True)).distinct().order_by(Course.category.asc()).all()]
     return render_template('courses.html',
         courses=query.order_by(Course.id.desc()).all(),
-        categories=categories, search_query=search, current_category=category)
+        categories=categories, search_query=search, current_category=category,
+        korsik_annual_price_iqd=KORSIK_ANNUAL_PRICE_IQD)
+
+
+@app.route('/korsik/subscribe', methods=['GET', 'POST'])
+@login_required
+@limiter.limit('8 per hour', methods=['POST'])
+def korsik_subscription():
+    active = active_korsik_subscription(current_user.id)
+    pending = KorsikSubscription.query.filter_by(
+        user_id=current_user.id, status='pending'
+    ).order_by(KorsikSubscription.created_at.desc()).first()
+
+    if request.method == 'POST':
+        if active:
+            flash('اشتراكك السنوي فعّال بالفعل ويفتح جميع كورسات كورسيك.', 'success')
+            return redirect(url_for('learning_hub'))
+        if pending:
+            flash('عندك طلب اشتراك سنوي بانتظار مراجعة الإدارة.', 'info')
+            return redirect(url_for('korsik_subscription'))
+        if not terms_accepted():
+            flash('وافق على شروط الاشتراك قبل المتابعة.', 'error')
+            return redirect(url_for('korsik_subscription'))
+
+        payment_type = (request.form.get('payment_type') or '').strip()
+        if payment_type == 'card':
+            result = begin_swiftpay_card_checkout(
+                'subscription', None,
+                'RABBIT | كورسيك | اشتراك سنوي لجميع الكورسات',
+                KORSIK_ANNUAL_PRICE_IQD,
+                request.form.get('contact'))
+            return result or redirect(url_for('korsik_subscription'))
+
+        if payment_type != 'manual':
+            flash('اختار طريقة دفع صحيحة.', 'error')
+            return redirect(url_for('korsik_subscription'))
+
+        try:
+            method_id = int(request.form.get('payment_method_id') or 0)
+        except (TypeError, ValueError):
+            method_id = 0
+        method = db.session.get(PaymentMethod, method_id)
+        if not method or not method.is_active or not is_supported_manual_payment(method):
+            flash('اختار طريقة دفع يدوية فعّالة.', 'error')
+            return redirect(url_for('korsik_subscription'))
+
+        transaction_id = (request.form.get('transaction_id') or '').strip()
+        note = (request.form.get('note') or '').strip()
+        proof_file = request.files.get('proof')
+        if proof_file and proof_file.filename:
+            if not allowed_payment_proof(proof_file.filename):
+                flash('ارفع إثباتاً بصيغة JPG أو PNG أو WEBP أو PDF.', 'error')
+                return redirect(url_for('korsik_subscription'))
+            proof_file.stream.seek(0, os.SEEK_END)
+            proof_size = proof_file.stream.tell()
+            proof_file.stream.seek(0)
+            if proof_size > MAX_PAYMENT_PROOF_SIZE:
+                flash('حجم إثبات الدفع يجب أن لا يتجاوز 10MB.', 'error')
+                return redirect(url_for('korsik_subscription'))
+        if not transaction_id and not (proof_file and proof_file.filename):
+            flash('اكتب رقم العملية أو ارفع إثبات الدفع.', 'error')
+            return redirect(url_for('korsik_subscription'))
+
+        proof_filename = save_payment_proof(proof_file) if proof_file and proof_file.filename else ''
+        if proof_file and proof_file.filename and not proof_filename:
+            flash('تعذر التحقق من ملف إثبات الدفع.', 'error')
+            return redirect(url_for('korsik_subscription'))
+        subscription = KorsikSubscription(
+            user_id=current_user.id,
+            amount_iqd=KORSIK_ANNUAL_PRICE_IQD,
+            status='pending',
+            payment_method_id=method.id,
+            transaction_id=transaction_id[:250],
+            proof_filename=proof_filename or '',
+            note=note[:2000])
+        db.session.add(subscription)
+        db.session.flush()
+        notify_user(current_user.id, 'استلمنا طلب الاشتراك السنوي',
+                    'طلب اشتراك كورسيك لجميع الكورسات بانتظار مراجعة الدفع.',
+                    url_for('korsik_subscription'))
+        notify_admins('طلب اشتراك كورسيك سنوي',
+                      f'{current_user.username}: {KORSIK_ANNUAL_PRICE_IQD:,} د.ع',
+                      url_for('admin_korsik_subscriptions'))
+        db.session.commit()
+        flash('وصل طلبك. يتفعّل الاشتراك بعد مراجعة إثبات الدفع.', 'success')
+        return redirect(url_for('korsik_subscription'))
+
+    meta_purchase_event = None
+    meta_subscription_id = (request.args.get('meta_subscription_id') or '').strip()
+    if meta_subscription_id:
+        purchased = KorsikSubscription.query.filter_by(
+            id=meta_subscription_id, user_id=current_user.id, status='active'
+        ).first()
+        if purchased:
+            meta_purchase_event = {
+                'id': f'manual-korsik-subscription-{purchased.id}',
+                'value': purchased.amount_iqd
+            }
+    return render_template(
+        'korsik_subscription.html',
+        active=active,
+        pending=pending,
+        payment_methods=get_supported_manual_payment_methods(),
+        subscription_price_iqd=KORSIK_ANNUAL_PRICE_IQD,
+        subscription_days=KORSIK_ANNUAL_DAYS,
+        meta_purchase_event=meta_purchase_event)
+
+
+@app.route('/admin/korsik/subscriptions')
+@login_required
+def admin_korsik_subscriptions():
+    if not admin_only():
+        abort(403)
+    subscriptions = KorsikSubscription.query.order_by(
+        KorsikSubscription.created_at.desc()).all()
+    return render_template('admin_korsik_subscriptions.html',
+                           subscriptions=subscriptions)
+
+
+@app.route('/admin/korsik/subscription/<int:subscription_id>/<action>', methods=['POST'])
+@login_required
+def admin_korsik_subscription_action(subscription_id, action):
+    if not admin_only():
+        abort(403)
+    subscription = db.session.get(KorsikSubscription, subscription_id) or abort(404)
+    if subscription.status != 'pending' or action not in {'approve', 'reject'}:
+        abort(400)
+    if action == 'approve':
+        now = datetime.utcnow()
+        existing = active_korsik_subscription(subscription.user_id)
+        start = max(existing.expires_at, now) if existing else now
+        subscription.status = 'active'
+        subscription.starts_at = start
+        subscription.expires_at = start + timedelta(days=KORSIK_ANNUAL_DAYS)
+        notify_user(subscription.user_id, 'تم تفعيل اشتراك كورسيك',
+                    'اشتراكك السنوي صار فعّالاً وتكدر تدخل لجميع الكورسات.',
+                    url_for('learning_hub'))
+        flash('تم تفعيل الاشتراك السنوي لجميع الكورسات.', 'success')
+    else:
+        subscription.status = 'rejected'
+        flash('تم رفض طلب الاشتراك.', 'info')
+    db.session.commit()
+    return redirect(url_for('admin_korsik_subscriptions'))
 
 
 @app.route(
@@ -4458,7 +4655,7 @@ def course_detail(course_id):
                 course_id=c.id
             ).first()
 
-            if enrollment_has_access(enrollment):
+            if user_has_course_access(current_user.id, c.id):
                 has_course_access = True
 
     completed_lesson_ids = set()
@@ -4499,6 +4696,9 @@ def course_detail(course_id):
         'course_detail.html',
         course=c,
         has_course_access=has_course_access,
+        korsik_subscription_pending=bool(KorsikSubscription.query.filter_by(
+            user_id=current_user.id, status='pending').first()
+            if current_user.is_authenticated else False),
         enrollment=enrollment,
         completed_lesson_ids=completed_lesson_ids,
         watch_positions=watch_positions,
@@ -4533,9 +4733,12 @@ def learning_hub():
     enrollments = [e for e in Enrollment.query.filter_by(
         user_id=current_user.id, status='approved'
     ).order_by(Enrollment.id.desc()).all() if enrollment_has_access(e)]
+    accessible_courses = {e.course_id: e.course for e in enrollments}
+    if active_korsik_subscription(current_user.id):
+        for course in Course.query.filter_by(is_published=True).order_by(Course.id.desc()).all():
+            accessible_courses[course.id] = course
     cards = []
-    for enrollment in enrollments:
-        course = enrollment.course
+    for course in accessible_courses.values():
         lessons = list(course.lessons)
         lesson_ids = [l.id for l in lessons]
         completed_ids = set()
@@ -4580,7 +4783,7 @@ def lesson_watch_progress(lesson_id):
     if not current_user.is_admin:
         enrollment = Enrollment.query.filter_by(
             user_id=current_user.id, course_id=lesson.course_id).first()
-        if not enrollment_has_access(enrollment):
+        if not user_has_course_access(current_user.id, lesson.course_id):
             abort(403)
     if not lesson.video_url:
         abort(404)
@@ -4628,7 +4831,7 @@ def lesson_complete(lesson_id):
     enrollment = Enrollment.query.filter_by(
         user_id=current_user.id, course_id=lesson.course_id, status='approved'
     ).first()
-    if not current_user.is_admin and not enrollment_has_access(enrollment):
+    if not current_user.is_admin and not user_has_course_access(current_user.id, lesson.course_id):
         abort(403)
     progress = LessonProgress.query.filter_by(user_id=current_user.id, lesson_id=lesson.id).first()
     if not progress:
@@ -4649,7 +4852,7 @@ def lesson_progress_toggle(lesson_id):
     enrollment = Enrollment.query.filter_by(
         user_id=current_user.id, course_id=lesson.course_id, status='approved'
     ).first()
-    if not current_user.is_admin and not enrollment_has_access(enrollment):
+    if not current_user.is_admin and not user_has_course_access(current_user.id, lesson.course_id):
         abort(403)
     progress = LessonProgress.query.filter_by(user_id=current_user.id, lesson_id=lesson.id).first()
     if not progress:
@@ -4672,6 +4875,7 @@ def lesson_progress_toggle(lesson_id):
 )
 @login_required
 def request_course_enrollment(course_id):
+    return redirect(url_for('korsik_subscription'))
     c = db.session.get(Course, course_id) or abort(404)
     if not course_ready_for_sales(c) or not c.is_published or not (c.price_iqd or parse_iqd_price(c.price)):
         flash('هذه دورة تجريبية أو غير مسعّرة. الاشتراك سيتاح بعد رفع الدروس الحقيقية.', 'info')
@@ -4740,6 +4944,7 @@ def begin_swiftpay_card_checkout(kind, reference_id, description, amount_iqd, ph
 @login_required
 @limiter.limit('8 per hour')
 def course_pay_card(course_id):
+    return redirect(url_for('korsik_subscription'))
     c = db.session.get(Course, course_id) or abort(404)
     if not c.is_published:
         abort(404)
@@ -4787,6 +4992,7 @@ def wallet_top_up_card():
 @login_required
 @limiter.limit("10 per hour")
 def course_buy_wallet(course_id):
+    return redirect(url_for('korsik_subscription'))
     c = db.session.get(Course, course_id) or abort(404)
     if not course_ready_for_sales(c):
         flash('هذا الكورس غير متاح للشراء حتى تكتمل فيديوهات الدروس.', 'info')
@@ -4835,6 +5041,7 @@ def course_buy_wallet(course_id):
 @login_required
 @limiter.limit("10 per hour", methods=["POST"])
 def course_payment(course_id):
+    return redirect(url_for('korsik_subscription'))
     c = db.session.get(Course, course_id) or abort(404)
     if not course_ready_for_sales(c) or not (c.price_iqd or parse_iqd_price(c.price)):
         flash('لا يمكن شراء هذا الكورس قبل رفع فيديوهاته الحقيقية وتحديد السعر.', 'info')
@@ -5310,6 +5517,8 @@ def admin_panel():
 
     return render_template(
         'admin.html',
+
+        korsik_pending_subscription_count=KorsikSubscription.query.filter_by(status='pending').count(),
 
         users=User.query.filter_by(
             is_admin=False
