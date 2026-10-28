@@ -385,6 +385,7 @@ th{
 </div>
 
 
+<div class="card manage" style="margin-top:18px"><div><h2>اشتراكات كورسيك السنوية{% if korsik_pending_subscription_count %} <span class="wait">({{ korsik_pending_subscription_count }} بانتظار المراجعة)</span>{% endif %}</h2><p>راجع إثبات الدفع وفعّل وصول الطالب إلى جميع الكورسات لمدة سنة.</p></div><a class="btn" href="{{ url_for('admin_korsik_subscriptions') }}">إدارة الاشتراكات السنوية ←</a></div>
 <div class="card manage" style="margin-top:18px"><div><h2>مدفوعات البطاقات الإلكترونية</h2><p>عرض حالة فواتير الكورسات والسلة وشحن الرصيد، وتطابق المبلغ المدفوع مع طلب الزبون.</p></div><a class="btn" href="{{ url_for('admin_card_payments') }}">عرض المدفوعات الإلكترونية ←</a></div>
 <div class="card manage" style="margin-top:18px"><div><h2>طلبات شحن الرصيد</h2><p>راجع التحويلات اليدوية وأضف الرصيد بعد التأكد من الدفع.</p></div><a class="btn" href="{{ url_for('admin_wallet_topups') }}">فتح طلبات الشحن ←</a></div><div class="card manage" style="margin-top:18px">
     <div><h2>طلبات الخدمات المدفوعة</h2><p>راجع الدفع، اقبل أو ارفض الطلب، وسجل الاسترجاع أو اكتمال الخدمة.</p></div>
