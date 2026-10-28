@@ -125,10 +125,30 @@
     <div class="box" id="korsik-bulk" style="border-color:#235c40">
         <div style="font:800 11px Consolas,monospace;letter-spacing:1.5px;color:#00f58a">KORSIK / BULK UPLOAD</div>
         <h2 style="margin:10px 0 8px">رفع جميع الفيديوهات دفعة واحدة</h2>
-        <p style="color:#b0cbb7;line-height:1.9">اختار لحد 60 فيديو من اللابتوب مرة وحدة (ومن ضمنها الـ42 فيديو). النظام يرتب أسماء الملفات بالأرقام ويرفعها بالتتابع، ويضيف درساً لكل فيديو تلقائياً. الدروس تكون غير مجانية افتراضياً.</p>
+        <p style="color:#b0cbb7;line-height:1.9">اختار لحد 60 فيديو من اللابتوب مرة وحدة. تگدر تعاين وتقُص كل فيديو قبل إضافته، وبعدها النظام يرتب أسماء الملفات ويرفع النسخ اللي اخترتها بالتتابع ويضيف الدروس تلقائياً. الدروس تكون مدفوعة افتراضياً إذا نشرت الكورس.</p>
         <p style="color:#e8c58c;line-height:1.8">عند تفعيل Korsik Storage Bucket تختفي مشكلة الحد الإجمالي 500MB. الحد الحالي للفيديو الواحد 150MB؛ خليك محتفظ بنسخة أصلية من كل الملفات.</p>
         <input id="bulkFiles" type="file" accept=".mp4,.webm,.mov,.m4v,video/mp4,video/webm,video/quicktime" multiple style="margin-top:12px">
         <p id="bulkSummary" style="color:#bcd7c4" aria-live="polite">ما اخترت ملفات بعد.</p>
+        <section id="trimStudio" hidden style="margin-top:16px;background:#071810;border:1px solid #247449;border-radius:14px;padding:19px">
+          <div style="font:800 11px Consolas,monospace;color:#00f58a;letter-spacing:1px">KORSIK / VIDEO TRIM</div>
+          <h3 style="font-size:19px;margin:12px 0 5px">شوف الفيديو وحدد الجزء اللي تريده</h3>
+          <p style="color:#adcbb5;line-height:1.8">تگدر تقص البداية والنهاية لكل فيديو قبل إضافة الدرس. القص يصير على النسخة المرفوعة، والملف الأصلي يبقى عندك. إذا ما حددت قص، ينرفع الفيديو كامل.</p>
+          <p style="color:#e7c88a;font-size:12px;line-height:1.8">لا تختار ZIP مباشرة. فك ضغط الدورة أولاً واختار ملفات MP4. القص السريع قد يبدأ أو ينتهي قرب أقرب إطار مفتاح.</p>
+          <label for="trimSelect" style="display:block;color:#00ef87;margin:10px 0">اختار الفيديو للمعاينة والقص</label>
+          <select id="trimSelect" style="display:block;width:100%;background:#031008;color:#effff6;border:1px solid #286647;padding:12px;border-radius:9px;direction:rtl"></select>
+          <video id="trimPreview" playsinline preload="metadata" controls style="display:block;width:100%;max-height:350px;background:black;margin:15px 0;border-radius:10px"></video>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px">
+            <div><label for="trimStart" style="font-size:13px;color:#cce9d4">ابدأ القص عند (ثانية)</label><input id="trimStart" type="number" min="0" step="0.1" value="0" style="margin:5px 0"></div>
+            <div><label for="trimEnd" style="font-size:13px;color:#cce9d4">انتهِ عند (ثانية) — 0 لنهاية الفيديو</label><input id="trimEnd" type="number" min="0" step="0.1" value="0" style="margin:5px 0"></div>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:9px">
+            <button type="button" id="trimMarkStart" style="cursor:pointer;background:#113d26;color:#e0ffe9;border:1px solid #287747;border-radius:8px;padding:10px">حدد البداية من مكان التشغيل</button>
+            <button type="button" id="trimMarkEnd" style="cursor:pointer;background:#113d26;color:#e0ffe9;border:1px solid #287747;border-radius:8px;padding:10px">حدد النهاية من مكان التشغيل</button>
+            <button type="button" id="trimPlay" style="cursor:pointer;background:#00ec87;color:#031308;border:0;border-radius:8px;padding:10px;font-weight:800">▶ عاين المقطع المحدد</button>
+            <button type="button" id="trimReset" style="cursor:pointer;background:#171e19;color:#c9dccc;border:1px solid #47634f;border-radius:8px;padding:10px">إلغاء القص لهذا الفيديو</button>
+          </div>
+          <p id="trimInfo" style="color:#b3d9c1;font-size:12px;line-height:1.9" aria-live="polite">اختار الفيديو وحدد النقاط قبل بدء الرفع.</p>
+        </section>
         <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:12px">
             <button id="bulkStart" class="btn" disabled type="button">ابدأ رفع الفيديوهات</button>
             <button id="bulkStop" type="button" disabled style="border:1px solid #59665d;border-radius:9px;padding:12px 14px;background:transparent;color:#dfefdf;cursor:pointer">إيقاف بعد الفيديو الحالي</button>
@@ -274,6 +294,96 @@
   const uploadURL={{ url_for('admin_course_bulk_upload', course_id=course.id) | tojson }};
   const quotaURL={{ url_for('admin_course_upload_quota', course_id=course.id) | tojson }};
   const knownTitles=new Set({{ course.lessons|selectattr('video_url')|map(attribute='title')|list|tojson }});
+  const trimStudio=document.getElementById('trimStudio');
+  const trimSelect=document.getElementById('trimSelect');
+  const trimPreview=document.getElementById('trimPreview');
+  const trimStart=document.getElementById('trimStart');
+  const trimEnd=document.getElementById('trimEnd');
+  const trimInfo=document.getElementById('trimInfo');
+  const trimPlans=new Map();
+  const trimKey=file=>file.name+'::'+file.size+'::'+file.lastModified;
+  let previewURL=null, previewFile=null, previewStopAt=0;
+  let trimValid=true;
+  const asSeconds=n=>Number.isFinite(Number(n))?Math.max(0,Number(n)):0;
+  function validTrim(start,end){
+    if(!Number.isFinite(start)||!Number.isFinite(end)||start<0||end<0||(end>0 && end-start<0.5))return false;
+    if(previewFile && Number.isFinite(trimPreview.duration) && trimPreview.duration>0){
+      if(start>=trimPreview.duration-0.1 || (end && end>trimPreview.duration+0.5))return false;
+    }
+    return true;
+  }
+  function saveTrimInputs(){
+    if(!previewFile)return;
+    const begin=Number(trimStart.value),end=Number(trimEnd.value);
+    trimValid=validTrim(begin,end);
+    trimInfo.style.color=trimValid?'#b3d9c1':'#ffaaaa';
+    trimInfo.textContent=trimValid?
+      (begin || end ? 'قص محفوظ لهذا الفيديو: من '+begin.toFixed(1)+' ثانية '+(end?'إلى '+end.toFixed(1)+' ثانية':'إلى النهاية')+'.' : 'هذا الفيديو ينرفع كامل بدون قص.'):
+      'وقت القص غير صحيح: النهاية لازم تكون بعد البداية، وما تتجاوز مدة الفيديو.';
+    if(trimValid)trimPlans.set(trimKey(previewFile),{start:begin,end});
+    start.disabled=!trimValid || !quota || !pendingFiles.length || busy;
+    updateTrimCount();
+  }
+  function updateTrimCount(){
+    const cuts=selected.filter(f=>{const p=trimPlans.get(trimKey(f));return p&&(p.start>0||p.end>0)}).length;
+    summary.dataset.trimCount=String(cuts);
+  }
+  function previewSelected(){
+    if(previewURL){URL.revokeObjectURL(previewURL);previewURL=null;}
+    trimPreview.pause();trimPreview.removeAttribute('src');trimPreview.load();
+    const idx=Number(trimSelect.value);
+    previewFile=selected[idx]||null;
+    if(!previewFile)return;
+    const plan=trimPlans.get(trimKey(previewFile))||{start:0,end:0};
+    trimStart.value=String(plan.start);
+    trimEnd.value=String(plan.end);
+    previewStopAt=0;
+    previewURL=URL.createObjectURL(previewFile);
+    trimPreview.src=previewURL;
+    trimPreview.load();
+    saveTrimInputs();
+  }
+  function refreshPreviewSelection(){
+    trimSelect.replaceChildren();
+    selected.forEach((file,i)=>{
+      const option=document.createElement('option');
+      option.value=String(i);
+      option.textContent=(i+1)+'. '+file.name;
+      trimSelect.appendChild(option);
+    });
+    trimStudio.hidden=!selected.length;
+    if(selected.length){trimSelect.value='0';previewSelected();}
+    else{
+      if(previewURL)URL.revokeObjectURL(previewURL);
+      previewURL=null;previewFile=null;
+      trimPreview.pause();trimPreview.removeAttribute('src');trimPreview.load();
+    }
+  }
+  trimSelect.addEventListener('change',previewSelected);
+  trimStart.addEventListener('input',saveTrimInputs);
+  trimEnd.addEventListener('input',saveTrimInputs);
+  trimPreview.addEventListener('loadedmetadata',saveTrimInputs);
+  document.getElementById('trimMarkStart').addEventListener('click',()=>{
+    trimStart.value=trimPreview.currentTime.toFixed(1);saveTrimInputs();
+  });
+  document.getElementById('trimMarkEnd').addEventListener('click',()=>{
+    trimEnd.value=trimPreview.currentTime.toFixed(1);saveTrimInputs();
+  });
+  document.getElementById('trimReset').addEventListener('click',()=>{
+    trimStart.value='0';trimEnd.value='0';previewStopAt=0;saveTrimInputs();
+  });
+  document.getElementById('trimPlay').addEventListener('click',()=>{
+    saveTrimInputs();
+    if(!trimValid)return;
+    previewStopAt=asSeconds(trimEnd.value);
+    trimPreview.currentTime=asSeconds(trimStart.value);
+    trimPreview.play().catch(()=>{trimInfo.textContent='اضغط تشغيل على الفيديو للمعاينة.';});
+  });
+  trimPreview.addEventListener('timeupdate',()=>{
+    if(previewStopAt>0 && trimPreview.currentTime>=previewStopAt){
+      trimPreview.pause();previewStopAt=0;
+    }
+  });
   let selected=[],pendingFiles=[],quota=null,busy=false,stopAfterCurrent=false;
   const formatBytes=n=>(n/1024/1024).toFixed(1)+' MB';
   function log(message,color){
@@ -291,6 +401,7 @@
     if(busy)return;
     selected=Array.from(filesInput.files||[]).sort((a,b)=>a.name.localeCompare(b.name,'en',{numeric:true,sensitivity:'base'}));
     quota=null;start.disabled=true;results.textContent='';progress.value=0;
+    refreshPreviewSelection();
     if(!selected.length){summary.textContent='ما اخترت ملفات بعد.';status.textContent='اختار الفيديوهات.';return}
     if(selected.length>60){status.textContent='اختار 60 فيديو أو أقل لكل دفعة.';return}
     const names=selected.map(f=>titleFromName(f.name));
@@ -312,7 +423,7 @@
         return;
       }
       status.textContent=q.bucket_enabled?'جاهز — تخزين كورسيك السحابي مفعّل. تگدر ترفع المجموعة.':'جاهز — المساحة تكفي للفيديوهات المتبقية. سيبدأ الرفع فيديو بعد فيديو.';
-      start.disabled=false;
+      start.disabled=!trimValid;
     }).catch(err=>{status.textContent=err.message});
   }
   function oneFile(file,position,done,count){
@@ -322,6 +433,9 @@
       data.set('video_file',file,file.name);
       data.set('title',titleFromName(file.name));
       data.set('position',String(position));
+      const cut=trimPlans.get(trimKey(file))||{start:0,end:0};
+      data.set('trim_start',String(cut.start));
+      data.set('trim_end',String(cut.end));
       const xhr=new XMLHttpRequest();
       xhr.open('POST',uploadURL,true);
       xhr.timeout=12*60*1000;
@@ -339,7 +453,8 @@
   filesInput.addEventListener('change',inspect);
   stop.addEventListener('click',()=>{stopAfterCurrent=true;stop.disabled=true;status.textContent='سيقف الرفع بعد اكتمال الفيديو الحالي.';});
   start.addEventListener('click',async()=>{
-    if(busy||!quota||!pendingFiles.length)return;
+    saveTrimInputs();
+    if(busy||!trimValid||!quota||!pendingFiles.length)return;
     busy=true;stopAfterCurrent=false;start.disabled=true;stop.disabled=false;filesInput.disabled=true;results.textContent='';
     let completed=0,skipped=0,failed=false;
     const queue=[...pendingFiles];
@@ -352,7 +467,7 @@
         const res=await oneFile(file,position,i,queue.length);
         knownTitles.add(titleFromName(file.name));
         if(res.skipped){skipped++;log('↪ موجود سابقاً: '+file.name,'#e8c58c');}
-        else{completed++;log('✓ تم رفع '+file.name,'#00f58a');}
+        else{completed++;log('✓ تم '+(res.trimmed?'قص ورفع ':'رفع ')+file.name,'#00f58a');}
         progress.value=100*(i+1)/queue.length;
       }catch(error){
         failed=true;log('✗ '+error.message,'#ff9797');
@@ -367,6 +482,7 @@
     else {status.textContent += ' المتبقي: '+pendingFiles.length+' فيديو؛ تگدر تكمل نفس المجموعة بالضغط على «ابدأ».';}
 
   });
+  window.addEventListener('pagehide',()=>{if(previewURL)URL.revokeObjectURL(previewURL);});
 })();
 </script>
 </body>
