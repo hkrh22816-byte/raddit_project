@@ -13,6 +13,10 @@ import uuid
 import mimetypes
 import math
 import shutil
+import tempfile
+import subprocess
+from werkzeug.datastructures import FileStorage
+import imageio_ffmpeg
 from botocore.config import Config as BotoConfig
 from botocore.exceptions import ClientError
 import boto3
@@ -5787,6 +5791,114 @@ def admin_create_ai_course():
     return redirect(url_for('admin_lessons', course_id=course.id))
 
 
+@app.route('/admin/courses/python/create', methods=['POST'])
+@login_required
+def admin_create_python_course():
+    if not admin_only():
+        abort(403)
+    title = 'تعلم لغة بايثون من الصفر إلى الاحتراف'
+    c = Course.query.filter_by(title=title).first()
+    if not c:
+        c = Course(
+            title=title,
+            category='البرمجة والمواقع',
+            level='من الصفر إلى الاحتراف',
+            price='قيد الإعداد',
+            price_iqd=None,
+            instructor='أكاديمية كورسيك',
+            description=(
+                'كورس لغة Python من الأساسيات إلى التطبيقات العملية. '
+                'يتم ترتيب المحاور ووصف الدروس بحسب الفيديوهات المرفوعة '
+                'بعد مراجعتها وقص الأجزاء المطلوبة.'
+            ),
+            is_published=False,
+            is_demo=True,
+            access_days=30
+        )
+        db.session.add(c)
+        db.session.commit()
+        flash('جهزت مسودة كورس بايثون. اختار الفيديوهات وحدد القص قبل إضافة الدروس.', 'success')
+    else:
+        flash('فتحت كورس بايثون الموجود بدون إنشاء نسخة مكررة.', 'info')
+    return redirect(url_for('admin_lessons', course_id=c.id))
+
+
+def save_course_video_with_trim(video_file, start_seconds, end_seconds):
+    """Trim a local admin-selected video with FFmpeg before lesson creation.
+
+    The untouched original remains on the admin's laptop. This function
+    never persists an uncut source to the public course or storage bucket.
+    Cuts use stream copy (fast, approximately keyframe-aligned).
+    """
+    if not start_seconds and not end_seconds:
+        result = save_video(video_file)
+        return result, None if result else 'تعذر رفع الفيديو الأصلي.'
+    if not allowed_video(video_file.filename or ''):
+        return None, 'امتداد الفيديو غير مدعوم.'
+    try:
+        video_file.stream.seek(0, os.SEEK_END)
+        source_size = video_file.stream.tell()
+        video_file.stream.seek(0)
+    except (OSError, ValueError):
+        return None, 'تعذر فحص حجم الفيديو.'
+    if source_size <= 0 or source_size > MAX_COURSE_VIDEO_BYTES:
+        return None, 'حجم الملف الأصلي لازم يكون أقل من 150MB.'
+    if end_seconds and end_seconds - start_seconds < 0.5:
+        return None, 'لازم المقطع المقصوص يكون أطول من نصف ثانية.'
+
+    # /tmp is ephemeral processing space, NOT the 500MB persistent volume.
+    # Limit the temporary footprint and remove it after each upload.
+    if shutil.disk_usage(tempfile.gettempdir()).free < 2 * source_size + 96 * 1024 * 1024:
+        return None, 'مساحة المعالجة المؤقتة قليلة. جرّب ملف أصغر.'
+
+    ext = video_file.filename.rsplit('.', 1)[-1].lower()
+    try:
+        exe = imageio_ffmpeg.get_ffmpeg_exe()
+    except (RuntimeError, OSError):
+        app.logger.exception('Video trim encoder not available')
+        return None, 'أداة قص الفيديو مو متاحة حالياً بالخادم.'
+    try:
+        with tempfile.TemporaryDirectory(prefix='korsik-trim-') as temp_dir:
+            raw = os.path.join(temp_dir, 'original.' + ext)
+            output = os.path.join(temp_dir, 'trimmed.' + ext)
+            video_file.stream.seek(0)
+            with open(raw, 'wb') as dst:
+                shutil.copyfileobj(video_file.stream, dst, length=1024 * 1024)
+            args = [exe, '-hide_banner', '-nostdin', '-loglevel', 'error',
+                    '-y']
+            if start_seconds:
+                args += ['-ss', str(start_seconds)]
+            args += ['-i', raw]
+            if end_seconds:
+                args += ['-t', str(round(end_seconds - start_seconds, 3))]
+            args += ['-map', '0:v:0', '-map', '0:a:0?', '-sn', '-dn',
+                     '-c', 'copy', '-avoid_negative_ts', 'make_zero']
+            if ext in {'mp4', 'mov', 'm4v'}:
+                args += ['-movflags', '+faststart']
+            args.append(output)
+            process = subprocess.run(args, stdout=subprocess.DEVNULL,
+                                     stderr=subprocess.PIPE, timeout=240,
+                                     check=False)
+            if process.returncode != 0 or not os.path.isfile(output) or os.path.getsize(output) < 1024:
+                app.logger.warning('Korsik FFmpeg trim failed: %s',
+                                   (process.stderr or b'')[-500:].decode('utf-8', 'replace'))
+                return None, 'ما نجح قص الفيديو؛ جرّب MP4 بصيغة H.264.'
+            with open(output, 'rb') as trimmed_stream:
+                wrapped = FileStorage(stream=trimmed_stream,
+                                      filename='korsik-clip.' + ext,
+                                      content_type=mimetypes.guess_type(output)[0] or 'video/mp4')
+                saved = save_video(wrapped)
+                if not saved:
+                    return None, 'المقطع انقص لكن تعذر حفظه بمخزن الفيديوهات.'
+                return saved, None
+    except subprocess.TimeoutExpired:
+        app.logger.warning('Korsik trim timeout while processing video')
+        return None, 'قص الفيديو استغرق وقتاً أكثر من المسموح؛ جرّب مقطعاً أصغر.'
+    except (OSError, ValueError):
+        app.logger.exception('Korsik temporary video trimming failed')
+        return None, 'صار خطأ أثناء تجهيز المقطع المقصوص.'
+
+
 @app.route('/admin/course/<int:course_id>/lessons/upload-quota', methods=['GET'])
 @login_required
 def admin_course_upload_quota(course_id):
@@ -5841,9 +5953,20 @@ def admin_course_bulk_upload(course_id):
         position = 0
     if not 1 <= position <= 999:
         return {'error': 'ترتيب الدرس غير صالح.'}, 400
-    stored = save_video(video)
+    try:
+        trim_start = float(request.form.get('trim_start') or 0)
+        trim_end = float(request.form.get('trim_end') or 0)
+    except (ValueError, TypeError):
+        return {'error': 'أوقات قص الفيديو غير صالحة.'}, 400
+    if (not math.isfinite(trim_start) or not math.isfinite(trim_end)
+            or trim_start < 0 or trim_end < 0
+            or trim_start > 12 * 3600 or trim_end > 12 * 3600
+            or (trim_end > 0 and trim_end <= trim_start)):
+        return {'error': 'حدد بداية ونهاية قص صحيحة.'}, 400
+
+    stored, trim_error = save_course_video_with_trim(video, trim_start, trim_end)
     if not stored:
-        return {'error': 'فشل حفظ الفيديو: تحقق من الحجم (150MB) والمساحة والصيغة.'}, 507
+        return {'error': trim_error or 'تعذر حفظ الفيديو؛ تحقق من الحجم والصيغة.'}, 422
     try:
         lesson = Lesson(course_id=course.id, title=title,
                         video_url=stored, duration='', position=position,
@@ -5855,7 +5978,8 @@ def admin_course_bulk_upload(course_id):
         delete_saved_video(stored)
         app.logger.exception('Failed to store uploaded bulk lesson')
         return {'error': 'تعذر تسجيل الدرس. لم يتم الاحتفاظ بالملف.'}, 500
-    return {'ok': True, 'skipped': False, 'title': title, 'lesson_id': lesson.id}, 201
+    return {'ok': True, 'skipped': False, 'title': title,
+            'trimmed': bool(trim_start or trim_end), 'lesson_id': lesson.id}, 201
 
 
 # =========================
