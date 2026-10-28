@@ -2272,7 +2272,7 @@ def swiftpay_checkout_order_from_session():
         order = db.session.get(ServiceOrder, order_id)
     elif kind == 'store':
         order = db.session.get(StoreOrder, order_id)
-    elif kind in {'course', 'wallet', 'cart'}:
+    elif kind in {'course', 'wallet', 'cart', 'subscription'}:
         order = db.session.get(CardCheckout, order_id)
         if order and order.order_type != kind:
             return None
@@ -4578,6 +4578,20 @@ def korsik_subscription():
         meta_purchase_event=meta_purchase_event)
 
 
+@app.route('/admin/korsik/subscription-proof/<int:subscription_id>')
+@login_required
+def admin_korsik_subscription_proof(subscription_id):
+    if not admin_only():
+        abort(403)
+    subscription = db.session.get(KorsikSubscription, subscription_id) or abort(404)
+    if not subscription.proof_filename:
+        abort(404)
+    return send_from_directory(
+        app.config['PAYMENT_PROOF_FOLDER'],
+        os.path.basename(subscription.proof_filename),
+        as_attachment=False)
+
+
 @app.route('/admin/korsik/subscriptions')
 @login_required
 def admin_korsik_subscriptions():
@@ -4696,6 +4710,7 @@ def course_detail(course_id):
         'course_detail.html',
         course=c,
         has_course_access=has_course_access,
+        korsik_annual_price_iqd=KORSIK_ANNUAL_PRICE_IQD,
         korsik_subscription_pending=bool(KorsikSubscription.query.filter_by(
             user_id=current_user.id, status='pending').first()
             if current_user.is_authenticated else False),
