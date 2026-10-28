@@ -392,6 +392,7 @@ class CardCheckout(db.Model):
     gateway_invoice_id = db.Column(db.String(120), unique=True, nullable=True)
     payment_provider = db.Column(db.String(30), default='', nullable=False)
     status = db.Column(db.String(20), default='pending', nullable=False)
+    gateway_failure_reason = db.Column(db.String(240), default='', nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     confirmed_at = db.Column(db.DateTime, nullable=True)
 
@@ -2249,9 +2250,39 @@ def swiftpay_checkout_order_from_session():
 def swiftpay_checkout_state(order):
     if order.status in {'approved', 'completed', 'paid'}:
         return 'paid'
+    if order.status in {'failed', 'declined'}:
+        return 'failed'
     if order.status in {'rejected', 'refunded'}:
         return 'attention'
     return 'pending'
+
+
+def swiftpay_failure_message(data):
+    """Translate provider decline details to safe, customer-facing Arabic."""
+    keys = ('failureReason', 'failure_reason', 'declineReason', 'decline_reason',
+            'reason', 'message', 'errorMessage', 'error_message')
+    values = [data.get(key) for key in keys if isinstance(data, dict)]
+    nested_error = data.get('error') if isinstance(data, dict) else None
+    if isinstance(nested_error, dict):
+        values.extend(nested_error.get(key) for key in ('code', 'message', 'reason'))
+    raw = ' '.join(value for value in values if isinstance(value, str))[:1000].lower()
+    normalized = re.sub(r'[^a-z0-9 ]+', ' ', raw)
+    if re.search(r'insufficient (?:available )?funds|insufficient balance|low balance|not enough balance|balance too low', normalized):
+        return ('رفض البنك البطاقة لعدم كفاية الرصيد. جرّب بطاقة أخرى أو تواصل مع البنك. '
+                'لن يتفعّل الكورس إلا بعد تأكيد الدفع.')
+    if re.search(r'expired card|card expired|expired_card', normalized):
+        return ('رفض البنك البطاقة لأنها منتهية الصلاحية. حدّث بيانات البطاقة أو جرّب بطاقة أخرى. '
+                'لن يتفعّل الكورس إلا بعد تأكيد الدفع.')
+    if re.search(r'invalid card|incorrect card|invalid number|incorrect number', normalized):
+        return ('تعذّر قبول بيانات البطاقة. تحقق منها أو جرّب بطاقة أخرى. '
+                'لن يتفعّل الكورس إلا بعد تأكيد الدفع.')
+    return ('رفض البنك أو الجهة المصدرة البطاقة، أو تعذّر إكمال العملية. '
+            'تحقق من البنك أو جرّب بطاقة أخرى. لن يتفعّل الكورس إلا بعد تأكيد الدفع.')
+
+
+def swiftpay_checkout_failure_reason(order):
+    reason = getattr(order, 'gateway_failure_reason', '') or ''
+    return reason[:240]
 
 
 @app.route('/payments/swiftpay/return', methods=['GET'])
@@ -2265,13 +2296,19 @@ def swiftpay_return():
         return redirect(url_for('account'))
     state = swiftpay_checkout_state(order)
     course_checkout = isinstance(order, CardCheckout) and order.order_type == 'course'
+    retry_url = (url_for('course_detail', course_id=order.reference_id)
+                 if course_checkout and order.reference_id else
+                 (url_for('account') if state == 'failed' else
+                  (url_for('learning_hub') if course_checkout else url_for('account'))))
     response = app.make_response(render_template(
         'swiftpay_return.html',
         state=state,
+        failure_reason=swiftpay_checkout_failure_reason(order),
         cancelled=request.args.get('result') == 'cancel',
         order_id=order.id,
         status_url=url_for('swiftpay_return_status'),
         account_url=url_for('learning_hub') if course_checkout else url_for('account'),
+        retry_url=retry_url,
         course_checkout=course_checkout,
     ))
     response.headers['Cache-Control'] = 'no-store, private'
@@ -2286,7 +2323,10 @@ def swiftpay_return_status():
     order = swiftpay_checkout_order_from_session()
     if order is None:
         return {'state': 'unknown'}, 404
-    response = app.json.response({'state': swiftpay_checkout_state(order)})
+    response = app.json.response({
+        'state': swiftpay_checkout_state(order),
+        'reason': swiftpay_checkout_failure_reason(order),
+    })
     response.headers['Cache-Control'] = 'no-store, private'
     return response
 
@@ -2819,12 +2859,9 @@ def swiftpay_webhook():
 
     event = payload.get('event') if isinstance(payload, dict) else None
     data = payload.get('data') if isinstance(payload, dict) else None
-    # SwiftPayIQ emits both events for invoice payments. Only accept an
-    # authenticated success carrying a known invoice ID and matching amount.
-    if event not in {'invoice.paid', 'payment.succeeded'} or not isinstance(data, dict):
+    if not isinstance(data, dict):
         return {'ok': True}
-    if (data.get('isLive') is not (swiftpay_mode() == 'live') or data.get('status') != 'SUCCEEDED'
-            or not data.get('invoiceId')):
+    if data.get('isLive') is not (swiftpay_mode() == 'live') or not data.get('invoiceId'):
         return {'ok': True}
     try:
         paid_amount = parse_gateway_iqd(data.get('amount'))
@@ -2833,6 +2870,31 @@ def swiftpay_webhook():
 
     invoice_id = str(data['invoiceId'])
     if not invoice_id or len(invoice_id) > 120:
+        return {'ok': True}
+
+    # A failed attempt is not a paid invoice. Record it for the customer's
+    # return page, but keep the invoice eligible for a later successful retry.
+    if event == 'payment.failed':
+        checkout = CardCheckout.query.filter_by(
+            gateway_invoice_id=invoice_id,
+            payment_provider=f'swiftpay_{swiftpay_mode()}').with_for_update().first()
+        if (checkout and paid_amount == checkout.gateway_expected_amount_iqd
+                and checkout.status in {'pending', 'failed'}):
+            was_pending = checkout.status == 'pending'
+            checkout.status = 'failed'
+            checkout.gateway_failure_reason = swiftpay_failure_message(data)
+            if was_pending:
+                label = 'دفعة الكورس' if checkout.order_type == 'course' else 'عملية الدفع'
+                notify_user(checkout.user_id, 'تعذّر إكمال الدفع',
+                            f'لم تكتمل {label}. تحقق من البطاقة أو جرّب بطاقة أخرى.',
+                            url_for('course_detail', course_id=checkout.reference_id)
+                            if checkout.order_type == 'course' and checkout.reference_id
+                            else url_for('account'))
+            db.session.commit()
+        return {'ok': True}
+
+    # Ignore other signed event types; only success events may fulfil an order.
+    if event not in {'invoice.paid', 'payment.succeeded'} or data.get('status') != 'SUCCEEDED':
         return {'ok': True}
     order = ServiceOrder.query.filter_by(
         gateway_invoice_id=invoice_id, payment_provider=f'swiftpay_{swiftpay_mode()}'
@@ -2870,10 +2932,11 @@ def swiftpay_webhook():
         gateway_invoice_id=invoice_id,
         payment_provider=f'swiftpay_{swiftpay_mode()}').with_for_update().first()
     if checkout:
-        if (checkout.status != 'pending'
+        if (checkout.status not in {'pending', 'failed'}
                 or paid_amount != checkout.gateway_expected_amount_iqd):
             return {'ok': True}
         checkout.status = 'paid'
+        checkout.gateway_failure_reason = ''
         checkout.confirmed_at = datetime.utcnow()
         if checkout.order_type == 'course':
             course = db.session.get(Course, checkout.reference_id)
@@ -6583,6 +6646,11 @@ with app.app_context():
     if 'cart_snapshot' not in card_columns:
         with db.engine.begin() as connection:
             connection.execute(sql_text('ALTER TABLE card_checkout ADD COLUMN cart_snapshot TEXT'))
+    if 'gateway_failure_reason' not in card_columns:
+        with db.engine.begin() as connection:
+            connection.execute(sql_text(
+                "ALTER TABLE card_checkout ADD COLUMN gateway_failure_reason "
+                "VARCHAR(240) NOT NULL DEFAULT ''"))
     # Do not re-create placeholder/demo courses on application restart.
     # New courses are added deliberately through the Korsik admin panel.
     seed_services_and_store()

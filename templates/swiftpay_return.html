@@ -13,30 +13,42 @@ h1{font-size:25px;line-height:1.6;margin:25px 0 12px}
 p{line-height:1.9;color:#acc0b2}
 a{display:block;text-decoration:none;border-radius:10px;padding:15px;margin:20px 0 0;background:#00f58a;color:#00170c;font-weight:800}
 .small{color:#9ab2a2;font-size:13px}.indicator{height:12px;width:12px;border-radius:50%;display:inline-block;background:#facf5c;margin-inline-end:5px}
-.indicator.paid{background:#00f58a}.indicator.attention{background:#fd8491}
+.indicator.paid{background:#00f58a}.indicator.attention,.indicator.failed{background:#fd8491}
 </style>
 </head>
 <body>
 <main class="card">
 <div class="logo">RABBIT.</div>
 <p class="small">طلب رقم {{ order_id }}</p>
-<h1 id="payment-title">{% if state == 'paid' %}تم تأكيد الدفع بنجاح{% elif state == 'attention' %}يرجى مراجعة حالة طلبك{% elif cancelled %}رجعت من صفحة الدفع{% else %}رجعت إلى RABBIT{% endif %}</h1>
-<p id="payment-description">{% if state == 'paid' %}{% if course_checkout %}تم تفعيل الكورس تلقائياً. راح نفتح كورساتك بدون انتظار موافقة الإدارة.{% else %}وصل تأكيد الدفع الآمن وتم تسجيل طلبك. راح نفتح حسابك تلقائياً.{% endif %}{% elif state == 'attention' %}حالة الطلب تحتاج مراجعة. افتح حسابك للاطلاع عليها.{% elif cancelled %}ما عدنا تأكيد دفع لهذا الطلب حالياً. إذا تم الخصم فعلاً راح تتحدث حالته بعد وصول إشعار الدفع.{% else %}نتحقق من حالة الدفع عبر إشعار إلكتروني موثوق. لا تحتاج تعيد الدفع.{% endif %}</p>
-<p class="small"><span id="payment-indicator" class="indicator {{ state }}"></span><span id="payment-status">{% if state == 'paid' %}الدفع مؤكد{% elif state == 'attention' %}يتطلب متابعة{% else %}بانتظار التأكيد{% endif %}</span></p>
-<a href="{{ account_url }}">{% if course_checkout %}الذهاب إلى كورساتي{% else %}الذهاب إلى حسابي ومتابعة الطلب{% endif %}</a>
+<h1 id="payment-title">{% if state == 'paid' %}تم تأكيد الدفع بنجاح{% elif state == 'failed' %}تعذّر إكمال الدفع{% elif state == 'attention' %}يرجى مراجعة حالة طلبك{% elif cancelled %}لم تكتمل عملية الدفع{% else %}رجعت إلى RABBIT{% endif %}</h1>
+<p id="payment-description">{% if state == 'paid' %}{% if course_checkout %}تم تفعيل الكورس تلقائياً. راح نفتح كورساتك بدون انتظار موافقة الإدارة.{% else %}وصل تأكيد الدفع الآمن وتم تسجيل طلبك. راح نفتح حسابك تلقائياً.{% endif %}{% elif state == 'failed' %}{{ failure_reason or 'رفض البنك أو الجهة المصدرة البطاقة، أو تعذّر إكمال العملية. تحقق من البنك أو جرّب بطاقة أخرى. لن يتفعّل الكورس إلا بعد تأكيد الدفع.' }}{% elif state == 'attention' %}حالة الطلب تحتاج مراجعة. افتح حسابك للاطلاع عليها.{% elif cancelled %}ما وصلنا تأكيد بإتمام الدفع. إذا رفض البنك البطاقة، جرّب بطاقة ثانية. وإذا ظهر خصم بحسابك، لا تعيد الدفع وتواصل مع الدعم.{% else %}نتحقق من حالة الدفع عبر إشعار إلكتروني موثوق. لا تحتاج تعيد الدفع.{% endif %}</p>
+<p class="small"><span id="payment-indicator" class="indicator {{ state }}"></span><span id="payment-status">{% if state == 'paid' %}الدفع مؤكد{% elif state == 'failed' %}الدفع مرفوض أو غير مكتمل{% elif state == 'attention' %}يتطلب متابعة{% elif cancelled %}لم يكتمل الدفع{% else %}بانتظار التأكيد{% endif %}</span></p>
+<a id="payment-action" href="{% if state == 'failed' %}{{ retry_url }}{% else %}{{ account_url }}{% endif %}">{% if state == 'failed' and course_checkout %}الرجوع للكورس والمحاولة مجدداً{% elif course_checkout %}الذهاب إلى كورساتي{% else %}الذهاب إلى حسابي ومتابعة الطلب{% endif %}</a>
 <p class="small">تأكيد الدفع يعتمد على إشعار العملية المعتمد، مو مجرد رابط الرجوع.</p>
 </main>
 <script>
 (function(){
   const initialState = {{ state | tojson }};
+  const initialFailureReason = {{ failure_reason | tojson }};
   const statusUrl = {{ status_url | tojson }};
   const accountUrl = {{ account_url | tojson }};
+  const retryUrl = {{ retry_url | tojson }};
   const title = document.getElementById('payment-title');
   const desc = document.getElementById('payment-description');
   const indicator = document.getElementById('payment-indicator');
   const status = document.getElementById('payment-status');
+  const action = document.getElementById('payment-action');
   let finished = false;
   let checks = 0;
+  let seenFailure = initialState==='failed';
+  function showFailed(reason){
+    title.textContent='تعذّر إكمال الدفع';
+    desc.textContent=reason||'ما وصلنا تأكيد بالدفع. تحقق من البنك أو جرّب بطاقة أخرى. لن يتفعّل الكورس إلا بعد تأكيد الدفع.';
+    indicator.className='indicator failed';
+    status.textContent='الدفع مرفوض أو غير مكتمل';
+    action.href=retryUrl;
+    action.textContent={{ ('الرجوع للكورس والمحاولة مجدداً' if course_checkout else 'الرجوع إلى الحساب') | tojson }};
+  }
   function paid(){
     if(finished)return;
     finished=true;
@@ -47,6 +59,7 @@ a{display:block;text-decoration:none;border-radius:10px;padding:15px;margin:20px
     setTimeout(()=>window.location.assign(accountUrl),2200);
   }
   if(initialState==='paid'){paid();return;}
+  if(seenFailure)showFailed(initialFailureReason);
   async function verify(){
     if(finished || checks++>=20)return;
     try{
@@ -54,6 +67,10 @@ a{display:block;text-decoration:none;border-radius:10px;padding:15px;margin:20px
       if(!response.ok)return;
       const data=await response.json();
       if(data.state==='paid')paid();
+      else if(data.state==='failed'){
+        seenFailure=true;
+        showFailed(data.reason);
+      }
       else if(data.state==='attention'){
         finished=true;
         title.textContent='يرجى مراجعة حالة طلبك';
