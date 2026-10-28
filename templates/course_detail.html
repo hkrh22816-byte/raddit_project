@@ -1169,7 +1169,7 @@ fbq('track', 'ViewContent', {
 });
 </script>
 <script>
-document.querySelectorAll('form[action*="course_pay_card"], form[action*="course_buy_wallet"]').forEach(function (form) {
+document.querySelectorAll('form[action*="/pay-card"], form[action*="/buy-wallet"]').forEach(function (form) {
   form.addEventListener('submit', function () {
     if (typeof window.fbq !== 'function') return;
     window.fbq('track', 'InitiateCheckout', {
