@@ -1168,20 +1168,6 @@ fbq('track', 'ViewContent', {
   currency: 'IQD'
 });
 </script>
-<script>
-document.addEventListener('submit', function (event) {
-  var form = event.target;
-  if (!form || !form.matches || !form.matches('form[action*="/pay-card"], form[action*="/buy-wallet"]')) return;
-  if (typeof window.fbq !== 'function') return;
-  window.fbq('track', 'InitiateCheckout', {
-    content_ids: [{{ course.id | tojson }}],
-    content_name: {{ course.title | tojson }},
-    content_type: 'product',
-    value: Number({{ (course.price_iqd or 0) | tojson }}),
-    currency: 'IQD'
-  });
-}, true);
-</script>
 {% if meta_purchase_event %}
 <script>
 (function () {
@@ -1530,7 +1516,7 @@ src="https://www.facebook.com/tr?id=1118289697236842&ev=PageView&noscript=1"
                         </div>
 
                         هذا الدرس متاح للمشتركين
-                        في هذه الدورة فقط.
+                        في الاشتراك السنوي لجميع الكورسات.
 
 
                         {% if current_user.is_authenticated %}
@@ -1539,14 +1525,14 @@ src="https://www.facebook.com/tr?id=1118289697236842&ev=PageView&noscript=1"
                             {% if enrollment and enrollment.status == 'pending' %}
 
                                 <div class="muted">
-                                    طلب اشتراكك بانتظار التفعيل.
+                                    طلب اشتراكك السنوي بانتظار التفعيل.
                                 </div>
 
                             {% else %}
 
                                 <div class="muted">
-                                    اشترك في هذه الدورة
-                                    لفتح الفيديو.
+                                    اشترك بالاشتراك السنوي
+                                    لفتح جميع الكورسات.
                                 </div>
 
                             {% endif %}
@@ -1555,8 +1541,8 @@ src="https://www.facebook.com/tr?id=1118289697236842&ev=PageView&noscript=1"
                         {% else %}
 
                             <div class="muted">
-                                سجل الدخول ثم اطلب الاشتراك
-                                للوصول إلى هذا الدرس.
+                                سجل الدخول ثم اشترك سنوياً
+                                للوصول إلى جميع الكورسات.
                             </div>
 
                         {% endif %}
