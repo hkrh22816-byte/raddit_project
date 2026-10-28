@@ -34,6 +34,7 @@ from decimal import Decimal, InvalidOperation
 from datetime import datetime, timedelta
 from urllib.parse import urlparse
 from xml.sax.saxutils import escape as xml_escape
+from sqlalchemy import and_, or_
 
 
 app = Flask(__name__)
@@ -5806,13 +5807,22 @@ def admin_courses():
 
         abort(403)
 
+    active_courses_filter = or_(
+        Course.id.in_([21, 22, 23]),
+        and_(
+            Course.id > 23,
+            or_(
+                Course.is_published.is_(True),
+                Course.title == 'تصميم خارطة منزل باستخدام AutoCAD'
+            )
+        )
+    )
+
     return render_template(
         'admin_courses.html',
-        courses=Course.query.filter(Course.id.in_([21, 22, 23])).order_by(
-            Course.id
-        ).all(),
-        archived_count=Course.query.filter(~Course.id.in_([21, 22, 23])).count(),
-        archived_courses=(Course.query.filter(~Course.id.in_([21, 22, 23]))
+        courses=Course.query.filter(active_courses_filter).order_by(Course.id).all(),
+        archived_count=Course.query.filter(~active_courses_filter).count(),
+        archived_courses=(Course.query.filter(~active_courses_filter)
                           .order_by(Course.id).all()
                           if request.args.get('show_archived') == '1' else [])
     )
@@ -5845,9 +5855,9 @@ def admin_course_new():
 
             price=request.form.get(
                 'price',
-                'قريباً'
+                '49,000 د.ع — اشتراك سنوي'
             ),
-            price_iqd=parse_iqd_price(request.form.get('price_iqd')),
+            price_iqd=parse_iqd_price(request.form.get('price_iqd') or '49000'),
 
             instructor=request.form.get(
                 'instructor',
@@ -5865,19 +5875,14 @@ def admin_course_new():
                 )
             ),
             is_demo=bool(request.form.get('is_demo')),
-            access_days=max(1, min(365, int(request.form.get('access_days') or 30)))
+            access_days=max(1, min(365, int(request.form.get('access_days') or 365)))
         )
 
         db.session.add(c)
         db.session.commit()
 
-        flash(
-            'تمت إضافة الدورة.'
-        )
-
-        return redirect(
-            url_for('admin_courses')
-        )
+        flash('تمت إضافة الدورة. ارفع فيديوهاتها وقصّها من استوديو الفيديو.')
+        return redirect(url_for('admin_lessons', course_id=c.id))
 
     return render_template(
         'admin_course_form.html',
@@ -6841,6 +6846,61 @@ with app.app_context():
         )
     else:
         app.logger.warning('KORSIK_PYTHON_AUDIT no matching course found')
+
+    # Standardize the visible academy catalog and prepare the new AutoCAD
+    # course as an unpublished draft. New uploads become available for sale
+    # only after the administrator finishes the course setup and publishes it.
+    academy_catalog_migration = 'korsik_uniform_annual_price_and_autocad_draft_v1'
+    if db.session.get(CatalogMigration, academy_catalog_migration) is None:
+        catalog_courses = Course.query.filter(or_(
+            Course.id.in_([21, 22, 23]),
+            and_(Course.id > 23, Course.is_published.is_(True),
+                 Course.is_demo.is_(False))
+        )).all()
+        for course in catalog_courses:
+            course.price = '49,000 د.ع — اشتراك سنوي'
+            course.price_iqd = 49000
+            course.access_days = 365
+            course.description = (course.description or '').replace(
+                '40,000', '49,000').replace('30,000', '49,000')
+            course.description = course.description.replace(
+                '30 يوماً', '365 يوماً').replace('30 يوما', '365 يوماً')
+
+        autocad_title = 'تصميم خارطة منزل باستخدام AutoCAD'
+        autocad_course = Course.query.filter_by(title=autocad_title).first()
+        if not autocad_course:
+            autocad_course = Course(
+                title=autocad_title,
+                category='الهندسة المدنية والمعمارية',
+                level='مبتدئ إلى متوسط',
+                price='49,000 د.ع — اشتراك سنوي',
+                price_iqd=49000,
+                instructor='أكاديمية كورسيك',
+                description=(
+                    'تعلّم تصميم خارطة منزل عملية باستخدام AutoCAD، من إعداد '
+                    'الوحدات والطبقات وتهيئة ملف العمل إلى رسم المساقط وتوزيع '
+                    'الغرف والأبواب والنوافذ، وإضافة الأبعاد والملاحظات، ثم '
+                    'تجهيز المخطط للطباعة والتسليم بصيغة PDF. يتاح الاشتراك '
+                    'لمدة سنة واحدة بسعر 49,000 دينار عراقي بعد نشر الدورة.'
+                ),
+                is_published=False,
+                is_demo=False,
+                access_days=365
+            )
+            db.session.add(autocad_course)
+        else:
+            autocad_course.category = 'الهندسة المدنية والمعمارية'
+            autocad_course.level = 'مبتدئ إلى متوسط'
+            autocad_course.price = '49,000 د.ع — اشتراك سنوي'
+            autocad_course.price_iqd = 49000
+            autocad_course.access_days = 365
+            autocad_course.is_demo = False
+
+        db.session.add(CatalogMigration(key=academy_catalog_migration))
+        db.session.commit()
+        app.logger.info(
+            'KORSIK_ACADEMY_CATALOG_UPDATED courses=%d autocad_course_id=%s price_iqd=49000 access_days=365',
+            len(catalog_courses), autocad_course.id)
 
     # Non-sensitive release check in Railway logs: verifies that the database
     # update actually ran (successful deployment alone is not proof of sale readiness).
