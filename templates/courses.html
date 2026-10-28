@@ -1525,7 +1525,12 @@
 
         }
 
-    </style>
+    
+.subscription-banner{display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap;margin:24px 0;padding:22px 25px;border:1px solid rgba(0,245,138,.42);border-radius:16px;background:linear-gradient(105deg,#0d2b1a,#08130c);box-shadow:0 15px 45px #0004}
+.subscription-banner h2{margin:0 0 5px;color:#f4fff7;font-size:21px}.subscription-banner p{margin:0;color:#a9c3b0;font-size:13px;line-height:1.8}.subscription-banner .plan-price{display:block;color:#00f58a;font-weight:900;font-size:19px;margin-top:7px}
+.subscription-banner a{display:inline-flex;align-items:center;justify-content:center;padding:12px 18px;border-radius:10px;background:#00f58a;color:#00200e;text-decoration:none;font-weight:900;white-space:nowrap}
+@media(max-width:600px){.subscription-banner{align-items:flex-start}.subscription-banner a{width:100%}}
+</style>
     <script src="{{ url_for('static', filename='rabbit_i18n.js') }}" defer></script>
 <!-- Meta Pixel Code -->
 <script>
@@ -1783,6 +1788,13 @@ src="https://www.facebook.com/tr?id=1118289697236842&ev=PageView&noscript=1"
 
 
 
+    <section class="subscription-banner" aria-label="الاشتراك السنوي في كورسيك">
+        <div><h2>اشتراك سنوي واحد يفتح جميع الكورسات</h2>
+        <p>تعلّم كل المسارات المنشورة خلال سنة كاملة، بدون سعر منفصل لكل دورة.</p>
+        <span class="plan-price">49,000 د.ع / سنة</span></div>
+        <a href="{{ url_for('korsik_subscription') }}">تفاصيل الاشتراك ←</a>
+    </section>
+
     <!-- GRID -->
 
     <div class="grid">
@@ -1838,9 +1850,7 @@ src="https://www.facebook.com/tr?id=1118289697236842&ev=PageView&noscript=1"
                         LESSONS
                     </span>
 
-                    <span class="price">
-                        {% if c.is_demo %}نموذج للعرض فقط{% elif not (c.lessons|selectattr('video_url')|list|length) %}قريباً — بانتظار الدروس{% elif c.price_iqd %}{{ '{:,}'.format(c.price_iqd) }} د.ع / {{ 'اشتراك سنوي' if c.access_days >= 365 else (c.access_days ~ ' يوم') }}{% else %}{{ c.price }}{% endif %}
-                    </span>
+                    
 
                 </div>
 
