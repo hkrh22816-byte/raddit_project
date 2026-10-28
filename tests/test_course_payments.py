@@ -5,6 +5,7 @@ No requests are sent to SwiftPay and no real database credentials are used.
 import hashlib
 import hmac
 import importlib
+from io import BytesIO
 import json
 import os
 from pathlib import Path
@@ -12,7 +13,7 @@ import sys
 import tempfile
 import time
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 
 class CoursePaymentTests(unittest.TestCase):
@@ -84,9 +85,10 @@ class CoursePaymentTests(unittest.TestCase):
         return row
 
     def webhook(self, amount=1250, event='payment.succeeded', live=True,
+                status='SUCCEEDED',
                 secret='whsec_test_fixture', timestamp=None, invoice_id='invoice-course'):
         body = json.dumps({'event': event, 'data': {'invoiceId': invoice_id,
-            'amount': amount, 'isLive': live, 'status': 'SUCCEEDED',
+            'amount': amount, 'isLive': live, 'status': status,
             'paymentId': 'payment-1'}}).encode()
         timestamp = int(time.time()) if timestamp is None else timestamp
         signature = hmac.new(secret.encode(), str(timestamp).encode() + b'.' + body,
@@ -124,12 +126,39 @@ class CoursePaymentTests(unittest.TestCase):
         for arguments in ({'amount': 1000}, {'amount': 1250.9}, {'amount': True},
                           {'amount': None}, {'amount': 'NaN'}, {'amount': 'Infinity'},
                           {'live': False}, {'event': 'payment.failed'},
+                          {'status': 'PENDING'},
                           {'invoice_id': 'unknown'}, {'invoice_id': 'invoice-course' + 'x' * 121},
-                          {'secret': 'wrong'}, {'timestamp': int(time.time()) - 301}):
+                          {'secret': 'wrong'}, {'timestamp': int(time.time()) - 301},
+                          {'timestamp': int(time.time()) + 301}):
             with self.subTest(arguments=arguments):
                 self.webhook(**arguments)
                 self.assertIsNone(self.enrollment())
                 self.assertEqual(checkout.status, 'pending')
+
+    def test_admin_and_paid_video_routes_reject_anonymous_and_regular_users(self):
+        lesson_id = self.m.Lesson.query.filter_by(course_id=self.course_id).one().id
+        self.assertEqual(self.client.get('/admin').status_code, 302)
+        self.assertEqual(self.client.get(f'/admin/course/{self.course_id}/lessons').status_code, 302)
+        self.assertEqual(self.client.get(f'/protected-video/{lesson_id}').status_code, 403)
+
+        self.login(self.student_id)
+        self.assertEqual(self.client.get('/admin').status_code, 403)
+        self.assertEqual(self.client.get(f'/admin/course/{self.course_id}/lessons').status_code, 403)
+        self.assertEqual(self.client.get(f'/protected-video/{lesson_id}').status_code, 403)
+
+    def test_cloud_video_upload_uses_parallel_multipart_transfer(self):
+        video = self.m.FileStorage(stream=BytesIO(b'video-bytes'), filename='lesson.mp4',
+                                   content_type='video/mp4')
+        with patch.dict(os.environ, {'KORSIK_S3_BUCKET': 'fixture-bucket'}), \
+             patch.object(self.m, 'korsik_bucket_enabled', return_value=True), \
+             patch.object(self.m, 'korsik_s3', return_value=Mock()) as s3_factory:
+            stored = self.m.save_video(video)
+            transfer = s3_factory.return_value.upload_fileobj.call_args.kwargs['Config']
+
+        self.assertRegex(stored, r'^s3:videos/[0-9a-f]{32}\.mp4$')
+        # Inspect the transfer config instead of timing a real network upload.
+        self.assertTrue(transfer.use_threads)
+        self.assertEqual(transfer.max_concurrency, 3)
 
     def test_browser_success_parameter_does_not_activate(self):
         checkout = self.checkout()

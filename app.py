@@ -17,6 +17,7 @@ import tempfile
 import subprocess
 from werkzeug.datastructures import FileStorage
 import imageio_ffmpeg
+from boto3.s3.transfer import TransferConfig
 from botocore.config import Config as BotoConfig
 from botocore.exceptions import ClientError
 import boto3
@@ -1247,11 +1248,14 @@ def save_video(video_file):
                 os.environ['KORSIK_S3_BUCKET'],
                 key,
                 ExtraArgs={'ContentType': guessed_type or declared_type or 'application/octet-stream'},
-                Config=boto3.s3.transfer.TransferConfig(
+                Config=TransferConfig(
                     multipart_threshold=8 * 1024 * 1024,
                     multipart_chunksize=8 * 1024 * 1024,
-                    max_concurrency=2,
-                    use_threads=False))
+                    # Multipart parts can upload in parallel. The old
+                    # use_threads=False setting serialized each large lesson
+                    # upload and held a web worker for the full transfer.
+                    max_concurrency=3,
+                    use_threads=True))
             return 's3:' + key
         except Exception:
             app.logger.exception('Korsik video upload to object storage failed')
@@ -2832,7 +2836,7 @@ def swiftpay_webhook():
         return {'ok': True}
     order = ServiceOrder.query.filter_by(
         gateway_invoice_id=invoice_id, payment_provider=f'swiftpay_{swiftpay_mode()}'
-    ).first()
+    ).with_for_update().first()
     if order:
         expected_amount = order.gateway_expected_amount_iqd or parse_iqd_price(order.amount)
         if order.status in {'rejected', 'refunded'} or paid_amount != expected_amount:
@@ -2848,7 +2852,7 @@ def swiftpay_webhook():
 
     order = StoreOrder.query.filter_by(
         gateway_invoice_id=invoice_id, payment_provider=f'swiftpay_{swiftpay_mode()}'
-    ).first()
+    ).with_for_update().first()
     if order:
         expected_amount = order.gateway_expected_amount_iqd or order.amount_iqd
         if order.status in {'rejected', 'refunded'} or paid_amount != expected_amount:
