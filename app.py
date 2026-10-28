@@ -2334,6 +2334,7 @@ def swiftpay_return():
         return redirect(url_for('account'))
     state = swiftpay_checkout_state(order)
     course_checkout = isinstance(order, CardCheckout) and order.order_type in {'course', 'subscription'}
+    subscription_checkout = isinstance(order, CardCheckout) and order.order_type == 'subscription'
     retry_url = (url_for('korsik_subscription') if isinstance(order, CardCheckout)
                  and order.order_type == 'subscription' else
                  (url_for('course_detail', course_id=order.reference_id)
@@ -2350,6 +2351,7 @@ def swiftpay_return():
         account_url=url_for('learning_hub') if course_checkout else url_for('account'),
         retry_url=retry_url,
         course_checkout=course_checkout,
+        subscription_checkout=subscription_checkout,
         purchase_value_iqd=(order.amount_iqd if course_checkout and state == 'paid' else 0),
     ))
     response.headers['Cache-Control'] = 'no-store, private'
@@ -4620,7 +4622,7 @@ def admin_korsik_subscription_action(subscription_id, action):
         subscription.expires_at = start + timedelta(days=KORSIK_ANNUAL_DAYS)
         notify_user(subscription.user_id, 'تم تفعيل اشتراك كورسيك',
                     'اشتراكك السنوي صار فعّالاً وتكدر تدخل لجميع الكورسات.',
-                    url_for('learning_hub'))
+                    url_for('korsik_subscription', meta_subscription_id=subscription.id))
         flash('تم تفعيل الاشتراك السنوي لجميع الكورسات.', 'success')
     else:
         subscription.status = 'rejected'
