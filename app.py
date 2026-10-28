@@ -6644,6 +6644,57 @@ with app.app_context():
             app.logger.warning('Korsik AI course 21 not found or title does not match; not changed')
 
 
+    # Publish the uploaded structural-design course once its complete video set is present.
+    structural_release_key = 'structural_design_course_23_40000_iqd_365_days_v1'
+    if db.session.get(CatalogMigration, structural_release_key) is None:
+        structural_course = Course.query.filter_by(
+            title='التصميم الإنشائي الشامل من الصفر إلى الاحتراف').first()
+        if structural_course:
+            structural_lessons = sorted(
+                structural_course.lessons, key=lambda lesson: (lesson.position, lesson.id))
+            video_lessons = [lesson for lesson in structural_lessons
+                             if (lesson.video_url or '').strip()]
+            if len(structural_lessons) >= 1 and len(video_lessons) == len(structural_lessons):
+                for lesson in structural_lessons:
+                    clean_title = re.sub(r'\\s+', ' ', (lesson.title or '')).strip()
+                    for _ in range(5):
+                        previous_title = clean_title
+                        clean_title = re.sub(
+                            r'^(?:\\d{1,3}\\s*(?:[.):._\\-]+\\s*|\\s+))+',
+                            '', clean_title).strip(' ._-—–|:،')
+                        clean_title = re.sub(
+                            r'^(?:دورة|كورس)\\s+التصميم\\s+الإنشائي\\s+الشامل\\s*(?:[|:—–-]\\s*)?',
+                            '', clean_title, flags=re.IGNORECASE
+                        ).strip(' ._-—–|:،')
+                        if clean_title == previous_title:
+                            break
+                    if clean_title:
+                        lesson.title = clean_title[:180]
+                    # Keep lesson.position untouched so site ordering remains identical.
+                structural_course.price = '40,000 د.ع'
+                structural_course.price_iqd = 40000
+                structural_course.access_days = 365
+                structural_course.is_demo = False
+                structural_course.is_published = True
+                structural_course.description = (
+                    'دورة التصميم الإنشائي الشامل مخصصة لطلبة وخريجي الهندسة المدنية '
+                    'والمهندسين الراغبين في تطوير مهاراتهم. تقدّم الدروس مساراً '
+                    'متدرجاً لفهم عناصر المنشآت الخرسانية، خصائص المواد، الأحمال '
+                    'والتحليل الإنشائي، ثم تطبيق مبادئ التصميم على العناصر '
+                    'والتفاصيل الإنشائية باستخدام البرامج والموضوعات الواردة في '
+                    'الدروس المسجّلة. تتضمن الدورة 38 درساً مرتبة بتسلسل الموقع، '
+                    'مع اشتراك مدفوع يتيح الوصول لمدة سنة من تاريخ التفعيل.'
+                )
+                db.session.add(CatalogMigration(key=structural_release_key))
+                db.session.commit()
+                app.logger.info(
+                    'Structural-design course 23 published at 40000 IQD with 365-day access; %s videos',
+                    len(video_lessons))
+            else:
+                app.logger.warning(
+                    'Structural-design course remains unpublished: %s lessons / %s videos',
+                    len(structural_lessons), len(video_lessons))
+
     # Release this already-uploaded course only if every listed lesson has a video.
     # Idempotent migration: preserves existing enrollments and site lesson order.
     python_release_key = 'korsik_python_30000_365d_clean_titles_v1'
