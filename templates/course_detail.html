@@ -1164,23 +1164,9 @@ fbq('track', 'ViewContent', {
   content_ids: [{{ course.id | tojson }}],
   content_name: {{ course.title | tojson }},
   content_type: 'product',
-  value: Number({{ (course.price_iqd or 0) | tojson }}),
+  value: Number({{ korsik_annual_price_iqd | tojson }}),
   currency: 'IQD'
 });
-</script>
-<script>
-document.addEventListener('submit', function (event) {
-  var form = event.target;
-  if (!form || !form.matches || !form.matches('form[action*="/pay-card"], form[action*="/buy-wallet"]')) return;
-  if (typeof window.fbq !== 'function') return;
-  window.fbq('track', 'InitiateCheckout', {
-    content_ids: [{{ course.id | tojson }}],
-    content_name: {{ course.title | tojson }},
-    content_type: 'product',
-    value: Number({{ (course.price_iqd or 0) | tojson }}),
-    currency: 'IQD'
-  });
-}, true);
 </script>
 {% if meta_purchase_event %}
 <script>
@@ -1293,19 +1279,6 @@ src="https://www.facebook.com/tr?id=1118289697236842&ev=PageView&noscript=1"
                 </div>
 
 
-                <div class="meta-item">
-
-                    <span class="meta-label">
-                        PRICE
-                    </span>
-
-                    <span class="meta-value">
-                        {{ course.price }}
-                    </span>
-
-                </div>
-
-
                 {% if has_course_access %}
                 <div class="meta-item">
 
@@ -1328,154 +1301,18 @@ src="https://www.facebook.com/tr?id=1118289697236842&ev=PageView&noscript=1"
 
 
 
-    <!-- =========================
-         ENROLLMENT
-    ========================= -->
-{% if current_user.is_authenticated and not has_course_access and course_ready and course.price_iqd %}
-<section style="border:1px solid #195338;background:#07180f;border-radius:15px;padding:24px;margin:20px 0;">
-  <h2 style="margin:0 0 9px;color:#00f58a">اشتراك أكاديمية كورسيك بالبطاقة</h2>
-  <p style="color:#b9d5c3;line-height:1.9">{% if course.access_days >= 365 %}اشتراك سنوي لمدة 365 يوماً{% else %}اشتراك لمدة {{ course.access_days }} يوم{% endif %}. ادفع بالبطاقة عبر بوابة دفع مرخّصة؛ بعد تأكيد الدفع ينفتح الكورس للفترة المحددة، والتجديد مو تلقائي. لا تدخل بيانات البطاقة داخل RABBIT.</p>
-  <form method="post" action="{{ url_for('course_pay_card', course_id=course.id) }}" style="display:grid;gap:13px;max-width:510px">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <label>رقم الهاتف العراقي لإصدار الفاتورة <input name="contact" type="tel" required maxlength="20" autocomplete="tel" placeholder="07xxxxxxxxx" style="display:block;width:100%;padding:13px;border:1px solid #1b5032;border-radius:9px;background:#030b06;color:white"></label>
-    <label style="font-size:13px"><input name="accept_terms" value="yes" type="checkbox" required> أوافق على شروط الشراء</label>
-    <button class="btn" type="submit">💳 دفع {{ '{:,}'.format(course.price_iqd) }} د.ع بالبطاقة</button>
-  </form>
-</section>
-{% endif %}
-
-
-
-    {% if course.is_demo %}<section style="border:1px solid #2a7350;border-radius:12px;padding:18px;margin:20px 0;background:#08190f;color:#ccffe4"><strong>هذا كورس تجريبي للعرض فقط</strong><p style="margin-top:7px;line-height:1.9">المحاور التالية للتوضيح وليس بها فيديوهات تدريب مكتملة. لن يتم تحصيل أي مبلغ حتى نرفع الكورس الحقيقي ونفتح التسجيل.</p></section>{% endif %}
-{% if current_user.is_authenticated %}
-
-
-        {% if has_course_access %}
-
-
-            <section class="notice reveal">
-
-                <div class="notice-status">
-
-                    <span class="status-dot"></span>
-
-                    ACCESS / GRANTED
-
-                </div>
-
-                <p class="muted">اشتراكك في هذه الدورة مفعّل. يمكنك الآن مشاهدة جميع الدروس المتاحة.</p><a class="btn" href="{{ url_for('learning_hub') }}">الرجوع إلى كورساتي</a>
-
-            </section>
-
-
-        {% elif course.is_demo or not course_ready %}<section style="border:1px solid #2b6243;border-radius:12px;padding:19px;color:#bdedcf">{% if course.is_demo %}نموذج تجريبي — الاشتراك غير متاح حالياً.{% else %}الكورس قيد التجهيز، وسيُفتح الاشتراك عند نشر دروس الفيديو الحقيقية.{% endif %}</section>
-        {% elif enrollment and enrollment.status == 'pending' %}
-
-
-            <section class="notice pending-box reveal">
-
-                <div class="notice-status pending">
-
-                    <span class="status-dot"></span>
-
-                    ACCESS / PENDING
-
-                </div>
-
-                <p class="muted">
-                    تم استلام طلب اشتراكك.
-                    بعد تأكيد الدفع ومراجعة الطلب
-                    سيتم فتح جميع فيديوهات هذه الدورة لحسابك.
-                </p>
-
-            </section>
-
-
+    <section class="notice reveal" style="border-color:rgba(0,245,138,.35);background:linear-gradient(120deg,#0b2115,#07110b)">
+        <div class="notice-status"><span class="status-dot"></span> KORSIK / ALL-COURSE ACCESS</div>
+        <h2 style="margin:8px 0;color:#f4fff7">اشتراك سنوي واحد لجميع كورسيك</h2>
+        <p class="muted">هذه الدورة ضمن اشتراك كورسيك السنوي. ادفع مرة واحدة <strong style="color:#00f58a">49,000 د.ع</strong> وافتح كل الكورسات المنشورة لمدة سنة، بدون شراء منفصل لكل دورة.</p>
+        {% if korsik_subscription_pending %}
+            <p class="muted">طلب اشتراكك قيد المراجعة. راح يظهر الوصول إلى الدروس بعد التفعيل.</p>
+        {% elif current_user.is_authenticated %}
+            <a class="btn" href="{{ url_for('korsik_subscription') }}">عرض الخطة وتفعيل الاشتراك ←</a>
         {% else %}
-
-
-            <section class="notice locked-box reveal">
-
-                <div class="notice-status locked">
-
-                    <span class="status-dot"></span>
-
-                    ACCESS / LOCKED
-
-                </div>
-
-                <p class="muted">
-                    هذه الدورة تحتاج إلى اشتراك.
-                    بعد إتمام الدفع أرسل طلب الاشتراك،
-                    وبعد مراجعة الطلب سيتم فتح الدورة لحسابك.
-                </p>
-
-
-                <form
-                    method="post"
-                    action="{{ url_for(
-                        'request_course_enrollment',
-                        course_id=course.id
-                    ) }}"
-                >
-<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-
-                    <button
-                        class="btn"
-                        type="submit"
-                    >
-                        طلب الاشتراك في الدورة
-                    </button>
-
-                </form>
-
-                {% if course.price_iqd %}
-                <form method="post" action="{{ url_for('course_buy_wallet', course_id=course.id) }}">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                    <button class="btn" type="submit" style="margin-right:8px;background:#071b12;color:#00f58a">
-                        شراء من رصيد Rabbit — {{ "{:,}".format(course.price_iqd) }} د.ع
-                    </button>
-                </form>
-                <p class="muted" style="margin-top:12px">رصيدك الحالي: {{ header_wallet_balance }}</p>
-                {% endif %}
-
-            </section>
-
-
+            <a class="btn" href="{{ url_for('auth_page') }}">سجّل الدخول ثم اشترك ←</a>
         {% endif %}
-
-
-    {% else %}
-
-
-        <section class="notice locked-box reveal">
-
-            <div class="notice-status locked">
-
-                <span class="status-dot"></span>
-
-                LOGIN / REQUIRED
-
-            </div>
-
-            <p class="muted">
-                يجب تسجيل الدخول أو إنشاء حساب
-                حتى تتمكن من طلب الاشتراك في هذه الدورة.
-            </p>
-
-            <a
-                class="btn"
-                href="{{ url_for('auth_page') }}"
-            >
-                تسجيل الدخول / إنشاء حساب
-            </a>
-
-        </section>
-
-
-    {% endif %}
-
-
+    </section>
 
     {% if has_course_access %}
     <section class="resume-banner" aria-label="متابعة الدراسة">
@@ -1679,7 +1516,7 @@ src="https://www.facebook.com/tr?id=1118289697236842&ev=PageView&noscript=1"
                         </div>
 
                         هذا الدرس متاح للمشتركين
-                        في هذه الدورة فقط.
+                        في الاشتراك السنوي لجميع الكورسات.
 
 
                         {% if current_user.is_authenticated %}
@@ -1688,14 +1525,14 @@ src="https://www.facebook.com/tr?id=1118289697236842&ev=PageView&noscript=1"
                             {% if enrollment and enrollment.status == 'pending' %}
 
                                 <div class="muted">
-                                    طلب اشتراكك بانتظار التفعيل.
+                                    طلب اشتراكك السنوي بانتظار التفعيل.
                                 </div>
 
                             {% else %}
 
                                 <div class="muted">
-                                    اشترك في هذه الدورة
-                                    لفتح الفيديو.
+                                    اشترك بالاشتراك السنوي
+                                    لفتح جميع الكورسات.
                                 </div>
 
                             {% endif %}
@@ -1704,8 +1541,8 @@ src="https://www.facebook.com/tr?id=1118289697236842&ev=PageView&noscript=1"
                         {% else %}
 
                             <div class="muted">
-                                سجل الدخول ثم اطلب الاشتراك
-                                للوصول إلى هذا الدرس.
+                                سجل الدخول ثم اشترك سنوياً
+                                للوصول إلى جميع الكورسات.
                             </div>
 
                         {% endif %}
